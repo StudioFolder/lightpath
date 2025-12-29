@@ -8,10 +8,12 @@ function App() {
   const canvasRef = useRef(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [simulatedTime, setSimulatedTime] = useState(new Date())
+  const [departureTime, setDepartureTime] = useState(new Date())
   const [departureCode, setDepartureCode] = useState('')
   const [arrivalCode, setArrivalCode] = useState('')
   const [airports, setAirports] = useState(null)
   const [flightPath, setFlightPath] = useState(null)
+  const [flightResults, setFlightResults] = useState(null)
   
   // Store scene reference to add/remove flight path
   const sceneRef = useRef(null)
@@ -148,6 +150,20 @@ function App() {
       dot.position.z = radius * Math.sin(phi) * Math.sin(theta)
     }
 
+    // Function to point camera at a location
+    function centerCameraOnLocation(lat, lon) {
+      const phi = (90 - lat) * (Math.PI / 180)
+      const theta = (lon + 180) * (Math.PI / 180)
+      const radius = 5  // Camera distance (same as initial position.z)
+      
+      camera.position.x = -radius * Math.sin(phi) * Math.cos(theta)
+      camera.position.y = radius * Math.cos(phi)
+      camera.position.z = radius * Math.sin(phi) * Math.sin(theta)
+      
+      camera.lookAt(0, 0, 0)
+      controls.update()
+    }
+
     // Try to get user's location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -156,15 +172,18 @@ function App() {
           const userLon = position.coords.longitude
           console.log('Your location:', userLat, userLon)
           positionDotAtLocation(userLat, userLon)
+          centerCameraOnLocation(userLat, userLon)  // Add this line
         },
         (error) => {
           console.log('Geolocation error, defaulting to Milan:', error.message)
           positionDotAtLocation(45.464, 9.190)
+          centerCameraOnLocation(45.464, 9.190)  // Add this line
         }
       )
     } else {
       console.log('Geolocation not supported, defaulting to Milan')
       positionDotAtLocation(45.464, 9.190)
+      centerCameraOnLocation(45.464, 9.190)  // Add this line
     }
 
     sphere.add(dot)
@@ -382,7 +401,7 @@ function App() {
       const tubeGeometry = new THREE.TubeGeometry(
         new THREE.CatmullRomCurve3(points),
         points.length,
-        0.005,
+        0.004,
         8,
         false
       )
@@ -393,8 +412,8 @@ function App() {
       flightGroup.add(tube)
 
       // Add airport markers (dots)
-      const dotGeometry = new THREE.SphereGeometry(0.015, 16, 16)
-      const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const dotGeometry = new THREE.SphereGeometry(0.01, 16, 16)
+      const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xe0e0e0 })
       
       const departureDot = new THREE.Mesh(dotGeometry, dotMaterial)
       departureDot.position.copy(latLonToVector3(departure.lat, departure.lon, 2.01))
@@ -447,71 +466,205 @@ function App() {
       console.log('Flight path with markers drawn')
     }, [flightPath])
 
-  const calculateFlight = () => {
-    if (!airports) {
-      console.log('Airports not loaded yet')
-      return
+    const isPointInDaylight = (lat, lon, time) => {
+      // Get subsolar point at this time
+      const times = SunCalc.getTimes(time, 0, 0)
+      const solarNoon = times.solarNoon
+      const hoursSinceNoon = (time - solarNoon) / (1000 * 60 * 60)
+      const subsolarLongitude = -hoursSinceNoon * 15
+    
+      const dayOfYear = Math.floor((time - new Date(time.getFullYear(), 0, 0)) / 86400000)
+      const subsolarLatitude = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10))
+    
+      // Calculate angular distance from subsolar point
+      const lat1 = subsolarLatitude * Math.PI / 180
+      const lon1 = subsolarLongitude * Math.PI / 180
+      const lat2 = lat * Math.PI / 180
+      const lon2 = lon * Math.PI / 180
+    
+      const angularDistance = Math.acos(
+        Math.sin(lat1) * Math.sin(lat2) + 
+        Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+      ) * 180 / Math.PI
+    
+      // Point is in daylight if within ~90 degrees of subsolar point
+      return angularDistance < 90
     }
-    
-    const departure = airports[departureCode]
-    const arrival = airports[arrivalCode]
-    
-    if (!departure) {
-      console.log('Departure airport not found:', departureCode)
-      return
-    }
-    
-    if (!arrival) {
-      console.log('Arrival airport not found:', arrivalCode)
-      return
-    }
-    
-    console.log('Flight from', departure.city, 'to', arrival.city)
-    console.log('Departure:', departure.lat, departure.lon)
-    console.log('Arrival:', arrival.lat, arrival.lon)
-    
-    // Trigger flight path drawing
-    setFlightPath({ departure, arrival })
-  }
 
-  return (
-    <div className="app">
-      <div className="info-overlay">
-        <div className="time">{simulatedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-        <div className="date">{simulatedTime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
-      </div>
+    const calculateFlight = () => {
+      if (!airports) {
+        console.log('Airports not loaded yet')
+        return
+      }
       
-      <div className="flight-input">
-        <h3>Flight Path</h3>
-        <div className="input-group">
-          <label>Departure</label>
-          <input 
-            type="text" 
-            maxLength="3"
-            value={departureCode}
-            onChange={(e) => setDepartureCode(e.target.value.toUpperCase())}
-          />
-        </div>
-        <div className="input-group">
-          <label>Arrival</label>
-          <input 
-            type="text" 
-            maxLength="3"
-            value={arrivalCode}
-            onChange={(e) => setArrivalCode(e.target.value.toUpperCase())}
-          />
-        </div>
-        <button 
-          onClick={calculateFlight}
-          disabled={!airports || departureCode.length !== 3 || arrivalCode.length !== 3}
-        >
-          {!airports ? 'Loading airports...' : 'Calculate Flight'}
-        </button>
-      </div>
+      const departure = airports[departureCode]
+      const arrival = airports[arrivalCode]
       
-      <canvas ref={canvasRef} />
-    </div>
-  )
+      if (!departure) {
+        console.log('Departure airport not found:', departureCode)
+        return
+      }
+      
+      if (!arrival) {
+        console.log('Arrival airport not found:', arrivalCode)
+        return
+      }
+      
+      console.log('Flight from', departure.city, 'to', arrival.city)
+      
+      // Calculate great circle distance
+      const lat1 = departure.lat * Math.PI / 180
+      const lon1 = departure.lon * Math.PI / 180
+      const lat2 = arrival.lat * Math.PI / 180
+      const lon2 = arrival.lon * Math.PI / 180
+      
+      const earthRadius = 6371 // km
+      const angularDistance = Math.acos(
+        Math.sin(lat1) * Math.sin(lat2) + 
+        Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+      )
+      const distance = earthRadius * angularDistance
+      
+      // Estimate flight duration (average cruise speed ~850 km/h)
+      const cruiseSpeed = 850 // km/h
+      const flightDurationHours = distance / cruiseSpeed
+      const flightDurationMs = flightDurationHours * 60 * 60 * 1000
+      
+      console.log('Distance:', distance.toFixed(0), 'km')
+      console.log('Estimated duration:', flightDurationHours.toFixed(2), 'hours')
+      
+      // Sample points along the route and check daylight
+      const numSamples = 100
+      let daylightSegments = 0
+      let darknessSegments = 0
+
+      for (let i = 0; i < numSamples; i++) {  // Changed to < instead of <=
+        const fraction = (i + 0.5) / numSamples  // Sample at midpoint of each segment
+        
+        // Calculate position along route
+        const a = Math.sin((1 - fraction) * angularDistance) / Math.sin(angularDistance)
+        const b = Math.sin(fraction * angularDistance) / Math.sin(angularDistance)
+        
+        const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+        const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+        const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+        
+        const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+        const lon = Math.atan2(y, x) * 180 / Math.PI
+        
+        // Calculate time at this point
+        const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
+        
+        // Check if in daylight
+        const inDaylight = isPointInDaylight(lat, lon, timeAtPoint)
+        
+        if (inDaylight) {
+          daylightSegments++
+        } else {
+          darknessSegments++
+        }
+      }
+
+      // Convert segment counts to time
+      const totalFlightMins = Math.round(flightDurationHours * 60)
+      const daylightTotalMins = Math.round((daylightSegments / numSamples) * totalFlightMins)
+      const darknessTotalMins = totalFlightMins - daylightTotalMins
+
+      // Convert back to hours:minutes
+      const totalDurationHours = Math.floor(totalFlightMins / 60)
+      const totalDurationMins = totalFlightMins % 60
+
+      const daylightHours = Math.floor(daylightTotalMins / 60)
+      const daylightMins = daylightTotalMins % 60
+
+      const darknessHours = Math.floor(darknessTotalMins / 60)
+      const darknessMins = darknessTotalMins % 60
+
+      const results = {
+        distance: distance.toFixed(0),
+        duration: flightDurationHours.toFixed(1),
+        durationHours: totalDurationHours,
+        durationMins: totalDurationMins,
+        daylightHours,
+        daylightMins,
+        darknessHours,
+        darknessMins
+      }
+      
+      console.log('Results:', results)
+      setFlightResults(results)
+      
+      // Trigger flight path drawing
+      setFlightPath({ departure, arrival })
+    }
+
+    return (
+      <div className="app">
+        <div className="info-overlay">
+          <div className="time">{simulatedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+          <div className="date">{simulatedTime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
+        </div>
+        
+        <div className="flight-input">
+          <h3>Flight Path</h3>
+          <div className="input-group">
+            <label>Departure</label>
+            <input 
+              type="text" 
+              maxLength="3"
+              value={departureCode}
+              onChange={(e) => setDepartureCode(e.target.value.toUpperCase())}
+            />
+          </div>
+          <div className="input-group">
+            <label>Arrival</label>
+            <input 
+              type="text" 
+              maxLength="3"
+              value={arrivalCode}
+              onChange={(e) => setArrivalCode(e.target.value.toUpperCase())}
+            />
+          </div>
+          <div className="datetime-group">
+            <label>Departure Time (Local)</label>
+            <input 
+              type="datetime-local"
+              value={departureTime.toISOString().slice(0, 16)}
+              onChange={(e) => setDepartureTime(new Date(e.target.value))}
+            />
+          </div>
+          <button 
+            onClick={calculateFlight}
+            disabled={!airports || departureCode.length !== 3 || arrivalCode.length !== 3}
+          >
+            {!airports ? 'Loading airports...' : 'Calculate Flight'}
+          </button>
+          
+          {flightResults && (
+            <div className="results-panel">
+              <div className="result-row">
+                <span className="result-label">Distance:</span>
+                <span className="result-value">{flightResults.distance} km</span>
+              </div>
+              <div className="result-row">
+                <span className="result-label">Duration:</span>
+                <span className="result-value">{flightResults.durationHours}h {flightResults.durationMins}m</span>
+              </div>
+              <div className="result-row">
+                <span className="result-label">Daylight:</span>
+                <span className="result-value">{flightResults.daylightHours}h {flightResults.daylightMins}m</span>
+              </div>
+              <div className="result-row">
+                <span className="result-label">Darkness:</span>
+                <span className="result-value">{flightResults.darknessHours}h {flightResults.darknessMins}m</span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <canvas ref={canvasRef} />
+      </div>
+    )
 }
 
 export default App
