@@ -18,6 +18,7 @@ function App() {
   const [flightResults, setFlightResults] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [animationProgress, setAnimationProgress] = useState(0) // 0 to 1
+  const [showAirports, setShowAirports] = useState(false)
   
   // Store scene reference to add/remove flight path
   const sceneRef = useRef(null)
@@ -230,25 +231,69 @@ function App() {
     sunLight.position.copy(sunDirection.clone().multiplyScalar(10))
     scene.add(sunLight)
 
-    // Create the night hemisphere overlay
-    const clipPlane = new THREE.Plane(sunDirection.clone().negate(), 0)
-    const nightGeometry = new THREE.SphereGeometry(2.003, 64, 64)
-    const nightMaterial = new THREE.MeshBasicMaterial({
-      color: 0x000000,
+    // Create twilight gradient overlay with custom shader
+    const twilightGeometry = new THREE.SphereGeometry(2.003, 128, 128)
+    const twilightMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        sunDirection: { value: sunDirection.clone().normalize() }
+      },
+      vertexShader: `
+        varying vec3 vWorldNormal;
+        
+        void main() {
+          // Calculate world space normal
+          vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 sunDirection;
+        varying vec3 vWorldNormal;
+        
+        void main() {
+          // Calculate angle between surface normal and sun direction in world space
+          vec3 normal = normalize(vWorldNormal);
+          float sunAngle = dot(normal, sunDirection);
+          
+          // Convert to degrees (approximately)
+          float angleDeg = acos(clamp(sunAngle, -1.0, 1.0)) * 180.0 / 3.14159;
+          
+          // Define transition range
+          float transitionStart = 82.0;
+          float transitionEnd = 98.0;
+
+          float darkness = 0.0;
+
+          if (angleDeg >= transitionEnd) {
+            // Full night
+            darkness = 1.0;
+          } else if (angleDeg <= transitionStart) {
+            // Full day
+            darkness = 0.0;
+          } else {
+            // Smooth transition from day to night
+            float t = (angleDeg - transitionStart) / (transitionEnd - transitionStart);
+            // Use smooth interpolation
+            darkness = smoothstep(0.0, 1.0, t);
+            darkness = pow(darkness, 1.5); // Adjust curve for more natural falloff
+          }
+          
+          // Output black with calculated opacity
+          gl_FragColor = vec4(0.0, 0.0, 0.0, darkness * 0.6);
+        }
+      `,
       transparent: true,
-      opacity: 0.4,
       side: THREE.FrontSide,
-      clippingPlanes: [clipPlane],
-      clipIntersection: false
+      depthWrite: false
     })
-    const nightSphere = new THREE.Mesh(nightGeometry, nightMaterial)
-    scene.add(nightSphere)
+
+    const twilightSphere = new THREE.Mesh(twilightGeometry, twilightMaterial)
+    scene.add(twilightSphere)
 
     // Store references for updating
     const sceneRefs = {
       sunLight,
-      clipPlane,
-      nightMaterial
+      twilightMaterial
     }
 
     // Store the start time when the app loads
@@ -285,8 +330,8 @@ function App() {
       // Update light position
       sceneRefs.sunLight.position.copy(sunDirection.clone().multiplyScalar(10))
       
-      // Update clipping plane
-      sceneRefs.clipPlane.normal.copy(sunDirection.clone().negate())
+      // Update twilight shader
+      sceneRefs.twilightMaterial.uniforms.sunDirection.value.copy(sunDirection.normalize())
     }
 
     function updateSunPositionForTime(time) {
@@ -313,8 +358,8 @@ function App() {
       // Update light position
       sceneRefs.sunLight.position.copy(sunDirection.clone().multiplyScalar(10))
       
-      // Update clipping plane
-      sceneRefs.clipPlane.normal.copy(sunDirection.clone().negate())
+      // Update twilight shader
+      sceneRefs.twilightMaterial.uniforms.sunDirection.value.copy(sunDirection.normalize())
     }
 
     // 5. Animation loop
@@ -560,6 +605,54 @@ function App() {
 
       console.log('Flight path with markers drawn')
     }, [flightPath])
+
+    // Effect to show/hide all airports
+    useEffect(() => {
+      if (!sceneRef.current || !airports) return
+      
+      // Remove existing airport dots if they exist
+      const existingDots = sceneRef.current.getObjectByName('airportDots')
+      if (existingDots) {
+        sceneRef.current.remove(existingDots)
+        existingDots.geometry.dispose()
+        existingDots.material.dispose()
+      }
+      
+      if (!showAirports) return
+      
+      // Create points for all airports
+      const positions = []
+      const airportList = Object.values(airports)
+      
+      airportList.forEach(airport => {
+        const phi = (90 - airport.lat) * (Math.PI / 180)
+        const theta = (airport.lon + 180) * (Math.PI / 180)
+        const radius = 2.005 // Slightly above Earth surface
+        
+        const x = -radius * Math.sin(phi) * Math.cos(theta)
+        const y = radius * Math.cos(phi)
+        const z = radius * Math.sin(phi) * Math.sin(theta)
+        
+        positions.push(x, y, z)
+      })
+      
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      
+      const material = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.006,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.5
+      })
+      
+      const points = new THREE.Points(geometry, material)
+      points.name = 'airportDots'
+      sceneRef.current.add(points)
+      
+      console.log('Rendered', airportList.length, 'airports')
+    }, [showAirports, airports])
 
     useEffect(() => {
       if (!isPlaying || !flightDataRef.current) return
@@ -816,6 +909,17 @@ function App() {
               </div>
             </div>
           )}
+
+          <div className="airport-toggle">
+            <label>
+              <input 
+                type="checkbox"
+                checked={showAirports}
+                onChange={(e) => setShowAirports(e.target.checked)}
+              />
+              <span>Show all airports</span>
+            </label>
+          </div>
         </div>
         
         <canvas ref={canvasRef} />
