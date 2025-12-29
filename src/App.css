@@ -124,22 +124,27 @@ canvas {
 .input-group input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: monospace;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .input-group input:focus {
   outline: none;
-  border-color: #27A3F5;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .flight-input button {
   width: 100%;
   padding: 10px;
-  background: #27A3F5;
+  background: #2d2e2f;
   color: white;
   border: none;
   border-radius: 4px;
@@ -150,7 +155,7 @@ canvas {
 }
 
 .flight-input button:hover {
-  background: #1e8cd4;
+  background: #313233;
 }
 
 .flight-input button:disabled {
@@ -173,14 +178,18 @@ canvas {
 .datetime-group input[type="datetime-local"] {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  color-scheme: dark;
 }
 
 .datetime-group input[type="datetime-local"]:focus {
   outline: none;
-  border-color: #27A3F5;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .results-panel {
@@ -297,7 +306,7 @@ canvas {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #27A3F5;
+  background: #2d2e2f;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -306,7 +315,7 @@ canvas {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #27A3F5;
+  background: #2d2e2f;
   cursor: pointer;
   border: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -315,7 +324,7 @@ canvas {
 .play-button {
   width: 100%;
   padding: 12px;
-  background: #27A3F5;
+  background: #2d2e2f;
   color: white;
   border: none;
   border-radius: 6px;
@@ -329,7 +338,7 @@ canvas {
 }
 
 .play-button:hover {
-  background: #1e8cd4;
+  background: #313233;
 }
 
 .time-labels {
@@ -396,4 +405,28 @@ canvas {
   max-height: 1000px;
   opacity: 1;
   transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+.input-with-name {
+  position: relative;
+  width: 100%;
+}
+
+.input-with-name input {
+  width: 100%;
+  padding-right: 220px;
+}
+
+.airport-name-inline {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px; 
 }

@@ -8,12 +8,15 @@ import { DateTime } from 'luxon'
 
 function App() {
   const canvasRef = useRef(null)
+  const autoRotateRef = useRef(true)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [simulatedTime, setSimulatedTime] = useState(new Date())
   const [departureTime, setDepartureTime] = useState(new Date())
   const [departureCode, setDepartureCode] = useState('')
   const [arrivalCode, setArrivalCode] = useState('')
   const [airports, setAirports] = useState(null)
+  const [departureAirport, setDepartureAirport] = useState(null)
+  const [arrivalAirport, setArrivalAirport] = useState(null)
   const [flightPath, setFlightPath] = useState(null)
   const [flightResults, setFlightResults] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -21,6 +24,9 @@ function App() {
   const [showAirports, setShowAirports] = useState(false)
   const [showGraticule, setShowGraticule] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
+  const [autoRotate, setAutoRotate] = useState(true)
+
+
   
   // Store scene reference to add/remove flight path
   const sceneRef = useRef(null)
@@ -47,12 +53,13 @@ function App() {
           const iata = parts[4]  // IATA code
           const name = parts[1]
           const city = parts[2]
+          const country = parts[3]  // Country code
           const lat = parseFloat(parts[6])
           const lon = parseFloat(parts[7])
           
           // Only include airports with valid IATA codes
           if (iata && iata !== '\\N' && iata.length === 3) {
-            airportMap[iata] = { name, city, lat, lon }
+            airportMap[iata] = { name, city, country, lat, lon }
           }
         }
       })
@@ -92,6 +99,8 @@ function App() {
     controls.minDistance = 3.5  // How close you can zoom
     controls.maxDistance = 3.5  // How far you can zoom
     controls.enablePan = false  // Disable panning
+    controls.autoRotate = true  // Enable auto-rotation
+    controls.autoRotateSpeed = -0.1  // Adjust speed (positive = counter-clockwise)
 
     // 4. Create a sphere (our Earth)
     const geometry = new THREE.SphereGeometry(2, 64, 64)
@@ -511,6 +520,7 @@ function App() {
       const dotScale = currentDistance / baseDistance
       dot.scale.setScalar(dotScale)
       
+      controls.autoRotate = autoRotateRef.current
       controls.update()
       renderer.render(scene, camera)
     }
@@ -762,11 +772,11 @@ function App() {
         const basePos = latLonToVector3(lat, lon, 2.05)
         
         // Calculate "down" offset (toward south pole from this point)
-        const offsetLat = lat - 2 // Move 3 degrees south
+        const offsetLat = lat - 0.5 // Move 1 degree south
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
         
         // Offset is the difference
-        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.08)
+        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.05)
         
         label.position.copy(basePos.add(offset))
         return label
@@ -848,8 +858,8 @@ function App() {
       let opacity = 0
       const fadeIn = setInterval(() => {
         opacity += 0.02
-        if (opacity >= 0.6) {
-          opacity = 0.6
+        if (opacity >= 0.5) {
+          opacity = 0.5
           clearInterval(fadeIn)
         }
         material.opacity = opacity
@@ -1146,6 +1156,10 @@ function App() {
       // Reset animation progress when new flight is calculated
       setAnimationProgress(0)
       animationProgressRef.current = 0
+
+      // Stop auto-rotation when flight is calculated
+      setAutoRotate(false)
+      autoRotateRef.current = false
       
     }
 
@@ -1229,21 +1243,52 @@ function App() {
           <div className="panel-content">
             <div className="input-group">
               <label>Departure</label>
-              <input 
-                type="text" 
-                maxLength="3"
-                value={departureCode}
-                onChange={(e) => setDepartureCode(e.target.value.toUpperCase())}
-              />
+              <div className="input-with-name">
+                <input 
+                  type="text" 
+                  maxLength="3"
+                  value={departureCode}
+                  onChange={(e) => {
+                    const code = e.target.value.toUpperCase()
+                    setDepartureCode(code)
+                    if (code.length === 3 && airports?.[code]) {
+                      setDepartureAirport(airports[code])
+                    } else {
+                      setDepartureAirport(null)
+                    }
+                  }}
+                />
+                {departureAirport && (
+                  <span className="airport-name-inline">
+                    {departureAirport.city} ({departureAirport.country})
+                  </span>
+                )}
+              </div>
             </div>
+
             <div className="input-group">
               <label>Arrival</label>
-              <input 
-                type="text" 
-                maxLength="3"
-                value={arrivalCode}
-                onChange={(e) => setArrivalCode(e.target.value.toUpperCase())}
-              />
+              <div className="input-with-name">
+                <input 
+                  type="text" 
+                  maxLength="3"
+                  value={arrivalCode}
+                  onChange={(e) => {
+                    const code = e.target.value.toUpperCase()
+                    setArrivalCode(code)
+                    if (code.length === 3 && airports?.[code]) {
+                      setArrivalAirport(airports[code])
+                    } else {
+                      setArrivalAirport(null)
+                    }
+                  }}
+                />
+                {arrivalAirport && (
+                  <span className="airport-name-inline">
+                    {arrivalAirport.city} ({arrivalAirport.country})
+                  </span>
+                )}
+              </div>
             </div>
             <div className="datetime-group">
               <label>Departure Time (Local)</label>
@@ -1357,7 +1402,7 @@ function App() {
                 setIsPlaying(!isPlaying)
               }}
             >
-              {isPlaying ? '⏸ Pause' : '▶ Play'}
+              {isPlaying ? 'Pause' : 'Play'}
             </button>
           </div>
         )}
