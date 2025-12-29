@@ -421,46 +421,56 @@ function App() {
           }
           
           if (completedPoints.length > 1) {
-            // Determine color for each point based on day/night with smooth gradient transitions
+            // Determine color based on sun angle (twilight-aware)
             const colors = []
-            const transitionWidth = 5 // Number of points for gradient transition
 
             for (let i = 0; i < completedPoints.length; i++) {
-              const segmentIndex = Math.floor((i / completedPoints.length) * progress * segmentData.length)
-              const currentSegment = segmentData[Math.min(segmentIndex, segmentData.length - 1)]
+              const segmentIndex = Math.min(
+                Math.floor((i / completedPoints.length) * progress * segmentData.length),
+                segmentData.length - 1
+              )
+              const segmentInfo = segmentData[segmentIndex]
               
-              // Check if we're near a transition
-              let blendFactor = 0
-              let inDaylight = currentSegment?.inDaylight
-              
-              // Look ahead to see if there's a transition coming
-              for (let j = 1; j <= transitionWidth && segmentIndex + j < segmentData.length; j++) {
-                const nextSegment = segmentData[segmentIndex + j]
-                if (nextSegment && nextSegment.inDaylight !== inDaylight) {
-                  blendFactor = 1 - (j / transitionWidth)
-                  break
-                }
+              if (!segmentInfo) {
+                colors.push(1, 1, 1) // White fallback
+                continue
               }
               
-              // Gold and cornflower blue colors
-              const goldR = 1, goldG = 0.84, goldB = 0
-              const blueR = 0.39, blueG = 0.58, blueB = 0.93
+              const sunAngle = segmentInfo.sunAngle
               
-              if (inDaylight) {
-                // Transitioning from day to night
-                colors.push(
-                  goldR * (1 - blendFactor) + blueR * blendFactor,
-                  goldG * (1 - blendFactor) + blueG * blendFactor,
-                  goldB * (1 - blendFactor) + blueB * blendFactor
-                )
+              // Color based on sun angle
+              // 0-85°: Full day (gold)
+              // 85-95°: Twilight (gold to light blue gradient)
+              // 95-105°: Deep twilight (light blue to deep blue)
+              // 105+: Night (deep blue)
+              
+              let r, g, b
+              
+              if (sunAngle < 85) {
+                // Full daylight - gold
+                r = 1
+                g = 0.84
+                b = 0
+              } else if (sunAngle < 95) {
+                // Twilight transition - gold to orange to light blue
+                const t = (sunAngle - 85) / 10
+                r = 1 - t * 0.4  // 1.0 -> 0.6
+                g = 0.84 - t * 0.2  // 0.84 -> 0.64
+                b = t * 0.8  // 0 -> 0.8
+              } else if (sunAngle < 105) {
+                // Deep twilight - light blue to blue
+                const t = (sunAngle - 95) / 10
+                r = 0.6 - t * 0.21  // 0.6 -> 0.39
+                g = 0.64 - t * 0.06  // 0.64 -> 0.58
+                b = 0.8 + t * 0.13  // 0.8 -> 0.93
               } else {
-                // Transitioning from night to day
-                colors.push(
-                  blueR * (1 - blendFactor) + goldR * blendFactor,
-                  blueG * (1 - blendFactor) + goldG * blendFactor,
-                  blueB * (1 - blendFactor) + goldB * blendFactor
-                )
+                // Night - cornflower blue
+                r = 0.39
+                g = 0.58
+                b = 0.93
               }
+              
+              colors.push(r, g, b)
             }
             
             // Create single tube with vertex colors
@@ -594,45 +604,71 @@ function App() {
         points.push(point)
       }
 
-        // Calculate day/night segments along the route
-        if (!flightResults || !departureTime) {
-          console.error('Missing flight data for color coding')
-          return
-        }
+      // Calculate day/night segments along the route with sun angle
+      if (!flightResults || !departureTime) {
+        console.error('Missing flight data for color coding')
+        return
+      }
 
-        const segmentData = []
-        const lat1 = departure.lat * Math.PI / 180
-        const lon1 = departure.lon * Math.PI / 180
-        const lat2 = arrival.lat * Math.PI / 180
-        const lon2 = arrival.lon * Math.PI / 180
+      const segmentData = []
+      const lat1 = departure.lat * Math.PI / 180
+      const lon1 = departure.lon * Math.PI / 180
+      const lat2 = arrival.lat * Math.PI / 180
+      const lon2 = arrival.lon * Math.PI / 180
 
-        const flightDurationMs = (flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000
+      const flightDurationMs = (flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000
 
-        for (let i = 0; i < numPoints; i++) {
-          const fraction = (i + 0.5) / numPoints
-          
-          // Calculate lat/lon at this point
-          const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
-          const b = Math.sin(fraction * angle) / Math.sin(angle)
-          
-          const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
-          const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
-          const z = a * Math.sin(lat1) + b * Math.sin(lat2)
-          
-          const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
-          const lon = Math.atan2(y, x) * 180 / Math.PI
-          
-          // Calculate time at this point
-          const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
-          
-          // Check if in daylight
-          const inDaylight = isPointInDaylight(lat, lon, timeAtPoint)
-          
-          segmentData.push({
-            index: i,
-            inDaylight
-          })
-        }
+      // Helper to calculate sun angle at a point
+      const getSunAngle = (lat, lon, time) => {
+        const times = SunCalc.getTimes(time, 0, 0)
+        const solarNoon = times.solarNoon
+        const hoursSinceNoon = (time - solarNoon) / (1000 * 60 * 60)
+        const subsolarLongitude = -hoursSinceNoon * 15
+
+        const dayOfYear = Math.floor((time - new Date(time.getFullYear(), 0, 0)) / 86400000)
+        const subsolarLatitude = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10))
+
+        // Calculate angular distance from subsolar point
+        const lat1 = subsolarLatitude * Math.PI / 180
+        const lon1 = subsolarLongitude * Math.PI / 180
+        const lat2 = lat * Math.PI / 180
+        const lon2 = lon * Math.PI / 180
+
+        const angularDistance = Math.acos(
+          Math.sin(lat1) * Math.sin(lat2) + 
+          Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+        ) * 180 / Math.PI
+
+        return angularDistance
+      }
+
+      for (let i = 0; i < numPoints; i++) {
+        const fraction = (i + 0.5) / numPoints
+        
+        // Calculate lat/lon at this point
+        const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
+        const b = Math.sin(fraction * angle) / Math.sin(angle)
+        
+        const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+        const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+        const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+        
+        const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+        const lon = Math.atan2(y, x) * 180 / Math.PI
+        
+        // Calculate time at this point
+        const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
+        
+        // Get sun angle (degrees from subsolar point)
+        const sunAngle = getSunAngle(lat, lon, timeAtPoint)
+        const inDaylight = sunAngle < 90
+        
+        segmentData.push({
+          index: i,
+          inDaylight,
+          sunAngle  // Store the angle for gradient calculations
+        })
+      }
 
         // Group consecutive segments by day/night
         const segments = []
@@ -956,7 +992,7 @@ function App() {
       
       const interval = setInterval(() => {
         setAnimationProgress(prev => {
-          const newProgress = prev >= 1 ? 1 : prev + increment
+          const newProgress = Math.min(prev + increment, 1.0)  // Clamp to exactly 1.0
           animationProgressRef.current = newProgress
           if (newProgress >= 1) {
             setIsPlaying(false)
