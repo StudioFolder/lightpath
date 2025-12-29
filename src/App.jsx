@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import './App.css'
 import SunCalc from 'suncalc'
@@ -6,6 +6,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 function App() {
   const canvasRef = useRef(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -105,43 +106,37 @@ function App() {
 
     sphere.add(dot)
 
-    // Add ambient light (soft overall illumination)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4)
-    scene.add(ambientLight)
-
-    // Add directional light (like the sun)
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5)
-    sunLight.position.set(5, 3, 5)
-    scene.add(sunLight)
-
-    // Create clipping plane
     // Calculate sun position for current time
     const currentTime = new Date()
-    // Use a point on Earth's surface (lat/lon 0,0 = equator, prime meridian)
     const sunPos = SunCalc.getPosition(currentTime, 0, 0)
 
     // Convert sun position to a 3D direction vector
-    // The sun's azimuth and altitude tell us where the sun is in the sky
     const sunDirection = new THREE.Vector3()
     sunDirection.x = Math.cos(sunPos.altitude) * Math.sin(sunPos.azimuth)
     sunDirection.y = Math.sin(sunPos.altitude)
     sunDirection.z = Math.cos(sunPos.altitude) * Math.cos(sunPos.azimuth)
 
-    // The clipping plane should be perpendicular to the sun direction
-    // Invert it so the dark side faces away from the sun
+    console.log('Sun position:', {
+      altitude: sunPos.altitude * (180 / Math.PI),
+      azimuth: sunPos.azimuth * (180 / Math.PI)
+    })
+
+    // Add ambient light (soft overall illumination)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3)
+    scene.add(ambientLight)
+
+    // Add directional light positioned as the sun (for aesthetic depth)
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2)
+    sunLight.position.copy(sunDirection.multiplyScalar(10))
+    scene.add(sunLight)
+
+    // Create the night hemisphere overlay (for precise terminator control)
     const clipPlane = new THREE.Plane(sunDirection.clone().negate(), 0)
-
-    console.log('Sun altitude:', sunPos.altitude * (180 / Math.PI), 'degrees')
-    console.log('Sun azimuth:', sunPos.azimuth * (180 / Math.PI), 'degrees')
-    console.log('Sun direction vector:', sunDirection)
-
-
-    // Create night hemisphere
     const nightGeometry = new THREE.SphereGeometry(2.003, 64, 64)
     const nightMaterial = new THREE.MeshBasicMaterial({
-      color: 0x000000,  // black instead of red
+      color: 0x000000,
       transparent: true,
-      opacity: 0.5,     // semi-transparent
+      opacity: 0.4,  // Slightly more transparent so lighting shows through
       side: THREE.FrontSide,
       clippingPlanes: [clipPlane],
       clipIntersection: false
@@ -161,6 +156,9 @@ function App() {
       const time = Date.now() * 0.002
       const intensity = 0.5 + Math.sin(time) * 0.5  // Oscillates between 0 and 1
       dotMaterial.emissiveIntensity = intensity
+
+      // Update time display every second
+      setCurrentTime(new Date())
       
       controls.update()
       renderer.render(scene, camera)
@@ -186,6 +184,10 @@ function App() {
 
   return (
     <div className="app">
+      <div className="info-overlay">
+        <div className="time">{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+        <div className="date">{currentTime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
+      </div>
       <canvas ref={canvasRef} />
     </div>
   )
