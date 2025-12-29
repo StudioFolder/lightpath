@@ -14,10 +14,15 @@ function App() {
   const [airports, setAirports] = useState(null)
   const [flightPath, setFlightPath] = useState(null)
   const [flightResults, setFlightResults] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [animationProgress, setAnimationProgress] = useState(0) // 0 to 1
   
   // Store scene reference to add/remove flight path
   const sceneRef = useRef(null)
   const flightLineRef = useRef(null)
+  const flightDataRef = useRef(null)
+  const animationProgressRef = useRef(0) 
+  const hasFlightPathRef = useRef(false)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -281,6 +286,34 @@ function App() {
       sceneRefs.clipPlane.normal.copy(sunDirection.clone().negate())
     }
 
+    function updateSunPositionForTime(time) {
+      // Get subsolar point for specific time
+      const times = SunCalc.getTimes(time, 0, 0)
+      const solarNoon = times.solarNoon
+      const hoursSinceNoon = (time - solarNoon) / (1000 * 60 * 60)
+      const subsolarLongitude = -hoursSinceNoon * 15
+    
+      // Solar declination
+      const dayOfYear = Math.floor((time - new Date(time.getFullYear(), 0, 0)) / 86400000)
+      const subsolarLatitude = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10))
+    
+      // Convert subsolar point to 3D direction
+      const phi = (90 - subsolarLatitude) * (Math.PI / 180)
+      const theta = (subsolarLongitude + 180) * (Math.PI / 180)
+    
+      const sunDirection = new THREE.Vector3(
+        -Math.sin(phi) * Math.cos(theta),
+        Math.cos(phi),
+        Math.sin(phi) * Math.sin(theta)
+      )
+      
+      // Update light position
+      sceneRefs.sunLight.position.copy(sunDirection.clone().multiplyScalar(10))
+      
+      // Update clipping plane
+      sceneRefs.clipPlane.normal.copy(sunDirection.clone().negate())
+    }
+
     // 5. Animation loop
     function animate() {
       requestAnimationFrame(animate)
@@ -290,14 +323,23 @@ function App() {
       const intensity = 0.5 + Math.sin(time) * 0.5
       dotMaterial.emissiveIntensity = intensity
 
-      // Update time displays
-      setCurrentTime(new Date())  // Real time
-      const elapsed = Date.now() - startTime
-      const acceleratedTime = startTime + (elapsed * 1)  // Real-time
-      setSimulatedTime(new Date(acceleratedTime))  // Simulated time
-
-      // Update sun position
-      updateSunPosition()
+      // Update sun position based on animation progress if flight is active
+      if (flightDataRef.current && hasFlightPathRef.current) {
+        const { departureTime, flightDurationMs } = flightDataRef.current
+        const currentFlightTime = new Date(departureTime.getTime() + animationProgressRef.current * flightDurationMs)
+        
+        // Update both display time and sun position to animation time
+        setCurrentTime(new Date())
+        setSimulatedTime(currentFlightTime)
+        updateSunPositionForTime(currentFlightTime)
+      } else {
+        // Normal real-time mode when no flight is active
+        setCurrentTime(new Date())
+        const elapsed = Date.now() - startTime
+        const acceleratedTime = startTime + (elapsed * 1)
+        setSimulatedTime(new Date(acceleratedTime))
+        updateSunPosition()
+      }
 
       // Keep location dot constant size
       const currentDistance = camera.position.length()
@@ -345,6 +387,7 @@ function App() {
         })
         
         flightLineRef.current = null
+        hasFlightPathRef.current = false  // Add this
       }
 
       const { departure, arrival } = flightPath
@@ -465,6 +508,23 @@ function App() {
 
       console.log('Flight path with markers drawn')
     }, [flightPath])
+
+    useEffect(() => {
+      if (!isPlaying || !flightDataRef.current) return
+      
+      const interval = setInterval(() => {
+        setAnimationProgress(prev => {
+          const newProgress = prev >= 1 ? 1 : prev + 0.005
+          animationProgressRef.current = newProgress  // Update ref too
+          if (newProgress >= 1) {
+            setIsPlaying(false)
+          }
+          return newProgress
+        })
+      }, 50)
+      
+      return () => clearInterval(interval)
+    }, [isPlaying])
 
     const isPointInDaylight = (lat, lon, time) => {
       // Get subsolar point at this time
@@ -596,6 +656,26 @@ function App() {
       
       // Trigger flight path drawing
       setFlightPath({ departure, arrival })
+      hasFlightPathRef.current = true
+
+      // Store flight data for animation
+      flightDataRef.current = {
+        departure,
+        arrival,
+        departureTime,
+        flightDurationMs
+      }
+
+      // Reset animation progress when new flight is calculated
+      setAnimationProgress(0)
+    }
+
+    const formatFlightTime = (progress, results) => {
+      const totalMins = results.durationHours * 60 + results.durationMins
+      const elapsedMins = Math.round(progress * totalMins)
+      const hours = Math.floor(elapsedMins / 60)
+      const mins = elapsedMins % 60
+      return `${hours}h ${mins}m elapsed`
     }
 
     return (
@@ -663,6 +743,48 @@ function App() {
         </div>
         
         <canvas ref={canvasRef} />
+
+          {flightResults && (
+            <div className={`animation-controls ${flightPath ? 'visible' : ''}`}>
+              <div className="animation-header">
+                <div>
+                  <div className="animation-route">
+                    {departureCode} → {arrivalCode}
+                  </div>
+                  <div className="animation-time">
+                    {formatFlightTime(animationProgress, flightResults)}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max="1000"
+                  value={animationProgress * 1000}
+                  onChange={(e) => {
+                    const newProgress = e.target.value / 1000
+                    setAnimationProgress(newProgress)
+                    animationProgressRef.current = newProgress
+                  }}
+                  className="time-slider"
+                />
+                <div className="time-labels">
+                  <span>Departure</span>
+                  <span>Arrival</span>
+                </div>
+              </div>
+              
+              <button 
+                className="play-button"
+                onClick={() => setIsPlaying(!isPlaying)}
+              >
+                {isPlaying ? '⏸ Pause' : '▶ Play'}
+              </button>
+            </div>
+          )}
+
       </div>
     )
 }
