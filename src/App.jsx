@@ -279,7 +279,7 @@ function App() {
           }
           
           // Output black with calculated opacity
-          gl_FragColor = vec4(0.0, 0.0, 0.0, darkness * 0.6);
+          gl_FragColor = vec4(0.0, 0.0, 0.0, darkness * 0.65);
         }
       `,
       transparent: true,
@@ -396,15 +396,22 @@ function App() {
         // Remove old progress tube if exists
         if (progressTubeRef.current) {
           flightLineRef.current.remove(progressTubeRef.current)
-          progressTubeRef.current.geometry.dispose()
-          progressTubeRef.current.material.dispose()
+          
+          // Properly dispose based on whether it's a Group or Mesh
+          progressTubeRef.current.traverse((child) => {
+            if (child.geometry) child.geometry.dispose()
+            if (child.material) child.material.dispose()
+          })
+          
+          progressTubeRef.current = null
         }
         
         if (progress > 0) {
           // Get points for completed portion
           const curve = flightLineRef.current.userData.routeCurve
+          const segmentData = flightLineRef.current.userData.segmentData
           const completedPoints = []
-          const numSamples = 50
+          const numSamples = 100
           
           for (let i = 0; i <= numSamples; i++) {
             const t = (i / numSamples) * progress
@@ -412,16 +419,71 @@ function App() {
           }
           
           if (completedPoints.length > 1) {
-            // Create thick tube for completed portion
+            // Determine color for each point based on day/night with smooth gradient transitions
+            const colors = []
+            const transitionWidth = 5 // Number of points for gradient transition
+
+            for (let i = 0; i < completedPoints.length; i++) {
+              const segmentIndex = Math.floor((i / completedPoints.length) * progress * segmentData.length)
+              const currentSegment = segmentData[Math.min(segmentIndex, segmentData.length - 1)]
+              
+              // Check if we're near a transition
+              let blendFactor = 0
+              let inDaylight = currentSegment?.inDaylight
+              
+              // Look ahead to see if there's a transition coming
+              for (let j = 1; j <= transitionWidth && segmentIndex + j < segmentData.length; j++) {
+                const nextSegment = segmentData[segmentIndex + j]
+                if (nextSegment && nextSegment.inDaylight !== inDaylight) {
+                  blendFactor = 1 - (j / transitionWidth)
+                  break
+                }
+              }
+              
+              // Gold and cornflower blue colors
+              const goldR = 1, goldG = 0.84, goldB = 0
+              const blueR = 0.39, blueG = 0.58, blueB = 0.93
+              
+              if (inDaylight) {
+                // Transitioning from day to night
+                colors.push(
+                  goldR * (1 - blendFactor) + blueR * blendFactor,
+                  goldG * (1 - blendFactor) + blueG * blendFactor,
+                  goldB * (1 - blendFactor) + blueB * blendFactor
+                )
+              } else {
+                // Transitioning from night to day
+                colors.push(
+                  blueR * (1 - blendFactor) + goldR * blendFactor,
+                  blueG * (1 - blendFactor) + goldG * blendFactor,
+                  blueB * (1 - blendFactor) + goldB * blendFactor
+                )
+              }
+            }
+            
+            // Create single tube with vertex colors
             const thickGeometry = new THREE.TubeGeometry(
               new THREE.CatmullRomCurve3(completedPoints),
-              completedPoints.length,
-              0.006,  // Thicker
+              completedPoints.length - 1,
+              0.006,
               8,
               false
             )
+            
+            // Apply vertex colors
+            const colorArray = new Float32Array(colors.length * thickGeometry.attributes.position.count / completedPoints.length)
+            for (let i = 0; i < thickGeometry.attributes.position.count; i++) {
+              const pointIndex = Math.floor(i / (thickGeometry.attributes.position.count / completedPoints.length))
+              const colorIndex = Math.min(pointIndex * 3, colors.length - 3)
+              colorArray[i * 3] = colors[colorIndex]
+              colorArray[i * 3 + 1] = colors[colorIndex + 1]
+              colorArray[i * 3 + 2] = colors[colorIndex + 2]
+            }
+            
+            thickGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3))
+            
             const thickMaterial = new THREE.MeshBasicMaterial({ 
-              color: 0xffffff
+              vertexColors: true
             })
             const thickTube = new THREE.Mesh(thickGeometry, thickMaterial)
             
@@ -530,25 +592,90 @@ function App() {
         points.push(point)
       }
 
-      // Create the thin remaining path (base)
-      const thinTubeGeometry = new THREE.TubeGeometry(
-        new THREE.CatmullRomCurve3(points),
-        points.length,
-        0.002,  // Thin
-        8,
-        false
-      )
-      const thinTubeMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.3
-      })
-      const thinTube = new THREE.Mesh(thinTubeGeometry, thinTubeMaterial)
-      flightGroup.add(thinTube)
+        // Calculate day/night segments along the route
+        if (!flightResults || !departureTime) {
+          console.error('Missing flight data for color coding')
+          return
+        }
 
-      // Store points for animated thick tube
-      flightGroup.userData.routePoints = points
-      flightGroup.userData.routeCurve = new THREE.CatmullRomCurve3(points)
+        const segmentData = []
+        const lat1 = departure.lat * Math.PI / 180
+        const lon1 = departure.lon * Math.PI / 180
+        const lat2 = arrival.lat * Math.PI / 180
+        const lon2 = arrival.lon * Math.PI / 180
+
+        const flightDurationMs = (flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000
+
+        for (let i = 0; i < numPoints; i++) {
+          const fraction = (i + 0.5) / numPoints
+          
+          // Calculate lat/lon at this point
+          const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
+          const b = Math.sin(fraction * angle) / Math.sin(angle)
+          
+          const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+          const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+          const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+          
+          const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+          const lon = Math.atan2(y, x) * 180 / Math.PI
+          
+          // Calculate time at this point
+          const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
+          
+          // Check if in daylight
+          const inDaylight = isPointInDaylight(lat, lon, timeAtPoint)
+          
+          segmentData.push({
+            index: i,
+            inDaylight
+          })
+        }
+
+        // Group consecutive segments by day/night
+        const segments = []
+        let currentSegment = {
+          startIndex: 0,
+          endIndex: 0,
+          inDaylight: segmentData[0].inDaylight
+        }
+
+        for (let i = 1; i < segmentData.length; i++) {
+          if (segmentData[i].inDaylight === currentSegment.inDaylight) {
+            currentSegment.endIndex = i
+          } else {
+            currentSegment.endIndex = i
+            segments.push(currentSegment)
+            currentSegment = {
+              startIndex: i,
+              endIndex: i,
+              inDaylight: segmentData[i].inDaylight
+            }
+          }
+        }
+        currentSegment.endIndex = numPoints - 1
+        segments.push(currentSegment)
+
+        // Create the thin gray base path
+        const thinTubeGeometry = new THREE.TubeGeometry(
+          new THREE.CatmullRomCurve3(points),
+          points.length,
+          0.002,
+          8,
+          false
+        )
+        const thinTubeMaterial = new THREE.MeshBasicMaterial({ 
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.3
+        })
+        const thinTube = new THREE.Mesh(thinTubeGeometry, thinTubeMaterial)
+        flightGroup.add(thinTube)
+
+        // Store points for animated thick tube
+        flightGroup.userData.routePoints = points
+        flightGroup.userData.routeCurve = new THREE.CatmullRomCurve3(points)
+        flightGroup.userData.segmentData = segmentData
 
       // Add airport markers (dots)
       const dotGeometry = new THREE.SphereGeometry(0.01, 16, 16)
@@ -604,7 +731,7 @@ function App() {
       hasFlightPathRef.current = true
 
       console.log('Flight path with markers drawn')
-    }, [flightPath])
+    }, [flightPath, flightResults, departureTime, departureCode, arrivalCode])
 
     // Effect to show/hide all airports
     useEffect(() => {
