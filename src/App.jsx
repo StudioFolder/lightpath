@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import './App.css'
+import SunCalc from 'suncalc'
 
 function App() {
   const canvasRef = useRef(null)
@@ -28,19 +29,24 @@ function App() {
     })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.localClippingEnabled = true  // Enable clipping
 
     // 4. Create a sphere (our Earth)
     const geometry = new THREE.SphereGeometry(2, 64, 64)
-    // radius: 2, width segments: 64, height segments: 64
-    
     const material = new THREE.MeshStandardMaterial({
       color: 0x9d9d9d,
       roughness: 0.7,
       metalness: 0.1
     })
-    
     const sphere = new THREE.Mesh(geometry, material)
     scene.add(sphere)
+
+    // Add a red marker to see rotation
+    const dotGeometry = new THREE.SphereGeometry(0.1, 16, 16)
+    const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    const dot = new THREE.Mesh(dotGeometry, dotMaterial)
+    dot.position.set(2, 0, 0)
+    sphere.add(dot)
 
     // Add ambient light (soft overall illumination)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4)
@@ -51,12 +57,48 @@ function App() {
     sunLight.position.set(5, 3, 5)
     scene.add(sunLight)
 
+    // Create clipping plane
+    // Calculate sun position for current time
+    const currentTime = new Date()
+    // Use a point on Earth's surface (lat/lon 0,0 = equator, prime meridian)
+    const sunPos = SunCalc.getPosition(currentTime, 0, 0)
+
+    // Convert sun position to a 3D direction vector
+    // The sun's azimuth and altitude tell us where the sun is in the sky
+    const sunDirection = new THREE.Vector3()
+    sunDirection.x = Math.cos(sunPos.altitude) * Math.sin(sunPos.azimuth)
+    sunDirection.y = Math.sin(sunPos.altitude)
+    sunDirection.z = Math.cos(sunPos.altitude) * Math.cos(sunPos.azimuth)
+
+    // The clipping plane should be perpendicular to the sun direction
+    // Invert it so the dark side faces away from the sun
+    const clipPlane = new THREE.Plane(sunDirection.clone().negate(), 0)
+
+    console.log('Sun altitude:', sunPos.altitude * (180 / Math.PI), 'degrees')
+    console.log('Sun azimuth:', sunPos.azimuth * (180 / Math.PI), 'degrees')
+    console.log('Sun direction vector:', sunDirection)
+
+
+    // Create night hemisphere
+    const nightGeometry = new THREE.SphereGeometry(2.02, 64, 64)
+    const nightMaterial = new THREE.MeshBasicMaterial({
+      color: 0x000000,  // black instead of red
+      transparent: true,
+      opacity: 0.5,     // semi-transparent
+      side: THREE.FrontSide,
+      clippingPlanes: [clipPlane],
+      clipIntersection: false
+    })
+    const nightSphere = new THREE.Mesh(nightGeometry, nightMaterial)
+    scene.add(nightSphere)
+
+
     // 5. Animation loop
     function animate() {
       requestAnimationFrame(animate)
       
-      // Rotate the sphere
-      sphere.rotation.y += 0.001
+      // Rotate ONLY the Earth, not the night hemisphere
+      sphere.rotation.y += 0.005
       
       renderer.render(scene, camera)
     }
