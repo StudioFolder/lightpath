@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import './App.css'
 import SunCalc from 'suncalc'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 function App() {
   const canvasRef = useRef(null)
@@ -31,6 +32,14 @@ function App() {
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.localClippingEnabled = true  // Enable clipping
 
+    // Add orbit controls for mouse interaction
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.enableDamping = true  // Smooth motion
+    controls.dampingFactor = 0.05
+    controls.minDistance = 3  // How close you can zoom
+    controls.maxDistance = 10  // How far you can zoom
+    controls.enablePan = false  // Disable panning
+
     // 4. Create a sphere (our Earth)
     const geometry = new THREE.SphereGeometry(2, 64, 64)
 
@@ -53,10 +62,47 @@ function App() {
     scene.add(sphere)
 
     // Add a red marker to see rotation
-    const dotGeometry = new THREE.SphereGeometry(0.1, 16, 16)
-    const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    const dotGeometry = new THREE.SphereGeometry(0.02, 8, 8)
+    const dotMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x27A3F5,
+      emissive: 0x27A3F5,
+      emissiveIntensity: 1,
+      roughness: 0.5,
+      metalness: 0.5
+    })
     const dot = new THREE.Mesh(dotGeometry, dotMaterial)
-    dot.position.set(2, 0, 0)
+
+    // Function to position dot based on lat/lon
+    function positionDotAtLocation(lat, lon) {
+      const phi = (90 - lat) * (Math.PI / 180)
+      const theta = (lon + 180) * (Math.PI / 180)
+      const radius = 2
+      
+      dot.position.x = -radius * Math.sin(phi) * Math.cos(theta)
+      dot.position.y = radius * Math.cos(phi)
+      dot.position.z = radius * Math.sin(phi) * Math.sin(theta)
+    }
+
+    // Try to get user's location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude
+          const userLon = position.coords.longitude
+          console.log('Your location:', userLat, userLon)
+          positionDotAtLocation(userLat, userLon)
+        },
+        (error) => {
+          console.log('Geolocation error, defaulting to Milan:', error.message)
+          // Fallback to Milan if geolocation fails
+          positionDotAtLocation(45.464, 9.190)
+        }
+      )
+    } else {
+      console.log('Geolocation not supported, defaulting to Milan')
+      positionDotAtLocation(45.464, 9.190)
+    }
+
     sphere.add(dot)
 
     // Add ambient light (soft overall illumination)
@@ -111,6 +157,12 @@ function App() {
       // Rotate ONLY the Earth, not the night hemisphere
       sphere.rotation.y += 0.002
       
+      // Pulsate the dot brightness
+      const time = Date.now() * 0.002
+      const intensity = 0.5 + Math.sin(time) * 0.5  // Oscillates between 0 and 1
+      dotMaterial.emissiveIntensity = intensity
+      
+      controls.update()
       renderer.render(scene, camera)
     }
     
