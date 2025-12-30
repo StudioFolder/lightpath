@@ -30,6 +30,14 @@ function App() {
   const [showPlaneIcon, setShowPlaneIcon] = useState(true)
   const [showFIR, setShowFIR] = useState(false)
   const [showClouds, setShowClouds] = useState(true)
+  const [departureSearch, setDepartureSearch] = useState('')
+  const [departureResults, setDepartureResults] = useState([])
+  const [showDepartureSuggestions, setShowDepartureSuggestions] = useState(false)
+  const [selectedDepartureIndex, setSelectedDepartureIndex] = useState(-1)
+  const [arrivalSearch, setArrivalSearch] = useState('')
+  const [arrivalResults, setArrivalResults] = useState([])
+  const [showArrivalSuggestions, setShowArrivalSuggestions] = useState(false)
+  const [selectedArrivalIndex, setSelectedArrivalIndex] = useState(-1)
 
   
   // Store scene reference to add/remove flight path
@@ -1460,6 +1468,30 @@ function App() {
       return dt.toFormat("yyyy-MM-dd'T'HH:mm")
     }
 
+    const searchAirports = (query) => {
+      if (!airports || query.length < 2) return []
+      
+      const upperQuery = query.toUpperCase()
+      const results = []
+      
+      // Search through all airports
+      for (const [code, airport] of Object.entries(airports)) {
+        // Match by IATA code
+        if (code.includes(upperQuery)) {
+          results.push({ code, ...airport })
+        }
+        // Match by city name
+        else if (airport.city.toUpperCase().includes(upperQuery)) {
+          results.push({ code, ...airport })
+        }
+        
+        // Limit to 8 results
+        if (results.length >= 8) break
+      }
+      
+      return results
+    }
+
     return (
       <div className="app">
         <div className="info-overlay">
@@ -1548,53 +1580,159 @@ function App() {
           <div className="panel-content">
             <div className="input-group">
               <label>Departure</label>
-              <div className="input-with-name">
+              <div className="autocomplete-container">
                 <input 
-                  type="text" 
-                  maxLength="3"
-                  value={departureCode}
+                  type="text"
+                  value={departureAirport ? departureCode : departureSearch}
                   onChange={(e) => {
-                    const code = e.target.value.toUpperCase()
-                    setDepartureCode(code)
-                    if (code.length === 3 && airports?.[code]) {
-                      setDepartureAirport(airports[code])
-                    } else {
-                      setDepartureAirport(null)
+                    const value = e.target.value
+                    setDepartureSearch(value)
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    
+                    const results = searchAirports(value)
+                    setDepartureResults(results)
+                    setShowDepartureSuggestions(results.length > 0)
+                    setSelectedDepartureIndex(-1)
+                  }}
+                  onFocus={() => {
+                    if (departureSearch.length >= 2) {
+                      const results = searchAirports(departureSearch)
+                      setDepartureResults(results)
+                      setShowDepartureSuggestions(results.length > 0)
+                    }
+                  }}
+                  onBlur={() => {
+                    // Delay to allow click on suggestion
+                    setTimeout(() => setShowDepartureSuggestions(false), 200)
+                  }}
+                  onKeyDown={(e) => {
+                    if (!showDepartureSuggestions) return
+                    
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault()
+                      setSelectedDepartureIndex(prev => 
+                        prev < departureResults.length - 1 ? prev + 1 : prev
+                      )
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault()
+                      setSelectedDepartureIndex(prev => prev > 0 ? prev - 1 : -1)
+                    } else if (e.key === 'Enter' && selectedDepartureIndex >= 0) {
+                      e.preventDefault()
+                      const selected = departureResults[selectedDepartureIndex]
+                      setDepartureCode(selected.code)
+                      setDepartureAirport(selected)
+                      setDepartureSearch('')
+                      setShowDepartureSuggestions(false)
                     }
                   }}
                 />
+
                 {departureAirport && (
                   <span className="airport-name-inline">
                     {departureAirport.city} ({departureAirport.country})
                   </span>
+                )}
+                                
+                {showDepartureSuggestions && departureResults.length > 0 && (
+                  <div className="autocomplete-dropdown">
+                    {departureResults.map((result, index) => (
+                      <div
+                        key={result.code}
+                        className={`autocomplete-item ${index === selectedDepartureIndex ? 'selected' : ''}`}
+                        onClick={() => {
+                          setDepartureCode(result.code)
+                          setDepartureAirport(result)
+                          setDepartureSearch('')
+                          setShowDepartureSuggestions(false)
+                        }}
+                      >
+                        <span className="autocomplete-code">{result.code}</span>
+                        <span className="autocomplete-city">{result.city}, {result.country}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
 
             <div className="input-group">
               <label>Arrival</label>
-              <div className="input-with-name">
+              <div className="autocomplete-container">
                 <input 
-                  type="text" 
-                  maxLength="3"
-                  value={arrivalCode}
+                  type="text"
+                  value={arrivalAirport ? arrivalCode : arrivalSearch}
                   onChange={(e) => {
-                    const code = e.target.value.toUpperCase()
-                    setArrivalCode(code)
-                    if (code.length === 3 && airports?.[code]) {
-                      setArrivalAirport(airports[code])
-                    } else {
-                      setArrivalAirport(null)
+                    const value = e.target.value
+                    setArrivalSearch(value)
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    
+                    const results = searchAirports(value)
+                    setArrivalResults(results)
+                    setShowArrivalSuggestions(results.length > 0)
+                    setSelectedArrivalIndex(-1)
+                  }}
+                  onFocus={() => {
+                    if (arrivalSearch.length >= 2) {
+                      const results = searchAirports(arrivalSearch)
+                      setArrivalResults(results)
+                      setShowArrivalSuggestions(results.length > 0)
+                    }
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setShowArrivalSuggestions(false), 200)
+                  }}
+                  onKeyDown={(e) => {
+                    if (!showArrivalSuggestions) return
+                    
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault()
+                      setSelectedArrivalIndex(prev => 
+                        prev < arrivalResults.length - 1 ? prev + 1 : prev
+                      )
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault()
+                      setSelectedArrivalIndex(prev => prev > 0 ? prev - 1 : -1)
+                    } else if (e.key === 'Enter' && selectedArrivalIndex >= 0) {
+                      e.preventDefault()
+                      const selected = arrivalResults[selectedArrivalIndex]
+                      setArrivalCode(selected.code)
+                      setArrivalAirport(selected)
+                      setArrivalSearch('')
+                      setShowArrivalSuggestions(false)
                     }
                   }}
                 />
+                
                 {arrivalAirport && (
                   <span className="airport-name-inline">
                     {arrivalAirport.city} ({arrivalAirport.country})
                   </span>
                 )}
+                
+                {showArrivalSuggestions && arrivalResults.length > 0 && (
+                  <div className="autocomplete-dropdown">
+                    {arrivalResults.map((result, index) => (
+                      <div
+                        key={result.code}
+                        className={`autocomplete-item ${index === selectedArrivalIndex ? 'selected' : ''}`}
+                        onClick={() => {
+                          setArrivalCode(result.code)
+                          setArrivalAirport(result)
+                          setArrivalSearch('')
+                          setShowArrivalSuggestions(false)
+                        }}
+                      >
+                        <span className="autocomplete-code">{result.code}</span>
+                        <span className="autocomplete-city">{result.city}, {result.country}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+
             <div className="datetime-group">
               <label>Departure Time (Local)</label>
               <input 
