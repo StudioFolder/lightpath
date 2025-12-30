@@ -41,9 +41,10 @@ function App() {
   const [arrivalResults, setArrivalResults] = useState([])
   const [showArrivalSuggestions, setShowArrivalSuggestions] = useState(false)
   const [selectedArrivalIndex, setSelectedArrivalIndex] = useState(-1)
-  const [showSidePanel, setShowSidePanel] = useState(false)
-  const [sidePanelContent, setSidePanelContent] = useState('')
-  const [sidePanelTitle, setSidePanelTitle] = useState('')
+  const [expandedSection, setExpandedSection] = useState(null)
+  const [aboutContent, setAboutContent] = useState('')
+  const [dataContent, setDataContent] = useState('')
+  const [isClosing, setIsClosing] = useState(false)
 
   
   // Store scene reference to add/remove flight path
@@ -1571,13 +1572,28 @@ function App() {
       return results
     }
 
-    const loadMarkdownContent = async (filename, title) => {
+    const loadMarkdownContent = async (filename, section) => {
       try {
+        // If clicking the same section, close it with animation
+        if (expandedSection === section) {
+          setIsClosing(true)
+          setTimeout(() => {
+            setExpandedSection(null)
+            setIsClosing(false)
+          }, 200) // Match animation duration
+          return
+        }
+        
         const response = await fetch(`/content/${filename}`)
         const text = await response.text()
-        setSidePanelContent(text)
-        setSidePanelTitle(title)
-        setShowSidePanel(true)
+        
+        if (section === 'about') {
+          setAboutContent(text)
+        } else if (section === 'data') {
+          setDataContent(text)
+        }
+        
+        setExpandedSection(section)
       } catch (error) {
         console.error('Error loading content:', error)
       }
@@ -1595,19 +1611,35 @@ function App() {
           <div className="date">{simulatedTime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
         </div>
 
-        <div className="nav-links">
+        <div className="nav-accordion">
           <button 
             className="nav-link"
-            onClick={() => loadMarkdownContent('about.md', 'About')}
+            onClick={() => loadMarkdownContent('about.md', 'about')}
           >
             About
           </button>
+          
+          {expandedSection === 'about' && aboutContent && (
+            <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
+              <ReactMarkdown>
+                {aboutContent.replace('{version}', packageJson.version)}
+              </ReactMarkdown>
+            </div>
+          )}
+                    
           <button 
             className="nav-link"
-            onClick={() => loadMarkdownContent('credits.md', 'Credits')}
+            onClick={() => loadMarkdownContent('data.md', 'data')}
           >
-            Credits
+            Data
           </button>
+            
+          {expandedSection === 'data' && dataContent && (
+            <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
+              <ReactMarkdown>{dataContent}</ReactMarkdown>
+            </div>
+          )}
+
         </div>
 
         <div className="airport-toggle-overlay">
@@ -1670,31 +1702,6 @@ function App() {
             <span>Show clouds</span>
           </label>
         </div>
-
-        <div className="version-info">
-          <div className="version-number">v{packageJson.version}</div>
-        </div>
-
-        {/* Side panel */}
-        {showSidePanel && (
-          <div className="side-panel-overlay" onClick={() => setShowSidePanel(false)}>
-            <div className="side-panel" onClick={(e) => e.stopPropagation()}>
-              <div className="side-panel-header">
-                <h2>{sidePanelTitle}</h2>
-                <button 
-                  className="close-button"
-                  onClick={() => setShowSidePanel(false)}
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="side-panel-content">
-                <ReactMarkdown>{sidePanelContent}</ReactMarkdown>
-              </div>
-            </div>
-          </div>
-        )}
         
         <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''}`}>
           <div className="panel-header">

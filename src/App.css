@@ -599,19 +599,6 @@ canvas {
     transform: rotate(90deg);
 }
 
-.version-info {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  pointer-events: none;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.version-number {
-  font-weight: 600;
-}
-
 /* Navigation links */
 .nav-links {
   position: absolute;
@@ -705,34 +692,99 @@ canvas {
   color: #fff;
 }
 
-/* Side panel content */
-.side-panel-content {
-  padding: 30px;
+/* Navigation accordion */
+.nav-accordion {
+  position: absolute;
+  top: 80px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: all;
+  z-index: 100;
+  max-width: 260px;
+}
+
+.nav-link {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+  transition: color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-link:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.accordion-content {
+  background: none;
+  backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  padding-left: 12px;
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px; 
+  line-height: 1.5;
+  animation: expandDown 0.2s ease-out;
+}
+
+@keyframes expandDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes collapseUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.accordion-content h1 {
+  font-size: 16px;
+  margin: 0 0 12px 0;
   color: #fff;
-  line-height: 1.6;
 }
 
-.side-panel-content h1 {
-  font-size: 28px;
-  margin-top: 0;
-  margin-bottom: 20px;
+.accordion-content h2 {
+  font-size: 13px;
+  margin: 15px 0 8px 0;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.side-panel-content h2 {
-  font-size: 20px;
-  margin-top: 30px;
-  margin-bottom: 15px;
+.accordion-content p {
+  margin: 0 0 10px 0;
 }
 
-.side-panel-content p {
-  margin-bottom: 15px;
+.accordion-content ul {
+  margin: 0 0 10px 20px;
+  padding: 0;
 }
 
-.side-panel-content ul {
-  margin-left: 20px;
-  margin-bottom: 15px;
+.accordion-content li {
+  margin-bottom: 5px;
 }
 
-.side-panel-content li {
-  margin-bottom: 8px;
+.accordion-content.closing {
+  animation: collapseUp 0.2s ease-out forwards;
+  overflow: hidden;
 }

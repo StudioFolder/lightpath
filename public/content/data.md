@@ -1,5 +1,3 @@
-# Credits
-
 ## Development
 Created by [Your Name]
 

@@ -1,5 +1,3 @@
-# About Daylight Flight
-
 This interactive visualization shows how flights traverse different lighting conditions—from full daylight through twilight into darkness.
 
 ## Features
@@ -10,3 +8,9 @@ This interactive visualization shows how flights traverse different lighting con
 
 ## Technology
 Built with React, Three.js, and astronomical calculations for accurate sun position modeling.
+
+## Design
+Studio Folder
+  
+## Version
+{version} 
