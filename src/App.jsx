@@ -647,7 +647,12 @@ function App() {
           // Detect current timezone
           const lat = Math.asin(position.y / position.length()) * 180 / Math.PI
           const theta = Math.atan2(position.z, -position.x)
-          const lon = (theta * 180 / Math.PI) - 180
+          let lon = (theta * 180 / Math.PI) - 180 
+
+          // Normalize longitude to -180 to 180 range
+          if (lon > 180) lon -= 360
+          if (lon < -180) lon += 360
+
           const timezone = getTimezoneAtPoint(lat, lon)
 
           if (timezone !== currentTimezone) {
