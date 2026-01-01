@@ -906,62 +906,94 @@ function App() {
       flightGroup.add(arrivalDot)
 
       // Add text labels using canvas textures
-      const createTextLabel = (text) => {
-        const canvas = document.createElement('canvas')
-        const context = canvas.getContext('2d')
-        canvas.width = 256
-        canvas.height = 128
-        
-        context.fillStyle = 'rgba(255, 255, 255, 0)'
-        context.fillRect(0, 0, canvas.width, canvas.height)
-        
-        context.fillStyle = '#ffffff'
-        context.font = '48px system-ui, -apple-system, sans-serif'
-        context.textAlign = 'center'
-        context.textBaseline = 'middle'
-        context.fillText(text, canvas.width / 2, canvas.height / 2)
-        
-        const texture = new THREE.CanvasTexture(canvas)
-        const material = new THREE.SpriteMaterial({ 
-          map: texture,
-          sizeAttenuation: false
+      const createTextLabel = (text, iconSrc) => {
+        return new Promise((resolve) => {
+          const canvas = document.createElement('canvas')
+          const context = canvas.getContext('2d')
+          canvas.width = 320
+          canvas.height = 110  // Shorter (was 128)
+          
+          // Load icon first
+          const icon = new Image()
+          icon.onload = () => {
+            // Draw rounded rectangle background
+            const radius = 64  // Changed to 72 will be too round for this size, try 50
+            context.fillStyle = '#0c0c0cff'
+            context.beginPath()
+            context.moveTo(radius, 0)
+            context.lineTo(canvas.width - radius, 0)
+            context.quadraticCurveTo(canvas.width, 0, canvas.width, radius)
+            context.lineTo(canvas.width, canvas.height - radius)
+            context.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height)
+            context.lineTo(radius, canvas.height)
+            context.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius)
+            context.lineTo(0, radius)
+            context.quadraticCurveTo(0, 0, radius, 0)
+            context.closePath()
+            context.fill()
+            
+            // Calculate total width of content (icon + gap + text)
+            context.font = 'bold 56px system-ui, -apple-system, sans-serif'  // Bigger font (was 48px)
+            const textWidth = context.measureText(text).width
+            const iconSize = 48  // Bigger icon (was 40)
+            const gap = 28
+            const totalWidth = iconSize + gap + textWidth
+            
+            // Center the content
+            const startX = (canvas.width - totalWidth) / 2
+            
+            // Draw icon
+            const iconY = (canvas.height - iconSize) / 2 - 1
+            context.drawImage(icon, startX, iconY, iconSize, iconSize)
+            
+            // Draw text
+            context.fillStyle = '#ffffff'
+            context.textAlign = 'left'
+            context.textBaseline = 'middle'
+            context.fillText(text, startX + iconSize + gap, canvas.height / 2)
+            
+            const texture = new THREE.CanvasTexture(canvas)
+            const material = new THREE.SpriteMaterial({ 
+              map: texture,
+              sizeAttenuation: false
+            })
+            const sprite = new THREE.Sprite(material)
+            sprite.scale.set(0.12, 0.042, 1)  // Adjusted height scale
+            
+            resolve(sprite)
+          }
+          
+          icon.src = iconSrc
         })
-        const sprite = new THREE.Sprite(material)
-        sprite.scale.set(0.1, 0.05, 1)
-        
-        return sprite
       }
 
       // Create labels with offset
-      const createLabelWithOffset = (code, lat, lon) => {
-        const label = createTextLabel(code)
-        
-        // Position at airport location
+      const createLabelWithOffset = async (code, lat, lon, iconSrc) => {
+        const label = await createTextLabel(code, iconSrc)
         const basePos = latLonToVector3(lat, lon, 2.05)
-        
-        // Calculate "down" offset (toward south pole from this point)
-        const offsetLat = lat - 0.5 // Move 1 degree south
+        const offsetLat = lat - 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        
-        // Offset is the difference
         const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.05)
-        
         label.position.copy(basePos.add(offset))
         return label
       }
 
-      const departureLabel = createLabelWithOffset(departureCode, departure.lat, departure.lon)
-      flightGroup.add(departureLabel)
+      const createLabels = async () => {
+        const departureLabel = await createLabelWithOffset(departureCode, departure.lat, departure.lon, '/departure-icon.svg')
+        flightGroup.add(departureLabel)
+        
+        const arrivalLabel = await createLabelWithOffset(arrivalCode, arrival.lat, arrival.lon, '/arrival-icon.svg')
+        flightGroup.add(arrivalLabel)
+        
+        sceneRef.current.add(flightGroup)
+        flightLineRef.current = flightGroup
+        hasFlightPathRef.current = true
+        console.log('Flight path with markers drawn')
+      }
 
-      const arrivalLabel = createLabelWithOffset(arrivalCode, arrival.lat, arrival.lon)
-      flightGroup.add(arrivalLabel)
+      createLabels()
 
-      sceneRef.current.add(flightGroup)
-      flightLineRef.current = flightGroup
-      hasFlightPathRef.current = true
-
-      console.log('Flight path with markers drawn')
-    }, [flightPath, flightResults, departureTime, departureCode, arrivalCode])
+      }, [flightPath, flightResults, departureTime, departureCode, arrivalCode])
 
     // Effect to show/hide all airports
     useEffect(() => {
