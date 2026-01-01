@@ -1,6 +1,3 @@
-## Development
-Created by [Your Name]
-
 ## Data Sources
 - Airport data: OpenFlights
 - Cloud imagery: NOAA GOES-16
@@ -11,5 +8,3 @@ Created by [Your Name]
 - React for UI
 - Luxon for timezone handling
 - SunCalc for astronomical calculations
-
-Version {version}

@@ -32,7 +32,6 @@ function App() {
   const [autoRotate, setAutoRotate] = useState(true)
   const [showPlaneIcon, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
-  const [showClouds, setShowClouds] = useState(false)
   const [departureSearch, setDepartureSearch] = useState('')
   const [departureResults, setDepartureResults] = useState([])
   const [showDepartureSuggestions, setShowDepartureSuggestions] = useState(false)
@@ -57,8 +56,6 @@ function App() {
   const progressTubeRef = useRef(null)
   const planeIconRef = useRef(null)
   const showPlaneIconRef = useRef(true)
-  const showCloudsRef = useRef(false)
-  const cloudLayerRef = useRef(null)
   const timezoneDataRef = useRef(null)
   const timezoneFadeIntervalRef = useRef(null)
   const transitionLabelsRef = useRef([])
@@ -68,7 +65,7 @@ function App() {
 
       // Track texture loading
       let texturesLoaded = 0
-      const totalTextures = 3
+      const totalTextures = 2
       
       const checkAllLoaded = () => {
         texturesLoaded++
@@ -166,30 +163,6 @@ function App() {
 
     const sphere = new THREE.Mesh(geometry, material)
     scene.add(sphere)
-
-    // Add cloud layer
-    const cloudGeometry = new THREE.SphereGeometry(2.01, 64, 64)
-    const cloudTexture = new THREE.TextureLoader().load(
-      '/clouds-alpha.png',
-      () => {
-        console.log('Cloud texture loaded')
-        checkAllLoaded()
-      },
-      undefined,
-      (error) => console.error('Error loading clouds:', error)
-    )
-
-    const cloudMaterial = new THREE.MeshBasicMaterial({
-      map: cloudTexture,
-      transparent: true,
-      opacity: 0.6,
-      depthWrite: false,
-      color: 0xffffff  // White tint - brightens the texture
-    })
-
-    const cloudLayer = new THREE.Mesh(cloudGeometry, cloudMaterial)
-    scene.add(cloudLayer)
-    cloudLayerRef.current = cloudLayer
 
     // Load plane icon
     const planeTexture = new THREE.TextureLoader().load('/plane-icon.svg', checkAllLoaded)
@@ -745,11 +718,6 @@ function App() {
         } else {
           planeIconRef.current.visible = false
         }
-      }
-
-      // Update cloud visibility
-      if (cloudLayerRef.current) {
-        cloudLayerRef.current.visible = showCloudsRef.current
       }
 
       // Keep location dot constant size
@@ -1451,12 +1419,6 @@ function App() {
           setShowGraticule(!showGraticule)
         }
 
-        // C for clouds toggle
-        if (e.key === 'c' || e.key === 'C') {
-          setShowClouds(!showClouds)
-          showCloudsRef.current = !showClouds
-        }
-
       }
       
       window.addEventListener('keydown', handleKeyPress)
@@ -1465,7 +1427,7 @@ function App() {
         window.removeEventListener('keydown', handleKeyPress)
       }
 
-    }, [isPlaying, flightResults, animationProgress, showAirports, showPlaneIcon, showTimezones, showGraticule, showClouds])
+    }, [isPlaying, flightResults, animationProgress, showAirports, showPlaneIcon, showTimezones, showGraticule])
 
     // Highlight current timezone during flight
     useEffect(() => {
@@ -1900,20 +1862,6 @@ function App() {
               onChange={(e) => setShowTimezones(e.target.checked)}
             />
             <span>(T) Show Timezones</span>
-          </label>
-        </div>
-
-        <div className="clouds-toggle-overlay">
-          <label>
-            <input 
-              type="checkbox"
-              checked={showClouds}
-              onChange={(e) => {
-                setShowClouds(e.target.checked)
-                showCloudsRef.current = e.target.checked
-              }}
-            />
-            <span>(C) Show Clouds</span>
           </label>
         </div>
         

@@ -93,32 +93,9 @@ canvas {
   height: 100%;
 }
 
-.clouds-toggle-overlay {
-  position: absolute;
-  bottom: 150px;
-  left: 20px;
-  pointer-events: all;
-}
-
-.clouds-toggle-overlay label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.clouds-toggle-overlay input[type="checkbox"] {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-  accent-color: #2d2e2f;
-}
-
 .airport-toggle-overlay {
   position: absolute;
-  bottom: 60px;
+  bottom: 120px;
   left: 20px;
   pointer-events: all;
 }
@@ -554,7 +531,7 @@ canvas {
 
 .plane-toggle-overlay {
   position: absolute;
-  bottom: 120px;
+  bottom: 150px;
   left: 20px;
   pointer-events: all;
 }
@@ -577,7 +554,7 @@ canvas {
 
 .timezone-toggle-overlay {
   position: absolute;
-  bottom: 180px;
+  bottom: 60px;
   left: 20px;
   pointer-events: all;
 }
