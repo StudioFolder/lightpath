@@ -490,7 +490,7 @@ function App() {
           const curve = flightLineRef.current.userData.routeCurve
           const segmentData = flightLineRef.current.userData.segmentData
           const completedPoints = []
-          const numSamples = 400
+          const numSamples = 800
           
           for (let i = 0; i <= numSamples; i++) {
             const t = (i / numSamples) * progress
@@ -500,7 +500,7 @@ function App() {
           if (completedPoints.length > 1) {
             // Determine color based on sun angle (twilight-aware)
             const colors = []
-
+            
             for (let i = 0; i < completedPoints.length; i++) {
               const segmentIndex = Math.min(
                 Math.floor((i / completedPoints.length) * progress * segmentData.length),
@@ -515,12 +515,25 @@ function App() {
               
               const sunAngle = segmentInfo.sunAngle
               
+              // Detect sunset vs sunrise by comparing to earlier point in flight
+              let isSunset = false
+              if (i > 10) {  // Need enough history
+                const earlierIndex = Math.max(0, i - 10)
+                const earlierSegmentIndex = Math.min(
+                  Math.floor((earlierIndex / completedPoints.length) * progress * segmentData.length),
+                  segmentData.length - 1
+                )
+                const earlierAngle = segmentData[earlierSegmentIndex].sunAngle
+                
+                // If current angle is higher than 10 points ago, we're in sunset
+                isSunset = sunAngle > earlierAngle
+              }
+              
               // Color based on sun angle
               // 0-85°: Full day (gold)
-              // 85-95°: Twilight (gold to light blue gradient)
-              // 95-105°: Deep twilight (light blue to deep blue)
-              // 105+: Night (deep blue)
-              
+              // 85-100°: Twilight (different for sunset vs sunrise)
+              // 100+: Night (deep blue)
+
               let r, g, b
 
               if (sunAngle < 85) {
@@ -529,35 +542,75 @@ function App() {
                 g = 0.85
                 b = 0.0
               } else if (sunAngle < 88) {
-                // Early twilight - gold to amber (3°)
+                // Early twilight (85-88°)
                 const t = (sunAngle - 85) / 3
-                r = 1.0
-                g = 0.85 - t * 0.2
-                b = 0.0 + t * 0.1
+                if (isSunset) {
+                  // Sunset: gold to warm orange
+                  r = 1.0
+                  g = 0.85 - t * 0.25
+                  b = 0.0
+                } else {
+                  // Sunrise: gold to cool amber
+                  r = 1.0
+                  g = 0.85 - t * 0.2
+                  b = 0.0 + t * 0.1
+                }
               } else if (sunAngle < 91) {
-                // Amber to orange (3°)
+                // Mid twilight (88-91°)
                 const t = (sunAngle - 88) / 3
-                r = 1.0
-                g = 0.65 - t * 0.15
-                b = 0.1 + t * 0.15
+                if (isSunset) {
+                  // Sunset: warm orange to deep orange
+                  r = 1.0
+                  g = 0.6 - t * 0.15
+                  b = 0.0
+                } else {
+                  // Sunrise: amber to orange
+                  r = 1.0
+                  g = 0.65 - t * 0.15
+                  b = 0.1 + t * 0.15
+                }
               } else if (sunAngle < 94) {
-                // Orange to red-orange (3°)
+                // Deep twilight (91-94°)
                 const t = (sunAngle - 91) / 3
-                r = 1.0 - t * 0.2
-                g = 0.5 - t * 0.15
-                b = 0.25 + t * 0.2
+                if (isSunset) {
+                  // Sunset: deep orange to red
+                  r = 1.0 - t * 0.15
+                  g = 0.45 - t * 0.15
+                  b = 0.0 + t * 0.1
+                } else {
+                  // Sunrise: orange to red-orange
+                  r = 1.0 - t * 0.2
+                  g = 0.5 - t * 0.15
+                  b = 0.25 + t * 0.2
+                }
               } else if (sunAngle < 97) {
-                // Red-orange to purple (3°)
+                // Late twilight (94-97°)
                 const t = (sunAngle - 94) / 3
-                r = 0.8 - t * 0.2
-                g = 0.35 - t * 0.15
-                b = 0.45 + t * 0.25
+                if (isSunset) {
+                  // Sunset: red to dark red (no purple)
+                  r = 0.85 - t * 0.4
+                  g = 0.3 - t * 0.15
+                  b = 0.1 + t * 0.15
+                } else {
+                  // Sunrise: red-orange to purple
+                  r = 0.8 - t * 0.2
+                  g = 0.35 - t * 0.15
+                  b = 0.45 + t * 0.25
+                }
               } else if (sunAngle < 100) {
-                // Purple to indigo (3°)
+                // Final twilight (97-100°)
                 const t = (sunAngle - 97) / 3
-                r = 0.6 - t * 0.5
-                g = 0.2 - t * 0.05
-                b = 0.7 - t * 0.2
+                if (isSunset) {
+                  // Sunset: dark red to navy (skip purple/indigo)
+                  r = 0.45 - t * 0.35
+                  g = 0.15 - t * 0.0
+                  b = 0.25 + t * 0.25
+                } else {
+                  // Sunrise: purple to indigo
+                  r = 0.6 - t * 0.5
+                  g = 0.2 - t * 0.05
+                  b = 0.7 - t * 0.2
+                }
               } else {
                 // Night - navy blue
                 r = 0.1
@@ -632,7 +685,7 @@ function App() {
             // Create single tube with vertex colors
             const thickGeometry = new THREE.TubeGeometry(
               new THREE.CatmullRomCurve3(completedPoints),
-              Math.min(completedPoints.length * 2, 400),  // More tubular segments
+              Math.min(completedPoints.length * 2, 800),  // More tubular segments
               0.006,
               8,
               false
