@@ -1318,6 +1318,79 @@ function App() {
               })
             }
           })
+
+          // CREATE INTERNATIONAL DATE LINE HERE (INSERT BELOW)
+          
+          // Create International Date Line (dashed)
+          const dateLinePoints = []
+          for (let lat = -90; lat <= 90; lat += 1) {
+            const phi = (90 - lat) * (Math.PI / 180)
+            const theta = (180 + 180) * (Math.PI / 180)
+            const radius = 2.006
+            
+            dateLinePoints.push(new THREE.Vector3(
+              -radius * Math.sin(phi) * Math.cos(theta),
+              radius * Math.cos(phi),
+              radius * Math.sin(phi) * Math.sin(theta)
+            ))
+          }
+
+          const dateLineGeometry = new THREE.BufferGeometry().setFromPoints(dateLinePoints)
+          const dateLineMaterial = new THREE.LineBasicMaterial({
+            color: 0xffffff, 
+            transparent: true,
+            opacity: 0.8
+          })
+
+          const dateLine = new THREE.Line(dateLineGeometry, dateLineMaterial)
+          dateLine.userData.isDateLine = true
+          timezoneGroup.add(dateLine)
+
+          // Create label as a mesh (not sprite)
+          const canvas = document.createElement('canvas')
+          const context = canvas.getContext('2d')
+          canvas.width = 512
+          canvas.height = 128
+
+          context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+          context.font = '42px system-ui'
+          context.textAlign = 'center'
+          context.textBaseline = 'middle'
+          context.fillText('International Date Line', canvas.width / 2, canvas.height / 2)
+
+          const texture = new THREE.CanvasTexture(canvas)
+          const labelGeometry = new THREE.PlaneGeometry(0.4, 0.08)
+          const labelMaterial = new THREE.MeshBasicMaterial({ 
+            map: texture,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide,
+            depthTest: false
+          })
+
+          const labelMesh = new THREE.Mesh(labelGeometry, labelMaterial)
+
+          // Position on sphere at equator, 180° longitude
+          const labelLat = 0
+          const labelLon = 180
+          const phi = (90 - labelLat) * (Math.PI / 180)
+          const theta = (labelLon + 180) * (Math.PI / 180)
+          const radius = 2.05
+
+          labelMesh.position.set(
+            -radius * Math.sin(phi) * Math.cos(theta),
+            radius * Math.cos(phi),
+            radius * Math.sin(phi) * Math.sin(theta)
+          )
+
+          // Rotate to align with meridian (vertical)
+          labelMesh.rotation.y = -Math.PI / 2  // Face outward
+          labelMesh.rotation.z = -Math.PI / 2  // Vertical orientation
+
+          labelMesh.userData.isDateLineLabel = true
+          timezoneGroup.add(labelMesh)
+          
+          // END DATE LINE CODE
           
           sceneRef.current.add(timezoneGroup)
           
@@ -1325,14 +1398,18 @@ function App() {
           let opacity = 0
           fadeInterval = setInterval(() => {
             opacity += 0.02
-            if (opacity >= 0.3) {  // Subtle white lines
+            if (opacity >= 0.3) {
               opacity = 0.3
               clearInterval(fadeInterval)
-              timezoneFadeIntervalRef.current = null
             }
             timezoneGroup.traverse((child) => {
               if (child.material) {
-                child.material.opacity = opacity
+                // Skip date line, label sprite, and label mesh
+                if (child.userData.isDateLine || child.isSprite || child.userData.isDateLineLabel) {
+                  child.material.opacity = Math.min(child.material.opacity, 0.9)
+                } else {
+                  child.material.opacity = opacity  // Timezone lines stay dim
+                }
               }
             })
           }, 20)
