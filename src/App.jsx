@@ -61,6 +61,7 @@ function App() {
   const cloudLayerRef = useRef(null)
   const timezoneDataRef = useRef(null)
   const timezoneFadeIntervalRef = useRef(null)
+  const transitionLabelsRef = useRef([])
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -116,7 +117,7 @@ function App() {
     const camera = new THREE.PerspectiveCamera(
       75,  // field of view
       window.innerWidth / window.innerHeight,  // aspect ratio
-      0.1,  // near clipping plane
+      0.01,  // near clipping plane
       1000  // far clipping plane
     )
     camera.position.z = 3.5  // move camera back so we can see the sphere
@@ -209,7 +210,7 @@ function App() {
     planeIconRef.current = planeMesh
 
     // Add atmospheric glow
-    const glowGeometry = new THREE.SphereGeometry(2.15, 64, 64)
+    const glowGeometry = new THREE.SphereGeometry(2.05, 64, 64)
     const glowMaterial = new THREE.ShaderMaterial({
       uniforms: {},
       vertexShader: `
@@ -228,7 +229,8 @@ function App() {
       `,
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
-      transparent: true
+      transparent: true,
+      depthWrite: false
     })
     const atmosphereGlow = new THREE.Mesh(glowGeometry, glowMaterial)
     scene.add(atmosphereGlow)
@@ -501,6 +503,14 @@ function App() {
           
           progressTubeRef.current = null
         }
+
+        // Remove old transition labels
+        transitionLabelsRef.current.forEach(label => {
+          flightLineRef.current.remove(label)
+          label.material.map.dispose()
+          label.material.dispose()
+        })
+        transitionLabelsRef.current = []
         
         if (progress > 0) {
           // Get points for completed portion
@@ -586,6 +596,66 @@ function App() {
 
             }
             
+            // Detect day/night transitions and create time labels
+            const transitions = []
+            let lastWasDaylight = segmentData[0].sunAngle < 95 // Threshold for day/night
+
+            for (let i = 1; i < completedPoints.length; i++) {
+              const segmentIndex = Math.min(
+                Math.floor((i / completedPoints.length) * progress * segmentData.length),
+                segmentData.length - 1
+              )
+              const segmentInfo = segmentData[segmentIndex]
+              const isDaylight = segmentInfo.sunAngle < 95
+              
+              // Transition detected
+              if (isDaylight !== lastWasDaylight) {
+                const t = (i / completedPoints.length) * progress
+                const elapsedMs = t * flightDataRef.current.flightDurationMs
+                const hours = Math.floor(elapsedMs / 3600000)
+                const minutes = Math.floor((elapsedMs % 3600000) / 60000)
+                
+                transitions.push({
+                  point: completedPoints[i],
+                  time: `${hours}h ${minutes}m`,
+                  type: isDaylight ? 'sunrise' : 'sunset'
+                })
+                
+                lastWasDaylight = isDaylight
+              }
+            }
+
+            // Create labels for transitions
+            transitions.forEach(trans => {
+              const canvas = document.createElement('canvas')
+              const context = canvas.getContext('2d')
+              canvas.width = 200
+              canvas.height = 100
+              
+              context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+              context.font = '40px system-ui'  // Just change this for size
+              context.textAlign = 'center'
+              context.textBaseline = 'middle'
+              context.fillText(trans.time, canvas.width / 2, canvas.height / 2)
+              
+              const texture = new THREE.CanvasTexture(canvas)
+              const material = new THREE.SpriteMaterial({ 
+                map: texture,
+                sizeAttenuation: false,
+                depthTest: true
+              })
+              const sprite = new THREE.Sprite(material)
+              sprite.scale.set(0.1, 0.05, 1)  // Keep this fixed
+              
+              // Offset position away from path
+              const offset = trans.point.clone().normalize().multiplyScalar(0.06)
+              sprite.position.copy(trans.point).add(offset)
+              
+              flightLineRef.current.add(sprite)
+              transitionLabelsRef.current.push(sprite)
+             
+            })
+
             // Create single tube with vertex colors
             const thickGeometry = new THREE.TubeGeometry(
               new THREE.CatmullRomCurve3(completedPoints),
@@ -955,7 +1025,7 @@ function App() {
             const texture = new THREE.CanvasTexture(canvas)
             const material = new THREE.SpriteMaterial({ 
               map: texture,
-              sizeAttenuation: false
+              sizeAttenuation: false,
             })
             const sprite = new THREE.Sprite(material)
             sprite.scale.set(0.12, 0.042, 1)  // Adjusted height scale
@@ -973,7 +1043,7 @@ function App() {
         const basePos = latLonToVector3(lat, lon, 2.05)
         const offsetLat = lat - 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.05)
+        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.075)
         label.position.copy(basePos.add(offset))
         return label
       }
