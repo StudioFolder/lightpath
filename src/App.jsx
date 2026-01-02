@@ -164,7 +164,7 @@ function App() {
     controls.autoRotateSpeed = -0.1  // Adjust speed (positive = counter-clockwise)
 
     // 4. Create a sphere (our Earth)
-    const geometry = new THREE.SphereGeometry(2, 64, 64)
+    const geometry = new THREE.SphereGeometry(2, 96, 96)
 
     // Load simplified Earth texture
     const earthTexture = new THREE.TextureLoader().load(
@@ -548,7 +548,7 @@ function App() {
               
               colors.push(r, g, b)
             }
-            
+
             // Update pre-created transition labels visibility and position
             const curve = flightLineRef.current.userData.routeCurve
             
@@ -561,11 +561,16 @@ function App() {
                 const point = curve.getPoint(transitionT)
                 const offset = point.clone().normalize().multiplyScalar(0.06)
                 label.position.copy(point).add(offset)
+                
+                // Fade in over 2% of progress after appearing
+                const fadeProgress = (progress - transitionT) / 0.02
+                label.material.opacity = Math.min(fadeProgress, 1)
               } else {
                 // Hide label (not reached yet)
                 label.visible = false
+                label.material.opacity = 0
               }
-            })  
+            })
 
             // Create single tube with vertex colors
             const thickGeometry = new THREE.TubeGeometry(
@@ -1188,14 +1193,27 @@ function App() {
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
       
+      // Create circular texture for round dots
+      const canvas = document.createElement('canvas')
+      canvas.width = 32
+      canvas.height = 32
+      const ctx = canvas.getContext('2d')
+      ctx.beginPath()
+      ctx.arc(16, 16, 14, 0, Math.PI * 2)
+      ctx.fillStyle = 'white'
+      ctx.fill()
+      const circleTexture = new THREE.CanvasTexture(canvas)
+
       const material = new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 1.2,
+        color: isBWMode ? 0x000000 : 0xffffff,
+        size: isBWMode ? 2.0 : 1.8,
         sizeAttenuation: false,
         transparent: true,
-        opacity: 0  // Start invisible
+        opacity: 0,  // Start invisible
+        map: circleTexture,
+        alphaMap: circleTexture
       })
-      
+
       const points = new THREE.Points(geometry, material)
       points.name = 'airportDots'
       sceneRef.current.add(points)
@@ -1204,8 +1222,8 @@ function App() {
       let opacity = 0
       const fadeIn = setInterval(() => {
         opacity += 0.02
-        if (opacity >= 0.5) {
-          opacity = 0.5
+        if (opacity >= 0.8) {
+          opacity = 0.8
           clearInterval(fadeIn)
         }
         material.opacity = opacity
@@ -1215,7 +1233,7 @@ function App() {
       return () => {
         if (fadeInterval) clearInterval(fadeInterval)
       }
-    }, [showAirports, airports])
+    }, [showAirports, airports, isBWMode])
 
     // Effect to show/hide graticule
     useEffect(() => {
@@ -1281,7 +1299,9 @@ function App() {
               const lineMaterial = new THREE.LineBasicMaterial({
                 color: 0xffffff,
                 transparent: true,
-                opacity: 0 // Start invisible for fade-in
+                opacity: 0, // Start invisible for fade-in
+                depthTest: true,
+                depthWrite: false
               })
               
               const line = new THREE.Line(lineGeometry, lineMaterial)
@@ -1296,7 +1316,9 @@ function App() {
                 const lineMaterial = new THREE.LineBasicMaterial({
                   color: 0xffffff,
                   transparent: true,
-                  opacity: 0
+                  opacity: 0, // Start invisible for fade-in
+                  depthTest: true,
+                  depthWrite: false
                 })
                 
                 const line = new THREE.Line(lineGeometry, lineMaterial)
@@ -1321,6 +1343,15 @@ function App() {
               }
             })
           }, 20)
+
+          // Apply B&W color if in B&W mode
+          if (isBWModeRef.current) {
+            graticuleGroup.traverse((child) => {
+              if (child.material) {
+                child.material.color.setHex(0x0f0f0f)
+              }
+            })
+          }
           
           console.log('Graticule loaded with', data.features.length, 'features')
         })
@@ -2010,6 +2041,16 @@ function App() {
           glowRef.current.material.uniforms.glowColor.value.set(0.5, 0.5, 0.5)  // Dark grey
           glowRef.current.material.blending = THREE.NormalBlending
         }
+
+        // Update graticule color
+        const graticule = sceneRef.current.getObjectByName('graticule')
+        if (graticule) {
+          graticule.traverse((child) => {
+            if (child.material) {
+              child.material.color.setHex(0x0f0f0f)
+            }
+          })
+        }
                 
       } else {
         sceneRef.current.background = new THREE.Color(0x606569)
@@ -2032,6 +2073,16 @@ function App() {
         if (glowRef.current) {
           glowRef.current.material.uniforms.glowColor.value.set(1.0, 1.0, 1.0)  // White
           glowRef.current.material.blending = THREE.AdditiveBlending
+        }
+
+        // Update graticule color
+        const graticule = sceneRef.current.getObjectByName('graticule')
+        if (graticule) {
+          graticule.traverse((child) => {
+            if (child.material) {
+              child.material.color.setHex(0xffffff)
+            }
+          })
         }
 
       }
