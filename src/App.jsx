@@ -9,29 +9,19 @@ import packageJson from '../package.json'
 import ReactMarkdown from 'react-markdown'
 
 function App() {
-  const canvasRef = useRef(null)
-  const autoRotateRef = useRef(true)
-  const cameraRef = useRef(null)
-  const controlsRef = useRef(null) 
-  const [isLoading, setIsLoading] = useState(true) 
+  // ===== STATE =====
+  // Loading & Time
+  const [isLoading, setIsLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [simulatedTime, setSimulatedTime] = useState(new Date())
   const [departureTime, setDepartureTime] = useState(new Date())
+  
+  // Airport Search & Selection
   const [departureCode, setDepartureCode] = useState('')
   const [arrivalCode, setArrivalCode] = useState('')
   const [airports, setAirports] = useState(null)
   const [departureAirport, setDepartureAirport] = useState(null)
   const [arrivalAirport, setArrivalAirport] = useState(null)
-  const [flightPath, setFlightPath] = useState(null)
-  const [flightResults, setFlightResults] = useState(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [animationProgress, setAnimationProgress] = useState(0) // 0 to 1
-  const [showAirports, setShowAirports] = useState(false)
-  const [showGraticule, setShowGraticule] = useState(false)
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
-  const [autoRotate, setAutoRotate] = useState(true)
-  const [showPlaneIcon, setShowPlaneIcon] = useState(true)
-  const [showTimezones, setShowTimezones] = useState(false)
   const [departureSearch, setDepartureSearch] = useState('')
   const [departureResults, setDepartureResults] = useState([])
   const [showDepartureSuggestions, setShowDepartureSuggestions] = useState(false)
@@ -40,35 +30,69 @@ function App() {
   const [arrivalResults, setArrivalResults] = useState([])
   const [showArrivalSuggestions, setShowArrivalSuggestions] = useState(false)
   const [selectedArrivalIndex, setSelectedArrivalIndex] = useState(-1)
+  
+  // Flight Calculation & Animation
+  const [flightPath, setFlightPath] = useState(null)
+  const [flightResults, setFlightResults] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [animationProgress, setAnimationProgress] = useState(0)
+  const [currentTimezone, setCurrentTimezone] = useState(null)
+  
+  // UI State
+  const [showAirports, setShowAirports] = useState(false)
+  const [showGraticule, setShowGraticule] = useState(false)
+  const [showPlaneIcon, setShowPlaneIcon] = useState(true)
+  const [showTimezones, setShowTimezones] = useState(false)
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
+  const [autoRotate, setAutoRotate] = useState(true)
+  const [isBWMode, setIsBWMode] = useState(false)
+  const [followPlaneMode, setFollowPlaneMode] = useState(false)
+  
+  // Accordion/Info State
   const [expandedSection, setExpandedSection] = useState(null)
   const [aboutContent, setAboutContent] = useState('')
   const [dataContent, setDataContent] = useState('')
   const [isClosing, setIsClosing] = useState(false)
-  const [currentTimezone, setCurrentTimezone] = useState(null)
-  const [isBWMode, setIsBWMode] = useState(false)
-  
-  // Store scene reference to add/remove flight path
+
+  // ===== REFS =====
+  // Three.js Core
+  const canvasRef = useRef(null)
   const sceneRef = useRef(null)
+  const cameraRef = useRef(null)
+  const controlsRef = useRef(null)
+  
+  // Three.js Scene Objects - Visualization
   const flightLineRef = useRef(null)
-  const flightDataRef = useRef(null)
-  const animationProgressRef = useRef(0) 
-  const hasFlightPathRef = useRef(false)
   const progressTubeRef = useRef(null)
-  const planeIconRef = useRef(null)
-  const planeTextureRef = useRef(null)
-  const planeBWTextureRef = useRef(null)
-  const showPlaneIconRef = useRef(true)
-  const timezoneDataRef = useRef(null)
-  const timezoneFadeIntervalRef = useRef(null)
   const transitionLabelsRef = useRef([])
-  const isBWModeRef = useRef(false)
-  const bwColorsRef = useRef(null)
-  const twilightSphereRef = useRef(null)
-  const earthMaterialRef = useRef(null)
-  const ambientLightRef = useRef(null)
-  const glowRef = useRef(null)
   const departureLabelRef = useRef(null)
   const arrivalLabelRef = useRef(null)
+  const planeIconRef = useRef(null)
+  const twilightSphereRef = useRef(null)
+  const glowRef = useRef(null)
+  
+  // Three.js Materials & Textures
+  const earthMaterialRef = useRef(null)
+  const ambientLightRef = useRef(null)
+  const planeTextureRef = useRef(null)
+  const planeBWTextureRef = useRef(null)
+  const bwColorsRef = useRef(null)
+  
+  // Animation & Flight Data
+  const flightDataRef = useRef(null)
+  const animationProgressRef = useRef(0)
+  const hasFlightPathRef = useRef(false)
+  
+  // Feature Toggles (synced with state)
+  const autoRotateRef = useRef(true)
+  const showPlaneIconRef = useRef(true)
+  const isBWModeRef = useRef(false)
+  const followPlaneModeRef = useRef(false)
+  const isPlayingRef = useRef(false)
+  
+  // External Data & Intervals
+  const timezoneDataRef = useRef(null)
+  const timezoneFadeIntervalRef = useRef(null)
 
   // Helper to get RGB color from CSS variable
   const getCSSColor = (varName, element = document.documentElement) => {
@@ -83,6 +107,15 @@ function App() {
       b: parseInt(rgb[2]) / 255
     }
   }
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    followPlaneModeRef.current = followPlaneMode
+  }, [followPlaneMode])
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying
+  }, [isPlaying])
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -650,6 +683,42 @@ function App() {
           const surfaceOffset = normal.clone().multiplyScalar(0.02) // Adjust this value
           const forwardOffset = tangent.clone().multiplyScalar(0.035)  // Adjust this value
           planeIconRef.current.position.copy(position).add(surfaceOffset).add(forwardOffset)
+
+          // Camera follow mode
+          if (followPlaneModeRef.current && isPlayingRef.current) {
+            // Disable OrbitControls when following
+            controls.enabled = false
+            
+            // Store original distance when first enabling follow mode
+            if (!camera.userData.followModeDistance) {
+              camera.userData.followModeDistance = camera.position.length()
+            }
+            
+            // Use stored distance
+            const targetDistance = camera.userData.followModeDistance
+            
+            // Position camera directly above the plane at the stored distance
+            const planeNormal = position.clone().normalize()
+            const targetCameraPos = planeNormal.multiplyScalar(targetDistance)
+            
+            // Smooth camera movement
+            camera.position.lerp(targetCameraPos, 0.05)
+            
+            // Point camera at Earth center (0,0,0)
+            camera.lookAt(0, 0, 0)
+            
+            // Update controls target to Earth center
+            controls.target.set(0, 0, 0)
+          } else {
+            // Re-enable OrbitControls when not following or paused
+            controls.enabled = true
+            
+            // Clear stored distance when disabling follow mode
+            camera.userData.followModeDistance = null
+            
+            // Make sure controls target is at Earth center
+            controls.target.set(0, 0, 0)
+          }
 
           // Detect current timezone
           const lat = Math.asin(position.y / position.length()) * 180 / Math.PI
@@ -2477,6 +2546,21 @@ function App() {
               <span className="toggle-slider"></span>
             </div>
             <span>B&W Mode</span>
+          </label>
+        </div>
+
+        <div className="follow-toggle-overlay">
+          <label>
+            <div className="toggle-switch">
+              <input 
+                type="checkbox"
+                checked={followPlaneMode}
+                onChange={(e) => setFollowPlaneMode(e.target.checked)}
+                disabled={!flightResults}
+              />
+              <span className="toggle-slider"></span>
+            </div>
+            <span>Follow Plane</span>
           </label>
         </div>
         

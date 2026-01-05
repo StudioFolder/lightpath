@@ -845,6 +845,32 @@ canvas {
   accent-color: #2d2e2f;
 }
 
+.follow-toggle-overlay {
+  position: absolute;
+  bottom: 190px; 
+  left: 20px;
+  pointer-events: all;
+}
+
+.follow-toggle-overlay label {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.follow-toggle-overlay input[type="checkbox"]:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.follow-toggle-overlay label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .toggle-switch {
   position: relative;
   width: 32px;
