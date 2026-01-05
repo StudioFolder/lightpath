@@ -1760,46 +1760,64 @@ function App() {
       const camera = cameraRef.current
       const controls = controlsRef.current
       if (!camera || !controls) return
-      
+
       // Zoom in for short flights
       const radius = flightDistance < 500 ? 3.0 : 3.5
+
+      // Convert to radians
+      const lat1 = departure.lat * Math.PI / 180
+      const lon1 = departure.lon * Math.PI / 180
+      const lat2 = arrival.lat * Math.PI / 180
+      const lon2 = arrival.lon * Math.PI / 180
+
+      // Calculate great circle midpoint (fraction = 0.5)
+      const angularDistance = Math.acos(
+        Math.sin(lat1) * Math.sin(lat2) + 
+        Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+      )
       
-      // Calculate midpoint
-      const midLat = (departure.lat + arrival.lat) / 2
-      const midLon = (departure.lon + arrival.lon) / 2
+      const a = Math.sin(0.5 * angularDistance) / Math.sin(angularDistance)
+      const b = Math.sin(0.5 * angularDistance) / Math.sin(angularDistance)
       
+      const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+      const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+      const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+      
+      const midLat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+      const midLon = Math.atan2(y, x) * 180 / Math.PI
+
       // Calculate target camera position
       const phi = (90 - midLat) * (Math.PI / 180)
       const theta = (midLon + 180) * (Math.PI / 180)
-      
+
       const targetPosition = new THREE.Vector3(
         -radius * Math.sin(phi) * Math.cos(theta),
         radius * Math.cos(phi),
         radius * Math.sin(phi) * Math.sin(theta)
       )
-      
+
       // Smooth animation to target position
       const startPosition = camera.position.clone()
       const duration = 1500
       const startTime = Date.now()
-      
+
       const animateCamera = () => {
         const elapsed = Date.now() - startTime
         const progress = Math.min(elapsed / duration, 1)
-        
+
         const eased = progress < 0.5
           ? 2 * progress * progress
           : 1 - Math.pow(-2 * progress + 2, 2) / 2
-        
+
         camera.position.lerpVectors(startPosition, targetPosition, eased)
         camera.lookAt(0, 0, 0)
         controls.update()
-        
+
         if (progress < 1) {
           requestAnimationFrame(animateCamera)
         }
       }
-      
+
       animateCamera()
     }
 
@@ -1893,7 +1911,7 @@ function App() {
       const darknessMins = darknessTotalMins % 60
 
       const results = {
-        distance: distance.toFixed(0),
+        distance: Math.round(distance),
         duration: flightDurationHours.toFixed(1),
         durationHours: totalDurationHours,
         durationMins: totalDurationMins,
@@ -2658,7 +2676,7 @@ function App() {
                 <div className="result-row-double">
                   <div className="result-item">
                     <span className="result-label">Distance:</span>
-                    <span className="result-value">{flightResults.distance} km</span>
+                    <span className="result-value">{flightResults.distance.toLocaleString()} km</span>
                   </div>
                   <div className="result-item">
                     <span className="result-label">Daylight:</span>
