@@ -1076,7 +1076,7 @@ function App() {
           const texture = new THREE.CanvasTexture(canvas)
           const material = new THREE.SpriteMaterial({ 
             map: texture,
-            sizeAttenuation: false,
+            sizeAttenuation: true,
             depthTest: true
           })
           const sprite = new THREE.Sprite(material)
@@ -1158,7 +1158,7 @@ function App() {
             const texture = new THREE.CanvasTexture(canvas)
             const material = new THREE.SpriteMaterial({ 
               map: texture,
-              sizeAttenuation: false,
+              sizeAttenuation: true,
             })
             const sprite = new THREE.Sprite(material)
             sprite.scale.set(0.1125, 0.042, 1)
@@ -1973,24 +1973,34 @@ function App() {
       if (!airports || query.length < 2) return []
       
       const upperQuery = query.toUpperCase()
-      const results = []
+      const exactCodeMatches = []
+      const codeStartMatches = []
+      const nameStartMatches = []
       
       // Search through all airports
       for (const [code, airport] of Object.entries(airports)) {
-        // Match by IATA code
-        if (code.includes(upperQuery)) {
-          results.push({ code, ...airport })
+        // Exact IATA code match (e.g., "CAT" matches "CAT")
+        if (code === upperQuery) {
+          exactCodeMatches.push({ code, ...airport })
         }
-        // Match by city name
-        else if (airport.city.toUpperCase().includes(upperQuery)) {
-          results.push({ code, ...airport })
+        // IATA code starts with query (e.g., "CA" matches "CAT")
+        else if (code.startsWith(upperQuery)) {
+          codeStartMatches.push({ code, ...airport })
+        }
+        // City name starts with query (e.g., "CAT" matches "Catania")
+        else if (airport.city.toUpperCase().startsWith(upperQuery)) {
+          nameStartMatches.push({ code, ...airport })
         }
         
-        // Limit to 8 results
-        if (results.length >= 8) break
+        // Stop if we have enough results
+        if (exactCodeMatches.length + codeStartMatches.length + nameStartMatches.length >= 8) break
       }
       
-      return results
+      // Sort city name matches alphabetically by city name
+      nameStartMatches.sort((a, b) => a.city.localeCompare(b.city))
+      
+      // Return results in priority order: exact codes, then code prefixes, then name prefixes
+      return [...exactCodeMatches, ...codeStartMatches, ...nameStartMatches].slice(0, 8)
     }
 
     const loadMarkdownContent = async (filename, section) => {
