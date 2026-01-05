@@ -164,7 +164,7 @@ function App() {
 
     // 1. Create the scene
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x606569) // warm light gray
+    scene.background = new THREE.Color(0x606569) // darker gray
     sceneRef.current = scene  // Store scene reference
 
     // 2. Create the camera
@@ -845,6 +845,42 @@ function App() {
       renderer.dispose()
     }
   }, [])
+
+    useEffect(() => {
+      // Only clear if we have a flight path AND user is modifying airports
+      if (!flightPath && !flightResults) return
+      
+      // Clear flight path when departure or arrival is being edited
+      if (flightLineRef.current && sceneRef.current) {
+        sceneRef.current.remove(flightLineRef.current)
+        flightLineRef.current.traverse((child) => {
+          if (child.geometry) child.geometry.dispose()
+          if (child.material) child.material.dispose()
+        })
+        flightLineRef.current = null
+      }
+      
+      // Clear labels
+      if (departureLabelRef.current && sceneRef.current) {
+        sceneRef.current.remove(departureLabelRef.current)
+        departureLabelRef.current = null
+      }
+      if (arrivalLabelRef.current && sceneRef.current) {
+        sceneRef.current.remove(arrivalLabelRef.current)
+        arrivalLabelRef.current = null
+      }
+      
+      // Reset flight path state
+      setFlightPath(null)
+      setFlightResults(null)
+      hasFlightPathRef.current = false
+      
+      // Reset animation
+      setAnimationProgress(0)
+      animationProgressRef.current = 0
+      setIsPlaying(false)
+      
+    }, [departureSearch, arrivalSearch])
 
     // Effect to draw flight path when flightPath state changes
     useEffect(() => {
@@ -1960,7 +1996,29 @@ function App() {
           ? 2 * progress * progress
           : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
-        camera.position.lerpVectors(startPosition, targetPosition, eased)
+        // Spherical interpolation (slerp) - maintain constant distance from origin
+        const startNormal = startPosition.clone().normalize()
+        const targetNormal = targetPosition.clone().normalize()
+        
+        // Calculate angle between start and target
+        const angle = startNormal.angleTo(targetNormal)
+        
+        // Handle edge case where positions are identical or opposite
+        if (angle < 0.0001) {
+          camera.position.copy(targetPosition)
+        } else if (angle > Math.PI - 0.0001) {
+          // Positions are opposite - use linear interpolation
+          camera.position.lerpVectors(startPosition, targetPosition, eased)
+        } else {
+          // Normal case - use spherical interpolation
+          const axis = new THREE.Vector3().crossVectors(startNormal, targetNormal).normalize()
+          const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle * eased)
+          const interpolatedNormal = startNormal.clone().applyQuaternion(quaternion)
+          
+          // Apply the radius (keeps constant zoom)
+          camera.position.copy(interpolatedNormal.multiplyScalar(radius))
+        }
+        
         camera.lookAt(0, 0, 0)
         controls.update()
 
