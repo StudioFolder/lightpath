@@ -768,6 +768,12 @@ function App() {
           planeIconRef.current.visible = showPlaneIconRef.current && opacity > 0
         } else {
           planeIconRef.current.visible = false
+          // Re-enable OrbitControls when animation ends or is outside valid range
+          if (controls) {
+            controls.enabled = true
+            camera.userData.followModeDistance = null
+            controls.target.set(0, 0, 0)
+          }
         }
       }
 
@@ -1873,15 +1879,33 @@ function App() {
       const midLat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
       const midLon = Math.atan2(y, x) * 180 / Math.PI
 
-      // Calculate target camera position
+      // Calculate base camera position (directly above midpoint)
       const phi = (90 - midLat) * (Math.PI / 180)
       const theta = (midLon + 180) * (Math.PI / 180)
-
-      const targetPosition = new THREE.Vector3(
+      
+      const basePosition = new THREE.Vector3(
         -radius * Math.sin(phi) * Math.cos(theta),
         radius * Math.cos(phi),
         radius * Math.sin(phi) * Math.sin(theta)
       )
+
+      // Apply 10° south tilt
+      const tiltAngle = 10 * Math.PI / 180
+      const planeNormal = basePosition.clone().normalize()
+      
+      // Calculate "south" direction
+      const south = new THREE.Vector3(0, -1, 0)
+      const east = new THREE.Vector3().crossVectors(planeNormal, south).normalize()
+      const actualSouth = new THREE.Vector3().crossVectors(east, planeNormal).normalize()
+      
+      // Tilt the normal slightly toward south
+      const tiltedNormal = planeNormal.clone()
+        .multiplyScalar(Math.cos(tiltAngle))
+        .add(actualSouth.multiplyScalar(Math.sin(tiltAngle)))
+        .normalize()
+      
+      // Final target position with tilt
+      const targetPosition = tiltedNormal.multiplyScalar(radius)
 
       // Smooth animation to target position
       const startPosition = camera.position.clone()
