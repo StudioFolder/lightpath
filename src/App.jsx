@@ -741,11 +741,9 @@ function App() {
             const planeNormal = position.clone().normalize()
             
             // Create a tilt: shift camera 10° toward south
-            // We'll rotate the view direction slightly
             const tiltAngle = 10 * Math.PI / 180  // 10 degrees in radians
             
             // Calculate "south" direction (perpendicular to plane normal, toward negative latitude)
-            // Get a vector pointing "south" relative to the plane's position
             const south = new THREE.Vector3(0, -1, 0)  // Start with down direction
             const east = new THREE.Vector3().crossVectors(planeNormal, south).normalize()
             const actualSouth = new THREE.Vector3().crossVectors(east, planeNormal).normalize()
@@ -759,8 +757,28 @@ function App() {
             // Position camera at tilted angle
             const targetCameraPos = tiltedNormal.multiplyScalar(targetDistance)
             
-            // Smooth camera movement
-            camera.position.lerp(targetCameraPos, 0.05)
+            // Smooth camera movement using spherical interpolation (slerp)
+            const currentNormal = camera.position.clone().normalize()
+            const targetNormal = targetCameraPos.clone().normalize()
+            
+            const angle = currentNormal.angleTo(targetNormal)
+            
+            if (angle < 0.0001) {
+              // Already at target
+              camera.position.copy(targetCameraPos)
+            } else if (angle > Math.PI - 0.0001) {
+              // Opposite positions - use linear interpolation
+              camera.position.lerp(targetCameraPos, 0.05)
+            } else {
+              // Normal case - use spherical interpolation
+              const lerpAmount = 0.05
+              const axis = new THREE.Vector3().crossVectors(currentNormal, targetNormal).normalize()
+              const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle * lerpAmount)
+              const interpolatedNormal = currentNormal.clone().applyQuaternion(quaternion)
+              
+              // Apply the distance (keeps constant zoom)
+              camera.position.copy(interpolatedNormal.multiplyScalar(targetDistance))
+            }
             
             // Point camera at Earth center (0,0,0)
             camera.lookAt(0, 0, 0)
@@ -1019,7 +1037,7 @@ function App() {
         })
       }
 
-// Pre-calculate colors for entire path - BOTH color and B&W versions
+      // Pre-calculate colors for entire path - BOTH color and B&W versions
         const preCalculatedColorsColor = []
         const preCalculatedColorsBW = []
         const preCalculatedTransitions = []
