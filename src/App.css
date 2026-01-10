@@ -27,34 +27,40 @@
   --bw-bg-button: rgba(40, 40, 40, 0.8);
   --bw-bg-button-hover: rgba(40, 40, 40, 0.9);
   --bw-bg-input: rgba(255, 255, 255, 0.3);
-  --bw-border: rgba(50, 50, 50, 0.5);
+  --bw-border: rgba(50, 50, 50, 0.4);
   --bw-border-light: rgba(40, 40, 40, 0.3);
 }
 
 /* Text colors */
 .bw-mode .nav-link,
 .bw-mode .toggle-overlay label span,
+.bw-mode .airport-toggle-overlay label span,
+.bw-mode .graticule-toggle-overlay label span,
+.bw-mode .plane-toggle-overlay label span,
+.bw-mode .timezone-toggle-overlay label span,
+.bw-mode .bw-toggle-overlay label span,
+.bw-mode .follow-toggle-overlay label span,
+.bw-mode .twilight-toggle-overlay label span,
 .bw-mode .accordion-content {
   color: var(--bw-text-primary);
 }
 
 .bw-mode .flight-input h3,
-.bw-mode .flight-input,
-.bw-mode .input-group label,
 .bw-mode .input-group input,
 .bw-mode .animation-controls,
 .bw-mode .animation-route,
 .bw-mode .time-value,
-.bw-mode .airport-code,
-.bw-mode .airport-date,
 .bw-mode .result-label,
 .bw-mode .result-value,
-.bw-mode .datetime-group label,
 .bw-mode .datetime-group input[type="datetime-local"] {
   color: var(--bw-text-primary);
 }
 
-.bw-mode .animation-time {
+.bw-mode .animation-time,
+.bw-mode .airport-code,
+.bw-mode .airport-date,
+.bw-mode .input-group label,
+.bw-mode .datetime-group label {
   color: var(--bw-text-secondary);
 }
 
@@ -125,6 +131,18 @@
 
 .bw-mode .toggle-switch input:disabled + .toggle-slider:before {
   background-color: rgba(40, 40, 40, 0.3);
+}
+
+.bw-mode .time-slider {
+  background: rgba(40, 40, 40, 0.3);
+}
+
+.bw-mode .time-slider::-webkit-slider-thumb {
+  background: rgba(40, 40, 40, 0.8);
+}
+
+.bw-mode .time-slider::-moz-range-thumb {
+  background: rgba(40, 40, 40, 0.8);
 }
 
 
