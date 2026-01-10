@@ -1949,7 +1949,7 @@ function App() {
                 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                 const lineMaterial = new THREE.LineBasicMaterial({
-                  color: 0xffffff,
+                  color: isBWMode ? 0x0f0f0f : 0xffffff,  // Check current BW mode state
                   transparent: true,
                   opacity: 0
                 })
@@ -1967,7 +1967,7 @@ function App() {
                   
                   const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                   const lineMaterial = new THREE.LineBasicMaterial({
-                    color: 0xffffff,
+                    color: isBWMode ? 0x0f0f0f : 0xffffff,  // Check current BW mode state
                     transparent: true,
                     opacity: 0
                   })
@@ -2862,6 +2862,20 @@ function App() {
           const currentColor = new THREE.Color().lerpColors(startGraticuleColor, endGraticuleColor, easeT)
           
           graticule.traverse((child) => {
+            if (child.material) {
+              child.material.color.copy(currentColor)
+            }
+          })
+        }
+
+        // Interpolate timezone color
+        const timezones = sceneRef.current.getObjectByName('timezone-boundaries')
+        if (timezones) {
+          const startTimezoneColor = isBWMode ? new THREE.Color(0xffffff) : new THREE.Color(0x0f0f0f)
+          const endTimezoneColor = new THREE.Color(targets.graticuleColor)
+          const currentColor = new THREE.Color().lerpColors(startTimezoneColor, endTimezoneColor, easeT)
+          
+          timezones.traverse((child) => {
             if (child.material) {
               child.material.color.copy(currentColor)
             }
