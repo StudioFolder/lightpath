@@ -40,7 +40,6 @@ function App() {
   const [flightResults, setFlightResults] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [animationProgress, setAnimationProgress] = useState(0)
-  const [currentTimezone, setCurrentTimezone] = useState(null)
   
   // UI State
   const [showAirports, setShowAirports] = useState(false)
@@ -1023,21 +1022,6 @@ function App() {
             // Make sure controls target is at Earth center
             controls.target.set(0, 0, 0)
           }
-
-          // Detect current timezone
-          const lat = Math.asin(position.y / position.length()) * 180 / Math.PI
-          const theta = Math.atan2(position.z, -position.x)
-          let lon = (theta * 180 / Math.PI) - 180 
-
-          // Normalize longitude to -180 to 180 range
-          if (lon > 180) lon -= 360
-          if (lon < -180) lon += 360
-
-          const timezone = getTimezoneAtPoint(lat, lon)
-
-          if (timezone !== currentTimezone) {
-            setCurrentTimezone(timezone)
-          }
           
           // Set orientation using basis vectors
           const matrix = new THREE.Matrix4()
@@ -2007,36 +1991,55 @@ function App() {
           dateLine.userData.isDateLine = true
           timezoneGroup.add(dateLine)
 
-          // Create label as a mesh (not sprite)
+          // Create label as a curved mesh that follows the sphere
           const canvas = document.createElement('canvas')
           const context = canvas.getContext('2d')
           canvas.width = 512
           canvas.height = 128
 
-          context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+          context.fillStyle = isBWMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)'
           context.font = '42px system-ui'
           context.textAlign = 'center'
           context.textBaseline = 'middle'
           context.fillText('International Date Line', canvas.width / 2, canvas.height / 2)
 
           const texture = new THREE.CanvasTexture(canvas)
-          const labelGeometry = new THREE.PlaneGeometry(0.4, 0.08)
+
+          // Use a curved plane geometry that follows the sphere
+          const labelGeometry = new THREE.PlaneGeometry(0.4, 0.085, 32, 1)
+
+          // Curve the geometry to match Earth's surface
+          const positions = labelGeometry.attributes.position
+          for (let i = 0; i < positions.count; i++) {
+            const x = positions.getX(i)
+            const y = positions.getY(i)
+            
+            // Bend along the x-axis to follow meridian curvature
+            const bendRadius = 2.008
+            const angle = x / bendRadius
+            
+            positions.setX(i, bendRadius * Math.sin(angle))
+            positions.setZ(i, -bendRadius * (1 - Math.cos(angle)))
+          }
+          positions.needsUpdate = true
+          labelGeometry.computeVertexNormals()
+
           const labelMaterial = new THREE.MeshBasicMaterial({ 
             map: texture,
             transparent: true,
-            opacity: 0.9,
+            opacity: 0.7,
             side: THREE.DoubleSide,
-            depthTest: false
+            depthTest: true
           })
 
           const labelMesh = new THREE.Mesh(labelGeometry, labelMaterial)
 
-          // Position on sphere at equator, 180° longitude
+          // Position on sphere at equator, slightly east of 180° longitude
           const labelLat = 0
-          const labelLon = 180
+          const labelLon = 179  // Shifted 1° west of the date line
           const phi = (90 - labelLat) * (Math.PI / 180)
           const theta = (labelLon + 180) * (Math.PI / 180)
-          const radius = 2.05
+          const radius = 2.008  // Closer to surface: was 2.05
 
           labelMesh.position.set(
             -radius * Math.sin(phi) * Math.cos(theta),
@@ -2044,9 +2047,14 @@ function App() {
             radius * Math.sin(phi) * Math.sin(theta)
           )
 
-          // Rotate to align with meridian (vertical)
-          labelMesh.rotation.y = -Math.PI / 2  // Face outward
-          labelMesh.rotation.z = -Math.PI / 2  // Vertical orientation
+          // Orient tangent to sphere surface
+          const normal = new THREE.Vector3(
+            -Math.sin(phi) * Math.cos(theta),
+            Math.cos(phi),
+            Math.sin(phi) * Math.sin(theta)
+          )
+          labelMesh.lookAt(labelMesh.position.clone().add(normal))
+          labelMesh.rotateZ(Math.PI / 2) // Make text vertical
 
           labelMesh.userData.isDateLineLabel = true
           timezoneGroup.add(labelMesh)
@@ -2284,23 +2292,6 @@ function App() {
       }
 
     }, [isPlaying, flightResults, animationProgress, showAirports, showPlaneIcon, showTimezones, showGraticule, showTwilightLines])
-
-    // Highlight current timezone during flight
-    useEffect(() => {
-      if (!sceneRef.current) return
-      
-      const timezoneGroup = sceneRef.current.getObjectByName('timezone-boundaries')
-      if (!timezoneGroup) return
-      
-      timezoneGroup.traverse((child) => {
-        if (child.isLine && child.material) {
-          const isCurrentZone = child.userData.timezone === currentTimezone
-          child.material.opacity = isCurrentZone ? 0.9 : 0.3
-          child.material.color.setHex(isCurrentZone ? 0xc2dae6 : 0xffffff)  
-        }
-        
-      })
-    }, [currentTimezone])
 
     const isPointInDaylight = (lat, lon, time) => {
       // Get subsolar point at this time
@@ -2656,44 +2647,6 @@ function App() {
       } catch (error) {
         console.error('Error loading content:', error)
       }
-    }
-
-    const getTimezoneAtPoint = (lat, lon) => {
-      if (!timezoneDataRef.current) return null
-      
-      // Check each timezone polygon to see if point is inside
-      for (const feature of timezoneDataRef.current.features) {
-        const timezoneName = feature.properties.tzid || feature.properties.name
-        
-        // Simple point-in-polygon test (works for most cases)
-        if (feature.geometry.type === 'Polygon') {
-          if (isPointInPolygon([lon, lat], feature.geometry.coordinates[0])) {
-            return timezoneName
-          }
-        } else if (feature.geometry.type === 'MultiPolygon') {
-          for (const polygon of feature.geometry.coordinates) {
-            if (isPointInPolygon([lon, lat], polygon[0])) {
-              return timezoneName
-            }
-          }
-        }
-      }
-      
-      return null
-    }
-
-    // Point-in-polygon algorithm (ray casting)
-    const isPointInPolygon = (point, polygon) => {
-      let inside = false
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i][0], yi = polygon[i][1]
-        const xj = polygon[j][0], yj = polygon[j][1]
-        
-        const intersect = ((yi > point[1]) !== (yj > point[1]))
-          && (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi)
-        if (intersect) inside = !inside
-      }
-      return inside
     }
 
     const getLocalDateAtAirport = (date, airport) => {
