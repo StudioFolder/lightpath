@@ -145,6 +145,15 @@
   background: rgba(40, 40, 40, 0.8);
 }
 
+.bw-mode .follow-toggle-overlay input[type="checkbox"]:disabled + .toggle-slider {
+  background-color: rgba(40, 40, 40, 0.2);
+  opacity: 0.5;
+}
+
+.bw-mode .follow-toggle-overlay input[type="checkbox"]:disabled + .toggle-slider:before {
+  background-color: rgba(40, 40, 40, 0.5);
+}
+
 
 /* Shared toggle overlay styles */
 .toggle-overlay {

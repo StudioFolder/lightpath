@@ -11,8 +11,12 @@ import ReactMarkdown from 'react-markdown'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
+import { useNavigate, useParams } from 'react-router-dom'
 
 function App() {
+  const navigate = useNavigate()
+  const params = useParams()
+
   // ===== STATE =====
   // Loading & Time
   const [isLoading, setIsLoading] = useState(true)
@@ -262,6 +266,42 @@ function App() {
     // Line2 handles dashed lines automatically, no need to call computeLineDistances()
     
   }
+
+  // Read URL parameters and auto-load flight if present
+  useEffect(() => {
+    if (!params.route || !params.date || !params.time) return
+    if (!airports) return // Wait for airports to load
+    
+    const [from, to] = params.route.split('-')
+    
+    // Check if airports exist
+    if (!airports[from] || !airports[to]) {
+      console.log('Airports not found in database:', from, to)
+      return
+    }
+    
+    const departureAirport = airports[from]
+    const arrivalAirport = airports[to]
+    
+    const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00`
+    const flightDateTime = new Date(dateTime)
+    
+    // Set everything needed for the flight - mimicking the selection click
+    setDepartureCode(from)
+    setDepartureAirport(departureAirport)
+    setDepartureSearch('') // Clear search like the onClick does
+    
+    setArrivalCode(to)
+    setArrivalAirport(arrivalAirport)
+    setArrivalSearch('') // Clear search like the onClick does
+    
+    setDepartureTime(flightDateTime)
+    
+    // Calculate flight after state is set
+    setTimeout(() => {
+      calculateFlight()
+    }, 100)
+  }, [airports])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -2213,7 +2253,7 @@ function App() {
       const flightDistanceKm = flightResults ? parseFloat(flightResults.distance) : 5000
       
       // Define speed in km per second of animation
-      const kmPerSecond = 500 // Adjust this! Higher = faster line movement
+      const kmPerSecond = 400 // Adjust this! Higher = faster line movement
       
       // Calculate total animation duration based on distance
       const animationDurationMs = (flightDistanceKm / kmPerSecond) * 1000
@@ -2546,6 +2586,11 @@ function App() {
       // Stop auto-rotation when flight is calculated
       setAutoRotate(false)
       autoRotateRef.current = false
+
+      // Update URL with flight parameters
+      const dateStr = departureTime.toISOString().split('T')[0] // Format: 2026-01-15
+      const timeStr = departureTime.toTimeString().slice(0, 5).replace(':', '') // Format: 1430
+      navigate(`/flight/${departureCode}-${arrivalCode}/${dateStr}/${timeStr}`, { replace: true })
       
     }
 
@@ -3006,7 +3051,7 @@ function App() {
               checked={showAirports}
               onChange={(e) => setShowAirports(e.target.checked)}
             />
-            <span>(A) Show Airports</span>
+            <span>(A) Airports</span>
           </label>
         </div>
 
@@ -3017,7 +3062,7 @@ function App() {
               checked={showGraticule}
               onChange={(e) => setShowGraticule(e.target.checked)}
             />
-            <span>(G) Show Graticule</span>
+            <span>(G) Graticule</span>
           </label>
         </div>
 
@@ -3028,7 +3073,7 @@ function App() {
               checked={showTimezones}
               onChange={(e) => setShowTimezones(e.target.checked)}
             />
-            <span>(T) Show Timezones</span>
+            <span>(T) Timezones</span>
           </label>
         </div>
 
@@ -3256,9 +3301,14 @@ function App() {
                 style={{ opacity: departureAirport ? 1 : 0.5 }}
               />
             </div>
-            <button 
+              <button 
               onClick={calculateFlight}
-              disabled={!airports || departureCode.length !== 3 || arrivalCode.length !== 3}
+              disabled={
+                !airports || 
+                departureCode.length !== 3 || 
+                arrivalCode.length !== 3 || 
+                departureCode === arrivalCode
+              }
             >
               {!airports ? 'Loading airports...' : 'Calculate Flight'}
             </button>
