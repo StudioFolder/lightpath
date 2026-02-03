@@ -3092,7 +3092,16 @@ function App() {
         </div>
 
         <div className="footer-info">
-          Made by <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a> · version <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer">{packageJson.version}</a>
+          <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer" className="version-link">
+            <img 
+              src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
+              alt="GitHub"
+              className="github-icon"
+            />
+            {packageJson.version}
+          </a>
+          <span className="separator">·</span>
+          Made by <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
         </div>
 
         <div className="bw-toggle-overlay">

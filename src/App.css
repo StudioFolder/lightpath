@@ -311,7 +311,7 @@ canvas {
 }
 
 .airport-toggle-overlay {
-  bottom: 150px;
+  bottom: 160px;
 }
 
 .airport-toggle-overlay label {
@@ -331,7 +331,7 @@ canvas {
 }
 
 .graticule-toggle-overlay {
-  bottom: 120px;
+  bottom: 130px;
 }
 
 .graticule-toggle-overlay label {
@@ -784,7 +784,7 @@ canvas {
 }
 
 .timezone-toggle-overlay {
-  bottom: 90px;
+  bottom: 100px;
 }
 
 .timezone-toggle-overlay label {
@@ -804,7 +804,7 @@ canvas {
 }
 
 .twilight-toggle-overlay {
-  bottom: 60px;
+  bottom: 70px;
 }
 
 .twilight-toggle-overlay label {
@@ -829,6 +829,8 @@ canvas {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.3);
   pointer-events: all;
+  display: flex;
+  align-items: center;
 }
 
 .footer-info a {
@@ -839,6 +841,27 @@ canvas {
 
 .footer-info a:hover {
   color: rgba(255, 255, 255, 0.5);
+}
+
+.footer-info .version-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-info .github-icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+.footer-info .version-link:hover .github-icon {
+  opacity: 0.5;
+}
+
+.footer-info .separator {
+  margin: 0 6px;
 }
 
 .route-plane-icon {
@@ -1052,7 +1075,7 @@ canvas {
 
 .bw-toggle-overlay {
   position: absolute;
-  bottom: 230px; 
+  bottom: 240px; 
   left: 20px;
   pointer-events: all;
 }
@@ -1075,7 +1098,7 @@ canvas {
 
 .follow-toggle-overlay {
   position: absolute;
-  bottom: 200px; 
+  bottom: 210px; 
   left: 20px;
   pointer-events: all;
 }
