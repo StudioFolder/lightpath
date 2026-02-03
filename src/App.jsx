@@ -3009,8 +3009,11 @@ function App() {
     return (
       <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''}`}>
         <div className="info-overlay">
-          <div className="time">{simulatedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-          <div className="date">{simulatedTime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
+          <img 
+            src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
+            alt="Lightpath"
+            className="logo"
+          />
         </div>
 
         <div className="nav-accordion">
@@ -3088,6 +3091,10 @@ function App() {
           </label>
         </div>
 
+        <div className="footer-info">
+          Made by <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a> · version <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer">{packageJson.version}</a>
+        </div>
+
         <div className="bw-toggle-overlay">
           <label>
             <div className="toggle-switch">
@@ -3119,14 +3126,7 @@ function App() {
         
         <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''}`}>
           <div className="panel-header">
-            <h3>
-              <img 
-                src={isBWMode ? "/search-icon-bw.svg" : "/search-icon.svg"} 
-                alt="search" 
-                className="search-icon"
-              />
-              Search Route
-            </h3>
+            <h3>Search Route</h3>
             <button 
               className="collapse-button"
               onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
