@@ -130,7 +130,13 @@
 /* Inputs */
 .bw-mode .input-group input,
 .bw-mode .datetime-group input[type="datetime-local"] {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.08);
+  border: none;
+}
+
+.bw-mode .input-group input:focus,
+.bw-mode .datetime-group input[type="datetime-local"]:focus {
+  background: rgba(0, 0, 0, 0.12);
   border: none;
 }
 
@@ -375,7 +381,9 @@ canvas {
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   width: 400px;
-  transition: padding 0.25s ease-in-out;
+  transition: padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), 
+            width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s, 
+            border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s;
 }
 
 .flight-input h3 {
@@ -383,6 +391,7 @@ canvas {
   font-size: 18px;
   font-weight: 400;
   color: #fff;
+  transition: margin-bottom 0.35s ease-out;
 }
 
 .input-group {
@@ -662,15 +671,35 @@ canvas {
 
 .flight-input.collapsed {
   padding-bottom: 6px;
+  width: 260px;
+  border-radius: 36px;
 }
 
 .flight-input.collapsed .panel-content {
   max-height: 0 !important;
   opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  transition: max-height 0.25s ease-in, 
+              opacity 0.25s ease-in !important;
 }
 
 .flight-input.collapsed .panel-header {
   margin-bottom: 16px;
+  transition: margin-bottom 0.25s ease-in;
+}
+
+.flight-input.collapsed .panel-header h3 {
+  margin-bottom: 0;
+  transition: margin-bottom 0.25s ease-in;
+}
+
+.search-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+  vertical-align: middle;
+  opacity: 0.9;
 }
 
 .panel-header {
@@ -679,6 +708,7 @@ canvas {
   align-items: center;
   height: 24px;
   margin-bottom: 32px;
+  transition: margin-bottom 0.35s ease-out;
 }
 
 .panel-header h3 {
@@ -713,9 +743,10 @@ canvas {
 
 .panel-content {
   overflow: hidden;
-  max-height: 1000px;
+  max-height: 380px;
   opacity: 1;
-  transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out;
+  transition: max-height 0.35s ease-out, 
+              opacity 0.35s ease-out;
 }
 
 .input-with-name {

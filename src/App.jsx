@@ -3119,7 +3119,14 @@ function App() {
         
         <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''}`}>
           <div className="panel-header">
-            <h3>Search Route</h3>
+            <h3>
+              <img 
+                src={isBWMode ? "/search-icon-bw.svg" : "/search-icon.svg"} 
+                alt="search" 
+                className="search-icon"
+              />
+              Search Route
+            </h3>
             <button 
               className="collapse-button"
               onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
