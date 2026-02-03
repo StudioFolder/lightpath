@@ -680,7 +680,7 @@ canvas {
 }
 
 .flight-input.collapsed {
-  padding-bottom: 6px;
+  padding-bottom: 6px;  /* Original desktop padding */
   width: 260px;
   border-radius: 36px;
 }
@@ -719,6 +719,14 @@ canvas {
   height: 24px;
   margin-bottom: 32px;
   transition: margin-bottom 0.35s ease-out;
+}
+
+/* Only remove margin on mobile collapsed state */
+@media (max-width: 600px) {
+  .flight-input.collapsed .panel-header {
+    margin-bottom: 0;
+    height: auto;
+  }
 }
 
 .panel-header h3 {
@@ -1163,5 +1171,666 @@ canvas {
 
 .toggle-switch input:checked + .toggle-slider:before {
   transform: translateX(14px);
+}
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Hamburger menu button */
+.hamburger-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  width: 44px;
+  height: 44px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+  z-index: 100;
+  padding: 0;
+}
+
+
+/* Center hamburger with search panel on tablet */
+@media (min-width: 601px) and (max-width: 768px) {
+  .hamburger-button {
+    top: 16px;  /* Match tablet search panel position */
+  }
+}
+
+.hamburger-button:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.bw-mode .hamburger-button {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+.bw-mode .hamburger-button:hover {
+  color: rgba(40, 40, 40, 1);
+}
+
+/* Mobile menu overlay */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mobile-menu {
+  width: 280px;
+  max-width: 80vw;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  overflow-y: auto;
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.bw-mode .mobile-menu {
+  background: rgba(255, 255, 255, 0.95);
+  border-left-color: rgba(40, 40, 40, 0.2);
+}
+
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bw-mode .mobile-menu-header {
+  border-bottom-color: rgba(40, 40, 40, 0.2);
+}
+
+.mobile-menu-header h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.bw-mode .mobile-menu-header h2 {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+.mobile-menu-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.mobile-menu-close:hover {
+  color: #fff;
+}
+
+.bw-mode .mobile-menu-close {
+  color: rgba(40, 40, 40, 0.6);
+}
+
+.bw-mode .mobile-menu-close:hover {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+.mobile-menu-content {
+  padding: 12px;
+}
+
+.mobile-menu-link {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+  margin-bottom: 4px;
+}
+
+.mobile-menu-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bw-mode .mobile-menu-link {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+.bw-mode .mobile-menu-link:hover {
+  background: rgba(40, 40, 40, 0.08);
+}
+
+.mobile-menu-accordion {
+  padding: 12px 16px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.bw-mode .mobile-menu-accordion {
+  color: rgba(40, 40, 40, 0.8);
+}
+
+.mobile-menu-accordion h1 {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  color: #fff;
+}
+
+.bw-mode .mobile-menu-accordion h1 {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+.mobile-menu-accordion h2 {
+  font-size: 14px;
+  margin: 12px 0 6px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.bw-mode .mobile-menu-accordion h2 {
+  color: rgba(40, 40, 40, 0.85);
+}
+
+.mobile-menu-accordion p {
+  margin: 0 0 8px 0;
+}
+
+/* Tablet and below - 768px */
+@media (max-width: 768px) {
+  /* Logo - smaller on tablet */
+  .info-overlay {
+    top: 20px;
+    left: 16px;
+  }
+  
+  .info-overlay .logo {
+    height: 28px;
+  }
+  
+  /* Nav accordion - narrower */
+  .nav-accordion {
+    top: 60px;
+    left: 16px;
+    max-width: 220px;
+  }
+  
+  /* Flight input panel - narrower */
+  .flight-input {
+    width: 340px;
+    top: 16px;
+    padding: 18px;
+  }
+  
+  .flight-input.collapsed {
+    width: auto;
+    min-width: 200px;
+    padding: 8px 18px;  /* Mobile-only tight padding */
+    border-radius: 28px;
+  }
+
+  /* Animation controls - narrower */
+  .animation-controls {
+    min-width: 340px;
+    bottom: 16px;
+    padding: 20px 16px 14px;
+  }
+  
+  .time-value {
+    font-size: 24px;
+  }
+  
+  /* Footer - smaller text */
+  .footer-info {
+    font-size: 10px;
+    bottom: 16px;
+    left: 16px;
+  }
+  
+  .footer-info .github-icon {
+    width: 11px;
+    height: 11px;
+  }
+}
+
+/* Mobile landscape and portrait - 600px */
+@media (max-width: 600px) {
+  /* Logo - move to top-center on mobile */
+  .info-overlay {
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  .info-overlay .logo {
+    height: 24px;
+  }
+  
+  /* Nav accordion - hide by default on mobile, show in hamburger menu (future enhancement) */
+  .nav-accordion {
+    display: none;
+  }
+  
+  /* Show hamburger button on mobile, vertically centered with collapsed search panel */
+  .hamburger-button {
+    display: flex;
+    /* Collapsed panel: top 56px, height ~52px (padding 16px*2 + content ~20px) 
+       Center of panel: 56px + 26px = 82px
+       Hamburger is 44px tall, so: 82px - 22px = 60px */
+    top: 60px;
+  }
+  
+  /* When search panel is at 56px top, hamburger centers at 56px + (collapsed height ~40px / 2) - (button 44px / 2) */
+  .hamburger-button {
+    top: calc(56px + 12px);  /* Optical center with collapsed panel */
+  }
+  
+  /* Flight input panel - full width minus margins */
+  .flight-input {
+    width: calc(100vw - 32px);
+    max-width: 380px;
+    top: 56px;
+    padding: 16px;
+    border-radius: 20px;
+  }
+  
+  .flight-input.collapsed {
+    width: auto;
+    min-width: 200px;
+    padding: 8px 18px;  /* Tighter padding on mobile */
+    border-radius: 28px;
+  }
+  
+  .flight-input h3 {
+    font-size: 16px;
+    margin-bottom: 14px;
+  }
+  
+  /* Inputs - larger for touch targets */
+  .input-group input {
+    padding: 10px 14px;
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+  
+  .datetime-group input[type="datetime-local"] {
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+  
+  /* Autocomplete dropdown - constrain to viewport */
+  .autocomplete-dropdown {
+    max-height: 180px;
+  }
+  
+  /* Results panel - more compact */
+  .results-panel {
+    margin-top: 12px;
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  .result-row-double {
+    gap: 40px;
+  }
+  
+  /* Animation controls - keep horizontal layout like desktop but smaller */
+  .animation-controls {
+    min-width: calc(100vw - 32px);
+    max-width: 420px;
+    bottom: 12px;
+    padding: 16px 12px 12px;
+  }
+  
+  .animation-header {
+    flex-direction: row;
+    gap: 6px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  
+  .airport-time-left,
+  .airport-time-right {
+    flex-direction: column;
+    gap: 1px;
+    padding-top: 6px;
+    min-width: 70px;
+  }
+  
+  .airport-time-left {
+    align-items: flex-start;
+  }
+  
+  .airport-time-right {
+    align-items: flex-end;
+  }
+  
+  .airport-code {
+    font-size: 10px;
+    order: 1;
+    align-self: inherit;
+  }
+  
+  .time-value {
+    font-size: 18px;
+    order: 2;
+    align-self: inherit;
+  }
+  
+  .airport-date {
+    font-size: 10px;
+    order: 3;
+    align-self: inherit;
+  }
+  
+  .flight-info-center {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  
+  .animation-route {
+    font-size: 14px;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  
+  .route-plane-icon {
+    width: 11px;
+    height: 11px;
+  }
+  
+  .animation-distance {
+    font-size: 11px;
+    margin-top: 4px;
+    margin-bottom: 0;
+  }
+  
+  .animation-time {
+    font-size: 10px;
+  }
+  
+  /* Slider - slightly smaller */
+  .curved-slider {
+    height: 70px;
+  }
+  
+  .slider-icon {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .play-button {
+    font-size: 13px;
+    padding: 9px 20px;
+  }
+  
+  /* Toggle overlays - keep all visible, move higher to avoid footer */
+  .toggle-overlay {
+    left: 16px;
+  }
+  
+  .bw-toggle-overlay {
+    bottom: 280px;
+  }
+  
+  .follow-toggle-overlay {
+    bottom: 250px;
+  }
+  
+  .airport-toggle-overlay {
+    bottom: 200px;
+  }
+  
+  .graticule-toggle-overlay {
+    bottom: 170px;
+  }
+  
+  .timezone-toggle-overlay {
+    bottom: 140px;
+  }
+  
+  .twilight-toggle-overlay {
+    bottom: 110px;
+  }
+  
+  .toggle-overlay label {
+    font-size: 12px;
+  }
+  
+  /* Footer - keep visible but smaller, move to left to avoid animation controls */
+  .footer-info {
+    left: 16px;
+    right: auto;
+    bottom: 12px;
+    font-size: 9px;
+  }
+  
+  .footer-info .github-icon {
+    width: 10px;
+    height: 10px;
+    margin-right: 4px;
+  }
+}
+
+/* Very small mobile - 400px and below */
+@media (max-width: 400px) {
+  .info-overlay .logo {
+    height: 22px;
+  }
+  
+  .flight-input {
+    width: calc(100vw - 24px);
+    padding: 14px;
+    border-radius: 18px;
+  }
+  
+  .flight-input.collapsed {
+    width: auto;
+    min-width: 180px;
+  }
+  
+  .flight-input h3 {
+    font-size: 15px;
+  }
+  
+  .animation-controls {
+    min-width: calc(100vw - 24px);
+    padding: 16px 12px 10px;
+    border-radius: 20px;
+  }
+  
+  .animation-route {
+    font-size: 15px;
+    gap: 5px;
+  }
+  
+  .time-value {
+    font-size: 18px;
+  }
+  
+  .animation-distance {
+    font-size: 11px;
+  }
+  
+  .curved-slider {
+    height: 60px;
+  }
+  
+  .play-button {
+    font-size: 12px;
+    padding: 8px 18px;
+  }
+  
+  /* Keep all toggles visible, just adjust positions slightly */
+  .bw-toggle-overlay {
+    bottom: 270px;
+  }
+  
+  .follow-toggle-overlay {
+    bottom: 240px;
+  }
+  
+  .airport-toggle-overlay {
+    bottom: 190px;
+  }
+  
+  .graticule-toggle-overlay {
+    bottom: 160px;
+  }
+  
+  .timezone-toggle-overlay {
+    bottom: 130px;
+  }
+  
+  .twilight-toggle-overlay {
+    bottom: 100px;
+  }
+  
+  .footer-info {
+    font-size: 8px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+  .flight-input {
+    top: 12px;
+    max-width: 320px;
+  }
+  
+  .animation-controls {
+    bottom: 12px;
+    max-width: 360px;
+  }
+  
+  .animation-header {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .airport-time-left,
+  .airport-time-right {
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 12px;
+  }
+  
+  .time-value {
+    font-size: 18px;
+  }
+  
+  .toggle-overlay {
+    bottom: auto;
+    top: auto;
+  }
+  
+  .bw-toggle-overlay,
+  .follow-toggle-overlay,
+  .airport-toggle-overlay,
+  .graticule-toggle-overlay,
+  .timezone-toggle-overlay,
+  .twilight-toggle-overlay {
+    position: relative;
+    bottom: auto;
+    display: inline-block;
+    margin-right: 12px;
+  }
+  
+  .app::after {
+    content: '';
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    pointer-events: none;
+  }
+}
+
+/* Touch interaction improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  .flight-input button,
+  .play-button {
+    min-height: 44px;
+    padding: 12px 24px;
+  }
+  
+  .nav-link {
+    padding: 8px 0;
+    min-height: 36px;
+  }
+  
+  .toggle-overlay label {
+    padding: 4px 0;
+    min-height: 36px;
+  }
+  
+  /* Larger toggle switches for touch */
+  .toggle-switch {
+    width: 40px;
+    height: 22px;
+  }
+  
+  .toggle-slider:before {
+    height: 18px;
+    width: 18px;
+  }
+  
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(18px);
+  }
+  
+  /* Prevent text selection on double-tap */
+  .flight-input,
+  .animation-controls,
+  .toggle-overlay {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* But allow text selection in inputs */
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 

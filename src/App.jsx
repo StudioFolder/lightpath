@@ -62,6 +62,10 @@ function App() {
   const [dataContent, setDataContent] = useState('')
   const [isClosing, setIsClosing] = useState(false)
 
+  // Mobile Detection
+  const [isMobile, setIsMobile] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+
   // ===== REFS =====
   // Three.js Core
   const canvasRef = useRef(null)
@@ -312,6 +316,27 @@ function App() {
     isPlayingRef.current = isPlaying
   }, [isPlaying])
 
+  // Mobile detection - run once on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+      const isSmallScreen = window.innerWidth <= 768
+      
+      setIsMobile(isMobileDevice || (isTouchDevice && isSmallScreen))
+      
+      // Auto-collapse panel on mobile for better view
+      if (isMobileDevice || (isTouchDevice && isSmallScreen)) {
+        setIsPanelCollapsed(true)
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   useEffect(() => {
     if (!canvasRef.current) return
 
@@ -381,7 +406,7 @@ function App() {
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.localClippingEnabled = true  // Enable clipping
 
-    // Add orbit controls for mouse interaction
+    // Add orbit controls for mouse/touch interaction
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true  // Smooth motion
     controls.dampingFactor = 0.05
@@ -391,7 +416,16 @@ function App() {
     controls.enableZoom = false
     controls.enablePan = false  // Disable panning
     controls.autoRotate = true  // Enable auto-rotation
-    controls.autoRotateSpeed = -0.1  // Adjust speed (positive = counter-clockwise)
+    controls.autoRotateSpeed = -0.1  // Adjust speed
+    
+    // Enhanced touch controls for mobile
+    controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,    // Single finger rotates
+      TWO: THREE.TOUCH.DOLLY_PAN  // Two fingers for zoom
+    }
+    controls.rotateSpeed = 0.8  // Slightly slower rotation
+    controls.enableDamping = true
+    controls.dampingFactor = 0.08  // Slightly more damping for smoother mobile feel
 
     // 4. Create a sphere (our Earth)
     const geometry = new THREE.SphereGeometry(2, 96, 96)
@@ -3016,6 +3050,74 @@ function App() {
           />
         </div>
 
+        {/* Hamburger menu button - shows only on mobile when panel is collapsed */}
+        {isMobile && isPanelCollapsed && (
+          <button 
+            className="hamburger-button"
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            aria-label="Menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="2" y1="7" x2="18" y2="7"></line>
+              <line x1="2" y1="13" x2="18" y2="13"></line>
+            </svg>
+          </button>
+        )}  
+
+        {/* Mobile menu overlay */}
+        {showMobileMenu && (
+          <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
+            <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+              <div className="mobile-menu-header">
+                <h2>Menu</h2>
+                <button 
+                  className="mobile-menu-close"
+                  onClick={() => setShowMobileMenu(false)}
+                  aria-label="Close menu"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="mobile-menu-content">
+                <button 
+                  className="mobile-menu-link"
+                  onClick={() => {
+                    loadMarkdownContent('about.md', 'about')
+                    setShowMobileMenu(false)
+                  }}
+                >
+                  About
+                </button>
+                
+                {expandedSection === 'about' && aboutContent && (
+                  <div className="mobile-menu-accordion">
+                    <ReactMarkdown>
+                      {aboutContent.replace('{version}', packageJson.version)}
+                    </ReactMarkdown>
+                  </div>
+                )}
+                
+                <button 
+                  className="mobile-menu-link"
+                  onClick={() => {
+                    loadMarkdownContent('data.md', 'data')
+                    setShowMobileMenu(false)
+                  }}
+                >
+                  Data
+                </button>
+                
+                {expandedSection === 'data' && dataContent && (
+                  <div className="mobile-menu-accordion">
+                    <ReactMarkdown>{dataContent}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="nav-accordion">
           <button 
             className="nav-link"
@@ -3092,16 +3194,16 @@ function App() {
         </div>
 
         <div className="footer-info">
-          <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer" className="version-link">
-            <img 
-              src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
-              alt="GitHub"
-              className="github-icon"
-            />
+          <img 
+            src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
+            alt="GitHub"
+            className="github-icon"
+          />
+          <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer">
             {packageJson.version}
           </a>
           <span className="separator">·</span>
-          <span>Made by </span>
+          <span>Made by</span>
           <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
         </div>
 
@@ -3448,6 +3550,37 @@ function App() {
                   handleMove(e)
                   document.addEventListener('mousemove', handleMove)
                   document.addEventListener('mouseup', handleUp)
+                }}
+                onTouchStart={(e) => {
+                  const svg = e.currentTarget
+                  const rect = svg.getBoundingClientRect()
+                  
+                  const handleTouchMove = (touchEvent) => {
+                    touchEvent.preventDefault()
+                    const touch = touchEvent.touches[0]
+                    const x = (touch.clientX - rect.left) / rect.width * 400
+                    const clampedX = Math.max(25, Math.min(375, x))
+                    const newProgress = (clampedX - 25) / 350
+                    setAnimationProgress(newProgress)
+                    animationProgressRef.current = newProgress
+                  }
+                  
+                  const handleTouchEnd = () => {
+                    document.removeEventListener('touchmove', handleTouchMove)
+                    document.removeEventListener('touchend', handleTouchEnd)
+                  }
+                  
+                  if (e.touches.length > 0) {
+                    const touch = e.touches[0]
+                    const x = (touch.clientX - rect.left) / rect.width * 400
+                    const clampedX = Math.max(25, Math.min(375, x))
+                    const newProgress = (clampedX - 25) / 350
+                    setAnimationProgress(newProgress)
+                    animationProgressRef.current = newProgress
+                  }
+                  
+                  document.addEventListener('touchmove', handleTouchMove, { passive: false })
+                  document.addEventListener('touchend', handleTouchEnd)
                 }}
               >
                 {/* Gradient definition with fade at margins */}
