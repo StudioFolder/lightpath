@@ -827,10 +827,11 @@ canvas {
   bottom: 20px;
   left: 20px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   pointer-events: all;
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .footer-info a {
@@ -843,21 +844,13 @@ canvas {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.footer-info .version-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .footer-info .github-icon {
   width: 12px;
   height: 12px;
-  opacity: 0.3;
-  transition: opacity 0.2s;
-}
-
-.footer-info .version-link:hover .github-icon {
   opacity: 0.5;
+  margin-right: 6px;
+  align-self: center;
+  transform: translateY(1px);
 }
 
 .footer-info .separator {
@@ -868,7 +861,7 @@ canvas {
   width: 14px;
   height: 14px;
   opacity: 0.9;
-    transform: rotate(90deg);
+  transform: rotate(90deg);
 }
 
 /* Navigation links */

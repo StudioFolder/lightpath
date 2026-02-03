@@ -3101,7 +3101,8 @@ function App() {
             {packageJson.version}
           </a>
           <span className="separator">·</span>
-          Made by <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
+          <span>Made by </span>
+          <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
         </div>
 
         <div className="bw-toggle-overlay">
