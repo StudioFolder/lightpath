@@ -46,8 +46,8 @@ function App() {
   const [animationProgress, setAnimationProgress] = useState(0)
   
   // UI State
-  const [showAirports, setShowAirports] = useState(false)
-  const [showGraticule, setShowGraticule] = useState(false)
+  const [showAirports, setShowAirports] = useState(true)
+  const [showGraticule, setShowGraticule] = useState(true)
   const [showPlaneIcon, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
@@ -3119,7 +3119,7 @@ function App() {
         
         <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''}`}>
           <div className="panel-header">
-            <h3>Flight Path</h3>
+            <h3>Search Route</h3>
             <button 
               className="collapse-button"
               onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
@@ -3374,6 +3374,9 @@ function App() {
                   />
                   <span>{arrivalCode}</span>
                 </div>
+                <div className="animation-distance">
+                  {Math.round(flightResults.distance * animationProgress).toLocaleString()} km
+                </div>
                 <div className="animation-time">
                   {formatFlightTime(animationProgress, flightResults)}
                 </div>
@@ -3399,18 +3402,88 @@ function App() {
             </div>
             
             <div className="slider-container">
-              <input
-                type="range"
-                min="0"
-                max="1000"
-                value={animationProgress * 1000}
-                onChange={(e) => {
-                  const newProgress = e.target.value / 1000
-                  setAnimationProgress(newProgress)
-                  animationProgressRef.current = newProgress
+              <svg 
+                className="curved-slider" 
+                viewBox="0 0 400 80" 
+                preserveAspectRatio="xMidYMid meet"
+                onMouseDown={(e) => {
+                  const svg = e.currentTarget
+                  const rect = svg.getBoundingClientRect()
+                  
+                  const handleMove = (moveEvent) => {
+                    const x = (moveEvent.clientX - rect.left) / rect.width * 400
+                    
+                    // Map x position to progress with inset range (x=25 to x=375)
+                    const clampedX = Math.max(25, Math.min(375, x))
+                    const newProgress = (clampedX - 25) / 350
+                    
+                    setAnimationProgress(newProgress)
+                    animationProgressRef.current = newProgress
+                  }
+                  
+                  const handleUp = () => {
+                    document.removeEventListener('mousemove', handleMove)
+                    document.removeEventListener('mouseup', handleUp)
+                    svg.style.cursor = 'pointer'
+                  }
+                  
+                  svg.style.cursor = 'grabbing'
+                  handleMove(e)
+                  document.addEventListener('mousemove', handleMove)
+                  document.addEventListener('mouseup', handleUp)
                 }}
-                className="time-slider"
-              />
+              >
+                {/* Gradient definition with fade at margins */}
+                <defs>
+                  <linearGradient id="arcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopOpacity="0.1" stopColor="white"/>
+                    <stop offset="15%" stopOpacity="1" stopColor="white"/>
+                    <stop offset="85%" stopOpacity="1" stopColor="white"/>
+                    <stop offset="100%" stopOpacity="0.1" stopColor="white"/>
+                  </linearGradient>
+                  
+                  <linearGradient id="arcGradientBW" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopOpacity="0.1" stopColor="#282828"/>
+                    <stop offset="15%" stopOpacity="1" stopColor="#282828"/>
+                    <stop offset="85%" stopOpacity="1" stopColor="#282828"/>
+                    <stop offset="100%" stopOpacity="0.1" stopColor="#282828"/>
+                  </linearGradient>
+                </defs>
+                
+                {/* Curved arc path - extended to reach beyond icons */}
+                <path
+                  d="M 0 65 Q 200 15, 400 65"
+                  fill="none"
+                  stroke={`url(#${isBWMode ? 'arcGradientBW' : 'arcGradient'})`}
+                  strokeWidth="1.5"
+                  strokeOpacity="0.4"
+                />
+                
+                {/* Draggable thumb - calculate position along arc using quadratic bezier formula */}
+                {(() => {
+                  // Map animationProgress (0 to 1) to curve parameter t (0.0625 to 0.9375)
+                  // This corresponds to x positions from 25 to 375 on the curve
+                  const t_start = 0.0625
+                  const t_end = 0.9375
+                  const t = t_start + animationProgress * (t_end - t_start)
+                  
+                  // Calculate position on the actual curve: M 0 65 Q 200 15, 400 65
+                  const x = 400 * t
+                  const y = 65 - 100 * t + 100 * t * t
+                  
+                  return (
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="8"
+                      fill={isBWMode ? "#282828" : "#2d2e2f"}
+                      opacity="0.9"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  )
+                })()}
+              </svg>
+              
               <div className="time-labels">
                 <img 
                   src={isBWMode ? "/departure-icon-bw.svg" : "/departure-icon.svg"} 
