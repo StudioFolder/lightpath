@@ -3082,10 +3082,7 @@ function App() {
               <div className="mobile-menu-content">
                 <button 
                   className="mobile-menu-link"
-                  onClick={() => {
-                    loadMarkdownContent('about.md', 'about')
-                    setShowMobileMenu(false)
-                  }}
+                  onClick={() => loadMarkdownContent('about.md', 'about')}
                 >
                   About
                 </button>
@@ -3100,10 +3097,7 @@ function App() {
                 
                 <button 
                   className="mobile-menu-link"
-                  onClick={() => {
-                    loadMarkdownContent('data.md', 'data')
-                    setShowMobileMenu(false)
-                  }}
+                  onClick={() => loadMarkdownContent('data.md', 'data')}
                 >
                   Data
                 </button>

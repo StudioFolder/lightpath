@@ -1434,55 +1434,80 @@ canvas {
 
 /* Mobile landscape and portrait - 600px */
 @media (max-width: 600px) {
-  /* Logo - move to top-center on mobile */
+/* ===== MOBILE HEADER LAYOUT ===== */
+  
+  /* Logo - left aligned */
   .info-overlay {
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 26px;
+    left: 16px;
+    transform: none;
   }
   
   .info-overlay .logo {
     height: 24px;
+    margin-top: 2px;  /* Fine-tune vertical alignment */
   }
   
-  /* Nav accordion - hide by default on mobile, show in hamburger menu (future enhancement) */
+  /* Nav accordion - hide on mobile */
   .nav-accordion {
     display: none;
   }
   
-  /* Show hamburger button on mobile, vertically centered with collapsed search panel */
+  /* Hamburger button - right aligned */
   .hamburger-button {
     display: flex;
-    /* Collapsed panel: top 56px, height ~52px (padding 16px*2 + content ~20px) 
-       Center of panel: 56px + 26px = 82px
-       Hamburger is 44px tall, so: 82px - 22px = 60px */
-    top: 60px;
+    top: 26px;
+    right: 16px;
+    margin-top: 0;
   }
   
-  /* When search panel is at 56px top, hamburger centers at 56px + (collapsed height ~40px / 2) - (button 44px / 2) */
-  .hamburger-button {
-    top: calc(56px + 12px);  /* Optical center with collapsed panel */
-  }
-  
-  /* Flight input panel - full width minus margins */
+  /* Flight input panel - centered between logo and hamburger */
   .flight-input {
     width: calc(100vw - 32px);
     max-width: 380px;
-    top: 56px;
+    top: 70px;  /* Below header when expanded */
     padding: 16px;
     border-radius: 20px;
+    transition: top 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+                padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+                width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+                border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+  
+/* Collapsed panel - right aligned, next to hamburger */
+  .flight-input.collapsed {
+    top: 20px;
+    left: auto;  /* Remove center positioning */
+    right: 70px;  /* Position to left of hamburger (44px + 26px gap) */
+    transform: none;  /* Remove translateX centering */
+    width: auto;
+    min-width: 160px;
+    max-width: 180px;
+    padding: 4px 20px;
+    border-radius: 24px;
+  }
+  
+  /* Header elements - visually centered */
+  .info-overlay {
+    top: 34px;
   }
   
   .flight-input.collapsed {
-    width: auto;
-    min-width: 200px;
-    padding: 8px 18px;  /* Tighter padding on mobile */
-    border-radius: 28px;
+    top: 20px;
+  }
+  
+  .hamburger-button {
+    top: 26px;
   }
   
   .flight-input h3 {
     font-size: 16px;
     margin-bottom: 14px;
+  }
+  
+  .flight-input.collapsed h3 {
+    font-size: 14px;
+    margin-bottom: 0;
   }
   
   /* Inputs - larger for touch targets */
