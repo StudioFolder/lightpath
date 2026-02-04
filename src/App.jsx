@@ -65,6 +65,7 @@ function App() {
   // Mobile Detection
   const [isMobile, setIsMobile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [isMobileMenuClosing, setIsMobileMenuClosing] = useState(false)
 
   // ===== REFS =====
   // Three.js Core
@@ -3041,7 +3042,7 @@ function App() {
     }, [isBWMode])
 
     return (
-      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''}`}>
+      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''}`}>
         <div className="info-overlay">
           <img 
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
@@ -3066,13 +3067,25 @@ function App() {
 
         {/* Mobile menu overlay */}
         {showMobileMenu && (
-          <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
-            <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+          <div className={`mobile-menu-overlay ${isMobileMenuClosing ? 'closing' : ''}`} onClick={() => {
+            setIsMobileMenuClosing(true)
+            setTimeout(() => {
+              setShowMobileMenu(false)
+              setIsMobileMenuClosing(false)
+            }, 300)
+          }}>
+            <div className={`mobile-menu ${isMobileMenuClosing ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
               <div className="mobile-menu-header">
                 <h2>Menu</h2>
                 <button 
                   className="mobile-menu-close"
-                  onClick={() => setShowMobileMenu(false)}
+                  onClick={() => {
+                    setIsMobileMenuClosing(true)
+                    setTimeout(() => {
+                      setShowMobileMenu(false)
+                      setIsMobileMenuClosing(false)
+                    }, 300)
+                  }}
                   aria-label="Close menu"
                 >
                   ×
@@ -3080,6 +3093,7 @@ function App() {
               </div>
               
               <div className="mobile-menu-content">
+                {/* About/Data Section - at top */}
                 <button 
                   className="mobile-menu-link"
                   onClick={() => loadMarkdownContent('about.md', 'about')}
@@ -3107,6 +3121,63 @@ function App() {
                     <ReactMarkdown>{dataContent}</ReactMarkdown>
                   </div>
                 )}
+                
+                {/* Divider */}
+                <div className="mobile-menu-divider"></div>
+                
+                {/* Toggles Section - at bottom */}
+                <div className="mobile-menu-toggles">
+                  <label className="mobile-menu-toggle-item">
+                    <input 
+                      type="checkbox"
+                      checked={showAirports}
+                      onChange={(e) => setShowAirports(e.target.checked)}
+                    />
+                    <span>Airports</span>
+                  </label>
+                  
+                  <label className="mobile-menu-toggle-item">
+                    <input 
+                      type="checkbox"
+                      checked={showGraticule}
+                      onChange={(e) => setShowGraticule(e.target.checked)}
+                    />
+                    <span>Graticule</span>
+                  </label>
+                  
+                  <label className="mobile-menu-toggle-item">
+                    <input 
+                      type="checkbox"
+                      checked={showTimezones}
+                      onChange={(e) => setShowTimezones(e.target.checked)}
+                    />
+                    <span>Timezones</span>
+                  </label>
+                  
+                  <label className="mobile-menu-toggle-item">
+                    <input 
+                      type="checkbox"
+                      checked={showTwilightLines}
+                      onChange={(e) => setShowTwilightLines(e.target.checked)}
+                    />
+                    <span>Twilight Lines</span>
+                  </label>
+                </div>
+                
+                {/* Footer in mobile menu */}
+                <div className="mobile-menu-footer">
+                  <img 
+                    src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
+                    alt="GitHub"
+                    className="github-icon"
+                  />
+                  <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer">
+                    {packageJson.version}
+                  </a>
+                  <span className="separator">·</span>
+                  <span>Made by</span>
+                  <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
+                </div>
               </div>
             </div>
           </div>
@@ -3201,7 +3272,13 @@ function App() {
           <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
         </div>
 
-        <div className="bw-toggle-overlay">
+        <div 
+          className="bw-toggle-overlay"
+          style={isMobile ? {
+            bottom: flightResults ? '280px' : '60px',
+            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          } : {}}
+        >
           <label>
             <div className="toggle-switch">
               <input 
@@ -3215,7 +3292,13 @@ function App() {
           </label>
         </div>
 
-        <div className="follow-toggle-overlay">
+        <div 
+          className="follow-toggle-overlay"
+          style={isMobile ? {
+            bottom: flightResults ? '250px' : '30px',
+            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          } : {}}
+        >
           <label>
             <div className="toggle-switch">
               <input 
@@ -3233,13 +3316,13 @@ function App() {
         <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''}`}>
           <div className="panel-header">
             <h3>Search Route</h3>
-            <button 
-              className="collapse-button"
-              onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-              aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
-            >
-              {isPanelCollapsed ? '▼' : '▲'}
-            </button>
+              <button 
+                className={`collapse-button ${isPanelCollapsed ? 'collapsed' : ''}`}
+                onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+                aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
+              >
+                ▼
+              </button>
           </div>
           
           <div className="panel-content">
@@ -3619,8 +3702,8 @@ function App() {
                     <circle
                       cx={x}
                       cy={y}
-                      r="8"
-                      fill={isBWMode ? "#282828" : "#2d2e2f"}
+                      r="9"
+                      fill={isBWMode ? "#282828" : "#ffffff"}
                       opacity="0.9"
                       style={{ pointerEvents: 'none' }}
                     />

@@ -1,3 +1,11 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 @font-face {
   font-family: "MonoWeb-Book";
   src: url("/fonts/MonoWeb-Book.woff2") format("woff2");
@@ -523,7 +531,7 @@ canvas {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 24px 20px 16px;
+  padding: 20px 20px 14px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   min-width: 400px;
@@ -604,7 +612,7 @@ canvas {
 }
 
 .slider-container {
-  margin: 4px 0;
+  margin: 0;
   position: relative;
 }
 
@@ -673,9 +681,9 @@ canvas {
 .time-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
-  margin-top: 8px;
+  margin-top: 2px;
   padding: 0 18px;
 }
 
@@ -741,22 +749,35 @@ canvas {
   border: none !important;
   color: rgba(255, 255, 255, 0.5) !important;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   padding: 0 !important;
   width: 20px !important;
   height: 20px !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s;
-  line-height: 1;
   margin: 0;
   flex-shrink: 0;
+  transition: color 0.2s, transform 0.3s ease;
+  transform: rotate(0deg);
 }
 
 .flight-input .collapse-button:hover {
   color: rgba(255, 255, 255, 0.9) !important;
-  background: none !important;
+}
+
+/* Open state - rotate up */
+.flight-input .collapse-button:not(.collapsed) {
+  transform: rotate(180deg);
+}
+
+/* BW mode */
+.bw-mode .flight-input .collapse-button {
+  color: rgba(40, 40, 40, 0.6) !important;
+}
+
+.bw-mode .flight-input .collapse-button:hover {
+  color: var(--bw-text-primary) !important;
 }
 
 .panel-content {
@@ -858,7 +879,7 @@ canvas {
   opacity: 0.5;
   margin-right: 6px;
   align-self: center;
-  transform: translateY(1px);
+  /* transform: translateY(1px); */
 }
 
 .footer-info .separator {
@@ -1245,11 +1266,31 @@ canvas {
   border-left: 1px solid rgba(255, 255, 255, 0.2);
   overflow-y: auto;
   animation: slideInRight 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu.closing {
+  animation: slideOutRight 0.3s ease forwards;
+}
+
+.mobile-menu-overlay.closing {
+  animation: fadeOut 0.3s ease forwards;
 }
 
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .bw-mode .mobile-menu {
@@ -1310,6 +1351,15 @@ canvas {
 
 .mobile-menu-content {
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;  /* Take remaining space */
+}
+
+/* Spacer to push toggles to bottom */
+.mobile-menu-content > .mobile-menu-divider {
+  margin-top: auto;  /* Push everything after this to bottom */
+  margin-bottom: 12px;
 }
 
 .mobile-menu-link {
@@ -1375,6 +1425,111 @@ canvas {
   margin: 0 0 8px 0;
 }
 
+/* Mobile menu divider */
+.mobile-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 12px 0;
+}
+
+.bw-mode .mobile-menu-divider {
+  background: rgba(40, 40, 40, 0.2);
+}
+
+/* Mobile menu toggles section */
+.mobile-menu-toggles {
+  padding: 8px 0 24px 0;
+}
+
+.mobile-menu-toggle-item {
+  display: flex;
+  justify-content: flex-start;  /* Changed from space-between */
+  align-items: center;
+  gap: 12px;  /* Space between checkbox and text */
+  padding: 14px 16px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+  margin-bottom: 4px;
+}
+
+.mobile-menu-toggle-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bw-mode .mobile-menu-toggle-item:hover {
+  background: rgba(40, 40, 40, 0.08);
+}
+
+.mobile-menu-toggle-item input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2d2e2f;
+  flex-shrink: 0;  /* Prevent checkbox from shrinking */
+  order: -1;  /* Ensure checkbox comes first */
+}
+
+.bw-mode .mobile-menu-toggle-item input[type="checkbox"] {
+  accent-color: #282828;
+}
+
+.mobile-menu-toggle-item span {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+}
+
+.bw-mode .mobile-menu-toggle-item span {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+/* Mobile menu footer */
+.mobile-menu-footer {
+  padding: 16px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 12px;
+}
+
+.bw-mode .mobile-menu-footer {
+  color: rgba(40, 40, 40, 0.5);
+  border-top-color: rgba(40, 40, 40, 0.2);
+}
+
+.mobile-menu-footer .github-icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.5;
+  margin-right: 6px;
+}
+
+.mobile-menu-footer a {
+  color: rgba(255, 255, 255, 0.3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.bw-mode .mobile-menu-footer a {
+  color: rgba(40, 40, 40, 0.3);
+}
+
+.mobile-menu-footer a:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.bw-mode .mobile-menu-footer a:hover {
+  color: rgba(40, 40, 40, 0.5);
+}
+
+.mobile-menu-footer .separator {
+  margin: 0 6px;
+}
+
 /* Tablet and below - 768px */
 @media (max-width: 768px) {
   /* Logo - smaller on tablet */
@@ -1434,6 +1589,13 @@ canvas {
 
 /* Mobile landscape and portrait - 600px */
 @media (max-width: 600px) {
+
+  /* Fix Safari mobile viewport - full screen */
+  .app {
+    height: 100vh;
+    height: 100dvh;  /* Dynamic viewport height */
+  }
+
 /* ===== MOBILE HEADER LAYOUT ===== */
   
   /* Logo - left aligned */
@@ -1673,6 +1835,40 @@ canvas {
     height: 10px;
     margin-right: 4px;
   }
+
+  /* Hide toggles on mobile - now in hamburger menu */
+  .airport-toggle-overlay,
+  .graticule-toggle-overlay,
+  .timezone-toggle-overlay,
+  .twilight-toggle-overlay {
+    display: none;
+  }
+
+  /* Dynamic toggle positions - bottom by default */
+  .bw-toggle-overlay {
+    bottom: 80px;
+    transition: bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+  
+  .follow-toggle-overlay {
+    bottom: 50px;
+    transition: bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+  
+  /* Move up when flight is active and animation controls show */
+  .app.has-flight .bw-toggle-overlay {
+    bottom: 280px;
+  }
+  
+  .app.has-flight .follow-toggle-overlay {
+    bottom: 250px;
+  }
+
+  /* Hide footer on mobile - now in hamburger menu */
+  .footer-info {
+    display: none;
+  }
+  
 }
 
 /* Very small mobile - 400px and below */
