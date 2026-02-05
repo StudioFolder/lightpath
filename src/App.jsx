@@ -403,7 +403,9 @@ function App() {
       canvas: canvasRef.current,
       antialias: true  // smooth edges
     })
-    renderer.setSize(window.innerWidth, window.innerHeight)
+    const width = window.innerWidth;
+    const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.localClippingEnabled = true  // Enable clipping
 
@@ -424,9 +426,9 @@ function App() {
       ONE: THREE.TOUCH.ROTATE,    // Single finger rotates
       TWO: THREE.TOUCH.DOLLY_PAN  // Two fingers for zoom
     }
-    controls.rotateSpeed = 0.8  // Slightly slower rotation
+    controls.rotateSpeed = 0.4  // Slightly slower rotation
     controls.enableDamping = true
-    controls.dampingFactor = 0.08  // Slightly more damping for smoother mobile feel
+    controls.dampingFactor = 0.05  // Slightly more damping for smoother mobile feel
 
     // 4. Create a sphere (our Earth)
     const geometry = new THREE.SphereGeometry(2, 96, 96)
@@ -846,8 +848,19 @@ function App() {
     }
 
     // 5. Animation loop
-    function animate() {
+    let lastFrameTime = 0
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+    function animate(currentTime) {
       requestAnimationFrame(animate)
+      
+      if (isMobileDevice) {
+        const isActive = isPlayingRef.current || followPlaneModeRef.current
+        const targetInterval = isActive ? 1000 / 60 : 1000 / 30
+        
+        if (currentTime - lastFrameTime < targetInterval) return
+        lastFrameTime = currentTime
+      }
       
       // Pulsate the dot brightness
       const time = Date.now() * 0.002
@@ -1137,12 +1150,16 @@ function App() {
 
     // 6. Handle window resize
     function handleResize() {
-      camera.aspect = window.innerWidth / window.innerHeight
-      camera.updateProjectionMatrix()
-      renderer.setSize(window.innerWidth, window.innerHeight)
+      const width = window.innerWidth;
+      const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
     }
-    
-    window.addEventListener('resize', handleResize)
+    window.addEventListener('resize', handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    }
 
     // Update Line2 materials resolution
     Object.values(twilightLinesRef.current).forEach(line => {
@@ -2740,8 +2757,12 @@ function App() {
     useEffect(() => {
       isBWModeRef.current = isBWMode
       
+      // Update Safari status bar and html background
+      document.documentElement.style.background = isBWMode ? '#f5f5f5' : '#606569'
+      const meta = document.getElementById('theme-color-meta')
+      if (meta) meta.setAttribute('content', isBWMode ? '#f5f5f5' : '#606569')
+      
       if (isBWMode) {
-        // Find the element with bw-mode class
         const appElement = document.querySelector('.bw-mode')
         if (appElement) {
           bwColorsRef.current = {
@@ -2755,6 +2776,8 @@ function App() {
 
     // Update scene background when B&W mode changes
     useEffect(() => {
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isBWMode ? '#f5f5f5' : '#606569')
+
       if (!sceneRef.current) return
       
       // Target values for each mode
