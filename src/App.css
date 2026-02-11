@@ -634,7 +634,7 @@ canvas {
 
 .curved-slider {
   width: 100%;
-  height: 55px;
+  height: 80px;
   cursor: pointer;
   user-select: none;
 }
@@ -688,7 +688,10 @@ canvas {
   transition: border-color 0.2s ease;
   margin-left: auto;
   margin-right: auto;
-  margin-top: -24px;
+  margin-top: 0;
+  position: relative;
+  top: -24px;
+  margin-bottom: -24px;
 }
 
 .play-button:hover {
@@ -830,7 +833,7 @@ canvas {
 }
 
 .timezone-toggle-overlay {
-  bottom: 100px;
+  bottom: 70px;
 }
 
 .timezone-toggle-overlay label {
@@ -850,7 +853,7 @@ canvas {
 }
 
 .twilight-toggle-overlay {
-  bottom: 70px;
+  bottom: 100px;
 }
 
 .twilight-toggle-overlay label {

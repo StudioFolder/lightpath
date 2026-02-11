@@ -2362,12 +2362,16 @@ function App() {
 
         // T for timezones toggle
         if (e.key === 't' || e.key === 'T') {
-          setShowTimezones(!showTimezones)
+          const newValue = !showTimezones
+          setShowTimezones(newValue)
+          if (newValue) setShowGraticule(false)
         }
 
         // G for graticule toggle
         if (e.key === 'g' || e.key === 'G') {
-          setShowGraticule(!showGraticule)
+          const newValue = !showGraticule
+          setShowGraticule(newValue)
+          if (newValue) setShowTimezones(false)
         }
 
         // L for twilight lines toggle
@@ -3163,28 +3167,35 @@ function App() {
                     <input 
                       type="checkbox"
                       checked={showGraticule}
-                      onChange={(e) => setShowGraticule(e.target.checked)}
+                      onChange={(e) => {
+                        setShowGraticule(e.target.checked)
+                        if (e.target.checked) setShowTimezones(false)
+                      }}
                     />
                     <span>Graticule</span>
                   </label>
-                  
-                  <label className="mobile-menu-toggle-item">
-                    <input 
-                      type="checkbox"
-                      checked={showTimezones}
-                      onChange={(e) => setShowTimezones(e.target.checked)}
-                    />
-                    <span>Timezones</span>
-                  </label>
-                  
+
                   <label className="mobile-menu-toggle-item">
                     <input 
                       type="checkbox"
                       checked={showTwilightLines}
                       onChange={(e) => setShowTwilightLines(e.target.checked)}
                     />
-                    <span>Twilight Lines</span>
+                    <span>Twilight</span>
                   </label>
+                  
+                  <label className="mobile-menu-toggle-item">
+                    <input 
+                      type="checkbox"
+                      checked={showTimezones}
+                      onChange={(e) => {
+                        setShowTimezones(e.target.checked)
+                        if (e.target.checked) setShowGraticule(false)
+                      }}
+                    />
+                    <span>Timezones</span>
+                  </label>
+                  
                 </div>
                 
                 {/* Footer in mobile menu */}
@@ -3253,20 +3264,12 @@ function App() {
             <input 
               type="checkbox"
               checked={showGraticule}
-              onChange={(e) => setShowGraticule(e.target.checked)}
+              onChange={(e) => {
+                setShowGraticule(e.target.checked)
+                if (e.target.checked) setShowTimezones(false)
+              }}
             />
             <span>(G) Graticule</span>
-          </label>
-        </div>
-
-        <div className="timezone-toggle-overlay toggle-overlay">
-          <label>
-            <input 
-              type="checkbox"
-              checked={showTimezones}
-              onChange={(e) => setShowTimezones(e.target.checked)}
-            />
-            <span>(T) Timezones</span>
           </label>
         </div>
 
@@ -3277,7 +3280,21 @@ function App() {
               checked={showTwilightLines}
               onChange={(e) => setShowTwilightLines(e.target.checked)}
             />
-            <span>(L) Twilight Lines</span>
+            <span>(L) Twilight</span>
+          </label>
+        </div>
+
+        <div className="timezone-toggle-overlay toggle-overlay">
+          <label>
+            <input 
+              type="checkbox"
+              checked={showTimezones}
+              onChange={(e) => {
+                setShowTimezones(e.target.checked)
+                if (e.target.checked) setShowGraticule(false)
+              }}
+            />
+            <span>(T) Timezones</span>
           </label>
         </div>
 
