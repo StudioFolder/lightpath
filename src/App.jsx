@@ -20,7 +20,7 @@ function App() {
   // ===== STATE =====
   // Loading & Time
   const [isLoading, setIsLoading] = useState(true)
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [_CurrentTime, setCurrentTime] = useState(new Date())
   const [simulatedTime, setSimulatedTime] = useState(new Date())
   const [departureTime, setDepartureTime] = useState(new Date())
   
@@ -44,6 +44,7 @@ function App() {
   const [flightResults, setFlightResults] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [animationProgress, setAnimationProgress] = useState(0)
+  const [showFlightStats, setShowFlightStats] = useState(true)
   
   // UI State
   const [showAirports, setShowAirports] = useState(true)
@@ -2319,6 +2320,7 @@ function App() {
           animationProgressRef.current = newProgress
           if (newProgress >= 1) {
             setIsPlaying(false)
+            setShowFlightStats(true)
           }
           return newProgress
         })
@@ -2338,12 +2340,16 @@ function App() {
         
         // Only respond to spacebar when there's a flight
         if (e.code === 'Space' && flightResults) {
-          e.preventDefault() // Prevent page scroll
+          e.preventDefault()
           
           if (animationProgress >= 1) {
-            // Reset to beginning if at end
             setAnimationProgress(0)
             animationProgressRef.current = 0
+            setShowFlightStats(true)
+          }
+          
+          if (!isPlaying) {
+            setShowFlightStats(false)
           }
           
           setIsPlaying(!isPlaying)
@@ -2620,6 +2626,7 @@ function App() {
       
       console.log('Results:', results)
       setFlightResults(results)
+      setIsPanelCollapsed(true)
       
       // Trigger flight path drawing
       setFlightPath({ departure, arrival })
@@ -2654,7 +2661,7 @@ function App() {
       try {
         const tz = tzlookup(airport.lat, airport.lon)
         return tz
-      } catch (e) {
+      } catch {
         // Fallback to UTC offset if lookup fails
         const offset = Math.round(airport.lon / 15)
         return `UTC${offset >= 0 ? '+' : ''}${offset}`
@@ -3548,31 +3555,6 @@ function App() {
             >
               {!airports ? 'Loading airports...' : 'Calculate Flight'}
             </button>
-            
-            {flightResults && (
-              <div className="results-panel">
-                <div className="result-row-double">
-                  <div className="result-item">
-                    <span className="result-label">Distance:</span>
-                    <span className="result-value">{flightResults.distance.toLocaleString()} km</span>
-                  </div>
-                  <div className="result-item">
-                    <span className="result-label">Daylight:</span>
-                    <span className="result-value">{flightResults.daylightHours}h {flightResults.daylightMins}m</span>
-                  </div>
-                </div>
-                <div className="result-row-double">
-                  <div className="result-item">
-                    <span className="result-label">Duration:</span>
-                    <span className="result-value">{flightResults.durationHours}h {flightResults.durationMins}m</span>
-                  </div>
-                  <div className="result-item">
-                    <span className="result-label">Darkness:</span>
-                    <span className="result-value">{flightResults.darknessHours}h {flightResults.darknessMins}m</span>
-                  </div>
-                </div>
-              </div>
-            )}
     
           </div>
         </div>
@@ -3581,6 +3563,25 @@ function App() {
     
         {flightResults && (
           <div className={`animation-controls ${flightPath ? 'visible' : ''}`}>
+            <div className={`flight-stats ${showFlightStats ? '' : 'hidden'} ${showFlightStats && animationProgress >= 1 ? 'slow-reveal' : ''}`}
+              >
+              <div className="flight-stat">
+                <span className="flight-stat-label">Distance</span>
+                <span className="flight-stat-value">{flightResults.distance.toLocaleString()} km</span>
+              </div>
+              <div className="flight-stat">
+                <span className="flight-stat-label">Duration</span>
+                <span className="flight-stat-value">{flightResults.durationHours}h {flightResults.durationMins}m</span>
+              </div>
+              <div className="flight-stat">
+                <span className="flight-stat-label">Daylight</span>
+                <span className="flight-stat-value">{flightResults.daylightHours}h {flightResults.daylightMins}m</span>
+              </div>
+              <div className="flight-stat">
+                <span className="flight-stat-label">Darkness</span>
+                <span className="flight-stat-value">{flightResults.darknessHours}h {flightResults.darknessMins}m</span>
+              </div>
+            </div>
             <div className="animation-header">
               <div className="airport-time airport-time-left">
                 <span className="airport-code">
@@ -3601,7 +3602,15 @@ function App() {
               </div>
     
               <div className="flight-info-center">
-                <div className="animation-route">
+                <div className="animation-route"
+                  onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
+                  onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
+                  onClick={() => {
+                    if ('ontouchstart' in window) {
+                      setShowFlightStats(prev => !prev)
+                    }
+                  }}
+                >
                   <span>{departureCode}</span>
                   <img 
                     src={isBWMode ? "/plane-icon-bw.svg" : "/plane-icon.svg"} 
@@ -3769,13 +3778,13 @@ function App() {
               className="play-button"
               onClick={() => {
                 if (animationProgress >= 1) {
-                  // Reset to beginning if at end
                   setAnimationProgress(0)
                   animationProgressRef.current = 0
+                  setShowFlightStats(true)
                 }
-                // Collapse panel when starting to play
                 if (!isPlaying) {
                   setIsPanelCollapsed(true)
+                  setShowFlightStats(false)
                 }
                 setIsPlaying(!isPlaying)
               }}

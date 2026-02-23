@@ -214,6 +214,18 @@ body:has(.bw-mode) {
   color: rgba(40, 40, 40, 0.5);
 }
 
+.bw-mode .flight-stat-label {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.bw-mode .flight-stat-value {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.bw-mode .flight-stats {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
 
 /* Shared toggle overlay styles */
 .toggle-overlay {
@@ -558,6 +570,53 @@ canvas {
   display: block;
 }
 
+.flight-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 30px;
+  max-height: 100px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease, margin 0.35s ease, border-color 0.35s ease;
+}
+
+.flight-stats.hidden {
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  margin-bottom: 0;
+  border-bottom-color: transparent;
+}
+
+.flight-stats.slow-reveal {
+  transition: max-height 0.6s ease, opacity 0.5s ease 0.1s, padding 0.6s ease, margin 0.6s ease, border-color 0.6s ease;
+}
+
+.flight-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.flight-stat-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+  font-weight: 400;
+}
+
+.flight-stat-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 6px;
+}
+
 .animation-header {
   display: flex;
   justify-content: space-between;
@@ -578,8 +637,8 @@ canvas {
 }
 
 .animation-distance {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
   margin-top: 16px;
   margin-bottom: 2px;
 }
@@ -784,6 +843,19 @@ canvas {
 
 .flight-input .collapse-button:hover {
   color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.flight-stat-value {
+  font-size: 12px;
+}
+
+.flight-stat-label {
+  font-size: 10px;
+}
+
+.flight-stats {
+  padding: 0 0 10px;
+  margin-bottom: 10px;
 }
 
 /* Open state - rotate up */
