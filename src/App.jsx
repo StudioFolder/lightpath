@@ -1601,7 +1601,7 @@ function App() {
             context.fillText(trans.time, startX, canvas.height / 2)
             
             // Draw icon after text
-            const iconY = (canvas.height - iconSize) / 2
+            const iconY = (canvas.height - iconSize) / 2 - 5
             const iconX = startX + textWidth + gap
             context.drawImage(icon, iconX, iconY, iconSize, iconSize)
             
@@ -1617,7 +1617,7 @@ function App() {
             depthTest: true
           })
           const sprite = new THREE.Sprite(material)
-          sprite.scale.set(0.20, 0.07, 1)
+          sprite.scale.set(isMobile ? 0.28 : 0.20, isMobile ? 0.10 : 0.07, 1)
           sprite.visible = false
           
           sprite.userData.transitionT = trans.t
@@ -3121,7 +3121,7 @@ function App() {
 
         {/* Dark overlay behind mobile menu */}
         {showMobileMenu && (
-          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'}`} style={{ background: isBWMode ? 'rgba(245, 245, 245, 0.8)' : 'rgba(0, 0, 0, 0.65)' }} />
+          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'}`} />       
         )}
         
         {/* Mobile menu - sits behind canvas */}
@@ -3328,10 +3328,7 @@ function App() {
 
         <div 
           className="bw-toggle-overlay"
-          style={isMobile ? {
-            bottom: flightResults ? '280px' : '60px',
-            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease'
-          } : {}}
+          style={isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all' } : {}}
         >
           <label>
             <div className="toggle-switch">
@@ -3348,10 +3345,7 @@ function App() {
 
         <div 
           className="follow-toggle-overlay"
-          style={isMobile ? {
-            bottom: flightResults ? '250px' : '30px',
-            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease'
-          } : {}}
+          style={isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all' } : {}}
         >
           <label>
             <div className="toggle-switch">
