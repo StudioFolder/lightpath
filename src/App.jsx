@@ -67,6 +67,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isMobileMenuClosing, setIsMobileMenuClosing] = useState(false)
+  const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false)
 
   // ===== REFS =====
   // Three.js Core
@@ -326,6 +327,10 @@ function App() {
       const isSmallScreen = window.innerWidth <= 768
       
       setIsMobile(isMobileDevice || (isTouchDevice && isSmallScreen))
+
+      if (isMobileDevice || (isTouchDevice && isSmallScreen)) {
+        setFollowPlaneMode(true)
+      }
       
       // Auto-collapse panel on mobile for better view
       if (isMobileDevice || (isTouchDevice && isSmallScreen)) {
@@ -463,7 +468,8 @@ function App() {
     planeBWTextureRef.current = planeBWTexture
 
     // Create a plane mesh instead of sprite
-    const planeGeometry = new THREE.PlaneGeometry(0.04, 0.04)
+    const planeSize = window.innerWidth <= 600 ? 0.06 : 0.04
+    const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize)
     planeGeometry.rotateX(Math.PI / 2)  // Rotate geometry 90° around X axis
     planeGeometry.rotateY(Math.PI)
     const planeMaterial = new THREE.MeshBasicMaterial({
@@ -1691,7 +1697,7 @@ function App() {
               sizeAttenuation: true,
             })
             const sprite = new THREE.Sprite(material)
-            sprite.scale.set(0.16, 0.06, 1)
+            sprite.scale.set(isMobile ? 0.22 : 0.16, isMobile ? 0.08 : 0.06, 1)
             
             resolve(sprite)
           }
@@ -2446,8 +2452,8 @@ function App() {
       const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
       const z = a * Math.sin(lat1) + b * Math.sin(lat2)
       
-      const midLat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
-      const midLon = Math.atan2(y, x) * 180 / Math.PI
+      const midLat = isMobile ? departure.lat : Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+      const midLon = isMobile ? departure.lon : Math.atan2(y, x) * 180 / Math.PI
 
       // Calculate base camera position (directly above midpoint)
       const phi = (90 - midLat) * (Math.PI / 180)
@@ -3076,7 +3082,7 @@ function App() {
     }, [isBWMode])
 
     return (
-      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''}`}>
+      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showMobileMenu && !isMobileMenuClosing ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
         <div className="info-overlay">
           <img 
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
@@ -3085,140 +3091,137 @@ function App() {
           />
         </div>
 
-        {/* Hamburger menu button - shows only on mobile when panel is collapsed */}
+        {/* Hamburger menu button - shows on mobile */}
         {isMobile && (
           <button 
-            className="hamburger-button"
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className={`hamburger-button ${showMobileMenu ? 'open' : ''}`}
+            onClick={() => {
+              if (isMobileMenuAnimating) return
+              if (!showMobileMenu) {
+                setIsMobileMenuAnimating(true)
+                setShowMobileMenu(true)
+                setTimeout(() => setIsMobileMenuAnimating(false), 800)
+              } else {
+                setIsMobileMenuAnimating(true)
+                setIsMobileMenuClosing(true)
+                setTimeout(() => {
+                  setShowMobileMenu(false)
+                  setIsMobileMenuClosing(false)
+                  setIsMobileMenuAnimating(false)
+                }, 800)
+              }
+            }}
             aria-label="Menu"
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="2" y1="7" x2="18" y2="7"></line>
-              <line x1="2" y1="13" x2="18" y2="13"></line>
-            </svg>
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
           </button>
-        )}  
+        )}
 
-        {/* Mobile menu overlay */}
+        {/* Mobile menu - sits behind canvas */}
         {showMobileMenu && (
-          <div className={`mobile-menu-overlay ${isMobileMenuClosing ? 'closing' : ''}`} onClick={() => {
-            setIsMobileMenuClosing(true)
-            setTimeout(() => {
-              setShowMobileMenu(false)
-              setIsMobileMenuClosing(false)
-            }, 300)
-          }}>
-            <div className={`mobile-menu ${isMobileMenuClosing ? 'closing' : ''}`} onClick={(e) => e.stopPropagation()}>
-              <div className="mobile-menu-header">
-                <h2>Menu</h2>
-                <button 
-                  className="mobile-menu-close"
-                  onClick={() => {
-                    setIsMobileMenuClosing(true)
-                    setTimeout(() => {
-                      setShowMobileMenu(false)
-                      setIsMobileMenuClosing(false)
-                    }, 300)
-                  }}
-                  aria-label="Close menu"
-                >
-                  ×
-                </button>
+          <div className="mobile-menu-offcanvas">
+            <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
+              <button 
+                className="mobile-menu-link"
+                onClick={() => loadMarkdownContent('about.md', 'about')}
+              >
+                About
+              </button>
+              
+              {expandedSection === 'about' && aboutContent && (
+                <div className="mobile-menu-accordion">
+                  <ReactMarkdown>
+                    {aboutContent.replace('{version}', packageJson.version)}
+                  </ReactMarkdown>
+                </div>
+              )}
+              
+              <button 
+                className="mobile-menu-link"
+                onClick={() => loadMarkdownContent('data.md', 'data')}
+              >
+                Data
+              </button>
+              
+              {expandedSection === 'data' && dataContent && (
+                <div className="mobile-menu-accordion">
+                  <ReactMarkdown>{dataContent}</ReactMarkdown>
+                </div>
+              )}
+              
+              <div className="mobile-menu-spacer"></div>
+              <div className="mobile-menu-divider"></div>
+              
+              <div className="mobile-menu-toggles">
+                <label className="mobile-menu-toggle-item">
+                  <input 
+                    type="checkbox"
+                    checked={showAirports}
+                    onChange={(e) => setShowAirports(e.target.checked)}
+                  />
+                  <span>Airports</span>
+                </label>
+                
+                <label className="mobile-menu-toggle-item">
+                  <input 
+                    type="checkbox"
+                    checked={showGraticule}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      if (checked) {
+                        setShowTimezones(false)
+                        setTimeout(() => setShowGraticule(true), 50)
+                      } else {
+                        setShowGraticule(false)
+                      }
+                    }}
+                  />
+                  <span>Graticule</span>
+                </label>
+                
+                <label className="mobile-menu-toggle-item">
+                  <input 
+                    type="checkbox"
+                    checked={showTwilightLines}
+                    onChange={(e) => setShowTwilightLines(e.target.checked)}
+                  />
+                  <span>Twilight</span>
+                </label>
+                
+                <label className="mobile-menu-toggle-item">
+                  <input 
+                    type="checkbox"
+                    checked={showTimezones}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      if (checked) {
+                        setShowGraticule(false)
+                        setTimeout(() => setShowTimezones(true), 50)
+                      } else {
+                        setShowTimezones(false)
+                        setTimeout(() => setShowGraticule(true), 50)
+                      }
+                    }}
+                  />
+                  <span>Timezones</span>
+                </label>
               </div>
               
-              <div className="mobile-menu-content">
-                {/* About/Data Section - at top */}
-                <button 
-                  className="mobile-menu-link"
-                  onClick={() => loadMarkdownContent('about.md', 'about')}
-                >
-                  About
-                </button>
-                
-                {expandedSection === 'about' && aboutContent && (
-                  <div className="mobile-menu-accordion">
-                    <ReactMarkdown>
-                      {aboutContent.replace('{version}', packageJson.version)}
-                    </ReactMarkdown>
-                  </div>
-                )}
-                
-                <button 
-                  className="mobile-menu-link"
-                  onClick={() => loadMarkdownContent('data.md', 'data')}
-                >
-                  Data
-                </button>
-                
-                {expandedSection === 'data' && dataContent && (
-                  <div className="mobile-menu-accordion">
-                    <ReactMarkdown>{dataContent}</ReactMarkdown>
-                  </div>
-                )}
-                
-                {/* Divider */}
-                <div className="mobile-menu-divider"></div>
-                
-                {/* Toggles Section - at bottom */}
-                <div className="mobile-menu-toggles">
-                  <label className="mobile-menu-toggle-item">
-                    <input 
-                      type="checkbox"
-                      checked={showAirports}
-                      onChange={(e) => setShowAirports(e.target.checked)}
-                    />
-                    <span>Airports</span>
-                  </label>
-                  
-                  <label className="mobile-menu-toggle-item">
-                    <input 
-                      type="checkbox"
-                      checked={showGraticule}
-                      onChange={(e) => {
-                        setShowGraticule(e.target.checked)
-                        if (e.target.checked) setShowTimezones(false)
-                      }}
-                    />
-                    <span>Graticule</span>
-                  </label>
-
-                  <label className="mobile-menu-toggle-item">
-                    <input 
-                      type="checkbox"
-                      checked={showTwilightLines}
-                      onChange={(e) => setShowTwilightLines(e.target.checked)}
-                    />
-                    <span>Twilight</span>
-                  </label>
-                  
-                  <label className="mobile-menu-toggle-item">
-                    <input 
-                      type="checkbox"
-                      checked={showTimezones}
-                      onChange={(e) => {
-                        setShowTimezones(e.target.checked)
-                        if (e.target.checked) setShowGraticule(false)
-                      }}
-                    />
-                    <span>Timezones</span>
-                  </label>
-                  
-                </div>
-                
-                {/* Footer in mobile menu */}
-                <div className="mobile-menu-footer">
-                  <img 
-                    src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
-                    alt="GitHub"
-                    className="github-icon"
-                  />
-                  <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer">
-                    {packageJson.version}
-                  </a>
-                  <span className="separator">·</span>
-                  <span>Made by</span>
-                  <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
-                </div>
+              <div className="mobile-menu-divider"></div>
+              
+              <div className="mobile-menu-footer">
+                <img 
+                  src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
+                  alt="GitHub"
+                  className="github-icon"
+                />
+                <a href="https://github.com/StudioFolder/lightpath" target="_blank" rel="noopener noreferrer">
+                  {packageJson.version}
+                </a>
+                <span className="separator">·</span>
+                <span>Made by</span>
+                <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
               </div>
             </div>
           </div>
@@ -3369,7 +3372,7 @@ function App() {
                 aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
               >
                 <span className="collapse-arrow">▼</span>
-                <svg className="collapse-lens" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="collapse-lens" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="7" />
                   <line x1="16.5" y1="16.5" x2="21" y2="21" />
                 </svg>
