@@ -570,7 +570,7 @@ canvas {
   padding: 20px 20px 14px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  min-width: 400px;
+  min-width: 400px; /* desktop only, overridden on mobile */
   display: none;
 }
 
@@ -1767,19 +1767,25 @@ canvas {
     right: 70px;
     transform: none;
     width: auto;
-    min-width: auto;
+    min-width: 0 !important;
     max-width: 160px;
-    padding: 0px 16px;
+    padding: 0px 10px;
     border-radius: 48px;
   }
+
+  .flight-input.collapsed .panel-header {
+  gap: 12px;
+  justify-content: center;
+  }
+
+  .flight-input.collapsed .collapse-button {
+  width: 16px !important;
+  height: 16px !important;
+  } 
   
   /* Header elements - visually centered */
   .info-overlay {
     top: 30px;
-  }
-  
-  .flight-input.collapsed {
-    top: 20px;
   }
   
   .hamburger-button {
@@ -1825,7 +1831,8 @@ canvas {
   
   /* Animation controls - keep horizontal layout like desktop but smaller */
   .animation-controls {
-    min-width: calc(100vw - 32px);
+    min-width: 0 !important;
+    width: calc(100vw - 48px);
     max-width: 420px;
     bottom: 12px;
     padding: 16px 12px 12px;
@@ -1833,7 +1840,7 @@ canvas {
   
   .animation-header {
     flex-direction: row;
-    gap: 6px;
+    gap: 0px;
     align-items: center;
     justify-content: space-between;
   }
@@ -1842,7 +1849,7 @@ canvas {
   .airport-time-right {
     flex-direction: column;
     gap: 1px;
-    min-width: 70px;
+    min-width: 80px;
   }
   
   .airport-time-left {
