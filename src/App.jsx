@@ -3118,6 +3118,11 @@ function App() {
           </button>
         )}
 
+        {/* Dark overlay behind mobile menu */}
+        {showMobileMenu && (
+          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'}`} />
+        )}
+        
         {/* Mobile menu - sits behind canvas */}
         {showMobileMenu && (
           <div className="mobile-menu-offcanvas">
@@ -3150,7 +3155,8 @@ function App() {
                 </div>
               )}
               
-              <div className="mobile-menu-spacer"></div>
+              </div>
+              <div className="mobile-menu-bottom">
               <div className="mobile-menu-divider"></div>
               
               <div className="mobile-menu-toggles">
@@ -3207,8 +3213,6 @@ function App() {
                   <span>Timezones</span>
                 </label>
               </div>
-              
-              <div className="mobile-menu-divider"></div>
               
               <div className="mobile-menu-footer">
                 <img 
