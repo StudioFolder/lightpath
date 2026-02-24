@@ -52,6 +52,7 @@ function App() {
   const [showPlaneIcon, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
+  const [isPanelFading, setIsPanelFading] = useState(false)
   const [autoRotate, setAutoRotate] = useState(true)
   const [isBWMode, setIsBWMode] = useState(false)
   const [followPlaneMode, setFollowPlaneMode] = useState(false)
@@ -3082,7 +3083,7 @@ function App() {
     }, [isBWMode])
 
     return (
-      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showMobileMenu && !isMobileMenuClosing ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
+      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
         <div className="info-overlay">
           <img 
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
@@ -3100,7 +3101,7 @@ function App() {
               if (!showMobileMenu) {
                 setIsMobileMenuAnimating(true)
                 setShowMobileMenu(true)
-                setTimeout(() => setIsMobileMenuAnimating(false), 800)
+                setTimeout(() => setIsMobileMenuAnimating(false), 50)
               } else {
                 setIsMobileMenuAnimating(true)
                 setIsMobileMenuClosing(true)
@@ -3108,7 +3109,7 @@ function App() {
                   setShowMobileMenu(false)
                   setIsMobileMenuClosing(false)
                   setIsMobileMenuAnimating(false)
-                }, 800)
+                }, 300)
               }
             }}
             aria-label="Menu"
@@ -3120,7 +3121,7 @@ function App() {
 
         {/* Dark overlay behind mobile menu */}
         {showMobileMenu && (
-          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'}`} />
+          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'}`} style={{ background: isBWMode ? 'rgba(245, 245, 245, 0.8)' : 'rgba(0, 0, 0, 0.65)' }} />
         )}
         
         {/* Mobile menu - sits behind canvas */}
@@ -3157,7 +3158,6 @@ function App() {
               
               </div>
               <div className="mobile-menu-bottom">
-              <div className="mobile-menu-divider"></div>
               
               <div className="mobile-menu-toggles">
                 <label className="mobile-menu-toggle-item">
@@ -3330,7 +3330,7 @@ function App() {
           className="bw-toggle-overlay"
           style={isMobile ? {
             bottom: flightResults ? '280px' : '60px',
-            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)'
+            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease'
           } : {}}
         >
           <label>
@@ -3350,7 +3350,7 @@ function App() {
           className="follow-toggle-overlay"
           style={isMobile ? {
             bottom: flightResults ? '250px' : '30px',
-            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1)'
+            transition: 'bottom 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease'
           } : {}}
         >
           <label>
@@ -3367,12 +3367,22 @@ function App() {
           </label>
         </div>
         
-        <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''}`}>
+        <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`}>
           <div className="panel-header">
             <h3>Search Route</h3>
               <button 
                 className={`collapse-button ${isPanelCollapsed ? 'collapsed' : ''}`}
-                onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+                onClick={() => {
+                  if (!isMobile) {
+                    setIsPanelCollapsed(!isPanelCollapsed)
+                    return
+                  }
+                  setIsPanelFading(true)
+                  setTimeout(() => {
+                    setIsPanelCollapsed(!isPanelCollapsed)
+                    setIsPanelFading(false)
+                  }, 200)
+                }}
                 aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
               >
                 <span className="collapse-arrow">▼</span>
