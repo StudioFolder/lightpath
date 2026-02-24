@@ -782,7 +782,7 @@ canvas {
 }
 
 .flight-input.collapsed .panel-header {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   transition: margin-bottom 0.25s ease-in;
 }
 
