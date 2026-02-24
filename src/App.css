@@ -498,6 +498,14 @@ canvas {
   cursor: not-allowed;
 }
 
+.collapse-lens {
+  display: none;
+}
+
+.collapse-arrow {
+  display: inline;
+}
+
 .datetime-group {
   margin-bottom: 12px;
 }
@@ -814,6 +822,24 @@ canvas {
     margin-bottom: 0;
     height: auto;
   }
+}
+
+/* Collapsed: show lens, hide arrow */
+.flight-input.collapsed .collapse-arrow {
+  display: none;
+}
+
+.flight-input.collapsed .collapse-lens {
+  display: block;
+}
+
+/* Expanded: show arrow, hide lens */
+.flight-input .collapse-arrow {
+  display: block;
+}
+
+.flight-input .collapse-lens {
+  display: none;
 }
 
 .panel-header h3 {
@@ -1728,31 +1754,28 @@ canvas {
   .flight-input {
     width: calc(100vw - 32px);
     max-width: 380px;
-    top: 70px;  /* Below header when expanded */
+    top: 70px;
     padding: 16px;
     border-radius: 20px;
-    transition: top 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
-                padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
-                width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
-                border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: none;
   }
   
 /* Collapsed panel - right aligned, next to hamburger */
   .flight-input.collapsed {
     top: 20px;
-    left: auto;  /* Remove center positioning */
-    right: 70px;  /* Position to left of hamburger (44px + 26px gap) */
-    transform: none;  /* Remove translateX centering */
+    left: auto;
+    right: 70px;
+    transform: none;
     width: auto;
-    min-width: 160px;
-    max-width: 180px;
-    padding: 4px 20px;
-    border-radius: 24px;
+    min-width: auto;
+    max-width: 160px;
+    padding: 0px 16px;
+    border-radius: 48px;
   }
   
   /* Header elements - visually centered */
   .info-overlay {
-    top: 34px;
+    top: 30px;
   }
   
   .flight-input.collapsed {
@@ -1760,7 +1783,7 @@ canvas {
   }
   
   .hamburger-button {
-    top: 26px;
+    top: 22px;
   }
   
   .flight-input h3 {

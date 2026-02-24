@@ -3086,7 +3086,7 @@ function App() {
         </div>
 
         {/* Hamburger menu button - shows only on mobile when panel is collapsed */}
-        {isMobile && isPanelCollapsed && (
+        {isMobile && (
           <button 
             className="hamburger-button"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -3368,7 +3368,11 @@ function App() {
                 onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
                 aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
               >
-                ▼
+                <span className="collapse-arrow">▼</span>
+                <svg className="collapse-lens" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                </svg>
               </button>
           </div>
           
