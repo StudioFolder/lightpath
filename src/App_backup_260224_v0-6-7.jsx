@@ -18,8 +18,10 @@ function App() {
   const params = useParams()
 
   // ===== STATE =====
-  // Loading
+  // Loading & Time
   const [isLoading, setIsLoading] = useState(true)
+  const [_CurrentTime, setCurrentTime] = useState(new Date())
+  const [simulatedTime, setSimulatedTime] = useState(new Date())
   const [departureTime, setDepartureTime] = useState(new Date())
   
   // Airport Search & Selection
@@ -251,23 +253,25 @@ function App() {
     if (civilPointsDay.length > 0) {
       twilightLinesRef.current.civilDay.geometry.setPositions(pointsToPositions(civilPointsDay))
       twilightLinesRef.current.civilNight.geometry.setPositions(pointsToPositions(civilPointsNight))
-      twilightLinesRef.current.civilDay.computeLineDistances()
-      twilightLinesRef.current.civilNight.computeLineDistances()
+      twilightLinesRef.current.civilDay.computeLineDistances()  // ADD THIS
+      twilightLinesRef.current.civilNight.computeLineDistances()  // ADD THIS
     }
 
     if (nauticalPointsDay.length > 0) {
       twilightLinesRef.current.nauticalDay.geometry.setPositions(pointsToPositions(nauticalPointsDay))
       twilightLinesRef.current.nauticalNight.geometry.setPositions(pointsToPositions(nauticalPointsNight))
-      twilightLinesRef.current.nauticalDay.computeLineDistances()
-      twilightLinesRef.current.nauticalNight.computeLineDistances()
+      twilightLinesRef.current.nauticalDay.computeLineDistances()  // ADD THIS
+      twilightLinesRef.current.nauticalNight.computeLineDistances()  // ADD THIS
     }
 
     if (astronomicalPointsDay.length > 0) {
       twilightLinesRef.current.astronomicalDay.geometry.setPositions(pointsToPositions(astronomicalPointsDay))
       twilightLinesRef.current.astronomicalNight.geometry.setPositions(pointsToPositions(astronomicalPointsNight))
-      twilightLinesRef.current.astronomicalDay.computeLineDistances()
-      twilightLinesRef.current.astronomicalNight.computeLineDistances()
+      twilightLinesRef.current.astronomicalDay.computeLineDistances()  // ADD THIS
+      twilightLinesRef.current.astronomicalNight.computeLineDistances()  // ADD THIS
     }
+    
+    // Line2 handles dashed lines automatically, no need to call computeLineDistances()
     
   }
 
@@ -280,6 +284,7 @@ function App() {
     
     // Check if airports exist
     if (!airports[from] || !airports[to]) {
+      console.log('Airports not found in database:', from, to)
       return
     }
     
@@ -349,6 +354,7 @@ function App() {
       
       const checkAllLoaded = () => {
         texturesLoaded++
+        console.log(`Loaded ${texturesLoaded}/${totalTextures} textures`)
         if (texturesLoaded >= totalTextures) {
           setTimeout(() => setIsLoading(false), 300)
         }
@@ -380,6 +386,7 @@ function App() {
       })
       
       setAirports(airportMap)
+      console.log('Loaded airports:', Object.keys(airportMap).length)
     })
     .catch(err => console.error('Error loading airports:', err))
 
@@ -411,22 +418,24 @@ function App() {
 
     // Add orbit controls for mouse/touch interaction
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true
+    controls.enableDamping = true  // Smooth motion
     controls.dampingFactor = 0.05
-    controls.rotateSpeed = 0.4
     controlsRef.current = controls
-    controls.minDistance = 3
-    controls.maxDistance = 3.5
+    controls.minDistance = 3  // How close you can zoom
+    controls.maxDistance = 3.5  // How far you can zoom
     controls.enableZoom = false
-    controls.enablePan = false
-    controls.autoRotate = true
-    controls.autoRotateSpeed = -0.1
+    controls.enablePan = false  // Disable panning
+    controls.autoRotate = true  // Enable auto-rotation
+    controls.autoRotateSpeed = -0.1  // Adjust speed
     
-    // Touch controls
+    // Enhanced touch controls for mobile
     controls.touches = {
-      ONE: THREE.TOUCH.ROTATE,
-      TWO: THREE.TOUCH.DOLLY_PAN
+      ONE: THREE.TOUCH.ROTATE,    // Single finger rotates
+      TWO: THREE.TOUCH.DOLLY_PAN  // Two fingers for zoom
     }
+    controls.rotateSpeed = 0.4  // Slightly slower rotation
+    controls.enableDamping = true
+    controls.dampingFactor = 0.05  // Slightly more damping for smoother mobile feel
 
     // 4. Create a sphere (our Earth)
     const geometry = new THREE.SphereGeometry(2, 96, 96)
@@ -435,6 +444,7 @@ function App() {
     const earthTexture = new THREE.TextureLoader().load(
       '/earth-texture.png',
       () => {
+        console.log('Earth texture loaded')
         checkAllLoaded()
       },
       undefined,
@@ -546,17 +556,20 @@ function App() {
         (position) => {
           const userLat = position.coords.latitude
           const userLon = position.coords.longitude
+          console.log('Your location:', userLat, userLon)
           positionDotAtLocation(userLat, userLon)
-          centerCameraOnLocation(userLat, userLon)
+          centerCameraOnLocation(userLat, userLon)  // Add this line
         },
         (error) => {
+          console.log('Geolocation error, defaulting to Milan:', error.message)
           positionDotAtLocation(45.464, 9.190)
-          centerCameraOnLocation(45.464, 9.190)
+          centerCameraOnLocation(45.464, 9.190)  // Add this line
         }
       )
     } else {
+      console.log('Geolocation not supported, defaulting to Milan')
       positionDotAtLocation(45.464, 9.190)
-      centerCameraOnLocation(45.464, 9.190)
+      centerCameraOnLocation(45.464, 9.190)  // Add this line
     }
 
     sphere.add(dot)
@@ -583,6 +596,7 @@ function App() {
       Math.sin(phi) * Math.sin(theta)
     )
 
+    console.log('Initial subsolar point:', subsolarLatitude.toFixed(2), '°N,', subsolarLongitude.toFixed(2), '°E')
 
     // Add ambient light (soft overall illumination)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3)
@@ -708,7 +722,7 @@ function App() {
         gapSize: gapSize,
         dashScale: 1,
         worldUnits: false,
-        depthWrite: depthWrite
+        depthWrite: depthWrite  // ADD THIS
       })
       
       const geometry = new LineGeometry()
@@ -763,8 +777,16 @@ function App() {
       twilightMaterial
     }
 
+    // Store the start time when the app loads
+    const startTime = Date.now()
+
     function updateSunPosition() {
-      const currentTime = new Date()
+      // Calculate elapsed time since start
+      const elapsed = Date.now() - startTime
+      
+      // Real-time (1x speed)
+      const acceleratedTime = startTime + (elapsed * 1)
+      const currentTime = new Date(acceleratedTime)
       
       // Get subsolar point
       const times = SunCalc.getTimes(currentTime, 0, 0)
@@ -776,7 +798,7 @@ function App() {
       const sunDeclination = calculateSolarDeclination(currentTime)
 
       // Convert subsolar point to 3D direction
-      const phi = (90 - sunDeclination) * (Math.PI / 180)
+      const phi = (90 - subsolarLatitude) * (Math.PI / 180)
       const theta = (subsolarLongitude + 180) * (Math.PI / 180)
 
       const sunDirection = new THREE.Vector3(
@@ -790,10 +812,13 @@ function App() {
       
       // Update twilight shader
       sceneRefs.twilightMaterial.uniforms.sunDirection.value.copy(sunDirection.normalize())
-      sceneRefs.twilightMaterial.uniforms.sunDeclination.value = sunDeclination
+      sceneRefs.twilightMaterial.uniforms.sunDeclination.value = subsolarLatitude
+
+      // Update twilight shader
+      sceneRefs.twilightMaterial.uniforms.sunDirection.value.copy(sunDirection.normalize())
 
       // Update twilight boundary lines
-      updateTwilightLines(sunDirection.normalize(), currentTime)
+      updateTwilightLines(sunDirection.normalize(), new Date(acceleratedTime))
     }
 
     function updateSunPositionForTime(time) {
@@ -822,6 +847,9 @@ function App() {
       // Update twilight shader
       sceneRefs.twilightMaterial.uniforms.sunDirection.value.copy(sunDirection.normalize())
       sceneRefs.twilightMaterial.uniforms.sunDeclination.value = subsolarLatitude
+
+      // Update twilight shader
+      sceneRefs.twilightMaterial.uniforms.sunDirection.value.copy(sunDirection.normalize())
 
       // Update twilight boundary lines
       updateTwilightLines(sunDirection.normalize(), time)
@@ -852,10 +880,16 @@ function App() {
         const { departureTime, flightDurationMs } = flightDataRef.current
         const currentFlightTime = new Date(departureTime.getTime() + animationProgressRef.current * flightDurationMs)
         
-        // Update sun position to animation time
+        // Update both display time and sun position to animation time
+        setCurrentTime(new Date())
+        setSimulatedTime(currentFlightTime)
         updateSunPositionForTime(currentFlightTime)
       } else {
         // Normal real-time mode when no flight is active
+        setCurrentTime(new Date())
+        const elapsed = Date.now() - startTime
+        const acceleratedTime = startTime + (elapsed * 1)
+        setSimulatedTime(new Date(acceleratedTime))
         updateSunPosition()
       }
 
@@ -881,6 +915,7 @@ function App() {
         if (progress > 0) {
           // Get points for completed portion
           const curve = flightLineRef.current.userData.routeCurve
+          const segmentData = flightLineRef.current.userData.segmentData
           const completedPoints = []
           const numSamples = 800
           
@@ -915,6 +950,8 @@ function App() {
             }
 
             // Update pre-created transition labels and rings visibility and position
+            const curve = flightLineRef.current.userData.routeCurve
+            
             transitionLabelsRef.current.forEach(label => {
               const transitionT = label.userData.transitionT
               const ring = label.userData.ring
@@ -1200,7 +1237,7 @@ function App() {
         })
         
         flightLineRef.current = null
-        hasFlightPathRef.current = false
+        hasFlightPathRef.current = false  // Add this
       }
 
       const { departure, arrival } = flightPath
@@ -1435,7 +1472,26 @@ function App() {
           
           preCalculatedColorsBW.push({ r, g, b })
           
-          // Detect daylight/darkness transitions (civil twilight boundary at ~96°)
+          // Detect transitions with latitude-dependent threshold
+          const lat = segmentInfo.lat
+          const latDeg = lat * 180 / Math.PI
+          const absLatitude = Math.abs(latDeg)
+
+          // Calculate latitude-dependent threshold (matching twilight boundary calculation)
+          const latitudeFactor = Math.cos(absLatitude * Math.PI / 180)
+          const declinationDiff = Math.abs(latDeg - sunDeclination)
+          const declinationFactor = 1.0 + (declinationDiff / 90.0) * 0.5
+          const latitudeEffect = 1.0 + (1.4 - 1.0) * (1.0 - latitudeFactor)
+          const obliquityFactor = latitudeEffect * declinationFactor
+
+          // Apply same blend factor as twilight boundaries
+          const blendFactor = 0.15
+          const effectiveObliquity = 1.0 + (obliquityFactor - 1.0) * blendFactor
+
+          // Adjust the civil twilight threshold (-6°) based on latitude
+          const baseCivilThreshold = 95  // 90° + 6° for civil twilight
+          const adjustedThreshold = 90 + (6 * effectiveObliquity)
+
           const isDaylight = sunAngle < 96  // 90° + 6° (civil twilight)
 
           if (i > 0 && isDaylight !== lastWasDaylight) {
@@ -1502,6 +1558,7 @@ function App() {
         flightGroup.userData.preCalculatedColorsBW = preCalculatedColorsBW
         flightGroup.userData.preCalculatedTransitions = preCalculatedTransitions
 
+        console.log('Transitions detected:', preCalculatedTransitions)
 
         // Pre-create transition labels and rings
         preCalculatedTransitions.forEach(trans => {
@@ -1688,6 +1745,7 @@ function App() {
         sceneRef.current.add(flightGroup)
         flightLineRef.current = flightGroup
         hasFlightPathRef.current = true
+        console.log('Flight path with markers drawn')
       }
 
       createLabels()
@@ -1777,6 +1835,7 @@ function App() {
         material.opacity = opacity
       }, 20) // Update every 20ms
       
+      console.log('Rendered', airportList.length, 'airports')
       return () => {
         if (fadeInterval) clearInterval(fadeInterval)
       }
@@ -1900,6 +1959,7 @@ function App() {
             })
           }
           
+          console.log('Graticule loaded with', data.features.length, 'features')
         })
         .catch(err => console.error('Error loading graticule:', err))
       
@@ -2004,7 +2064,9 @@ function App() {
             }
           })
 
-          // International Date Line
+          // CREATE INTERNATIONAL DATE LINE HERE (INSERT BELOW)
+          
+          // Create International Date Line (dashed)
           const dateLinePoints = []
           for (let lat = -90; lat <= 90; lat += 1) {
             const phi = (90 - lat) * (Math.PI / 180)
@@ -2097,6 +2159,8 @@ function App() {
           labelMesh.userData.isDateLineLabel = true
           timezoneGroup.add(labelMesh)
           
+          // END DATE LINE CODE
+          
           sceneRef.current.add(timezoneGroup)
           
           // Fade in
@@ -2119,6 +2183,7 @@ function App() {
             })
           }, 20)
           
+          console.log('Timezone boundaries loaded with', data.features.length, 'zones')
         })
         .catch(err => console.error('Error loading timezone boundaries:', err))
       
@@ -2468,6 +2533,7 @@ function App() {
 
     const calculateFlight = () => {
       if (!airports) {
+        console.log('Airports not loaded yet')
         return
       }
       
@@ -2475,13 +2541,16 @@ function App() {
       const arrival = airports[arrivalCode]
       
       if (!departure) {
+        console.log('Departure airport not found:', departureCode)
         return
       }
       
       if (!arrival) {
+        console.log('Arrival airport not found:', arrivalCode)
         return
       }
       
+      console.log('Flight from', departure.city, 'to', arrival.city)
       
       // Calculate great circle distance
       const lat1 = departure.lat * Math.PI / 180
@@ -2501,6 +2570,8 @@ function App() {
       const flightDurationHours = distance / cruiseSpeed
       const flightDurationMs = flightDurationHours * 60 * 60 * 1000
       
+      console.log('Distance:', distance.toFixed(0), 'km')
+      console.log('Estimated duration:', flightDurationHours.toFixed(2), 'hours')
       
       // Sample points along the route and check daylight
       const numSamples = 2000
@@ -2560,6 +2631,7 @@ function App() {
         darknessMins
       }
       
+      console.log('Results:', results)
       setFlightResults(results)
       setIsPanelCollapsed(true)
       
@@ -2959,21 +3031,23 @@ function App() {
                 
                 const iconSize = 40
                 const gap = 12
-                const textWidth = context.measureText(timeText).width
-                const totalWidth = iconSize + gap + textWidth
+                const textWidth = context.measureText(timeText).width  // FIXED: use timeText not trans.time
+                const totalWidth = textWidth + gap + iconSize
                 const startX = (canvas.width - totalWidth) / 2
                 
-                // Draw text first
-                context.textAlign = 'left'
-                context.textBaseline = 'middle'
-                context.fillText(timeText, startX, canvas.height / 2)
+                const baselineY = canvas.height / 2 + 15
                 
-                // Draw icon after text
-                const iconY = (canvas.height - iconSize) / 2 - 5
+                // Draw text
+                context.textAlign = 'left'
+                context.textBaseline = 'bottom'
+                context.fillText(timeText, startX, baselineY)  // FIXED: use timeText
+                
+                // Draw icon - bottom edge at same baseline
                 const iconX = startX + textWidth + gap
+                const iconY = baselineY - iconSize
                 context.drawImage(icon, iconX, iconY, iconSize, iconSize)
                 
-                label.material.map.dispose()
+                label.material.map.dispose()  // FIXED: use label not sprite
                 label.material.map = new THREE.CanvasTexture(canvas)
                 label.material.needsUpdate = true
               }
