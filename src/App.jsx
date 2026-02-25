@@ -12,6 +12,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { useNavigate, useParams } from 'react-router-dom'
+import { latLonToVector3 } from './utils/geoUtils'
 
 function App() {
   const navigate = useNavigate()
@@ -516,25 +517,12 @@ function App() {
 
     // Function to position dot based on lat/lon
     function positionDotAtLocation(lat, lon) {
-      const phi = (90 - lat) * (Math.PI / 180)
-      const theta = (lon + 180) * (Math.PI / 180)
-      const radius = 2
-      
-      dot.position.x = -radius * Math.sin(phi) * Math.cos(theta)
-      dot.position.y = radius * Math.cos(phi)
-      dot.position.z = radius * Math.sin(phi) * Math.sin(theta)
+      dot.position.copy(latLonToVector3(lat, lon, 2))
     }
 
     // Function to point camera at a location
     function centerCameraOnLocation(lat, lon) {
-      const phi = (90 - lat) * (Math.PI / 180)
-      const theta = (lon + 180) * (Math.PI / 180)
-      const radius = 5  // Camera distance (same as initial position.z)
-      
-      camera.position.x = -radius * Math.sin(phi) * Math.cos(theta)
-      camera.position.y = radius * Math.cos(phi)
-      camera.position.z = radius * Math.sin(phi) * Math.sin(theta)
-      
+      camera.position.copy(latLonToVector3(lat, lon, 5))
       camera.lookAt(0, 0, 0)
       controls.update()
     }
@@ -1212,18 +1200,6 @@ function App() {
       // Create a group to hold everything
       const flightGroup = new THREE.Group()
 
-      // Helper function to convert lat/lon to 3D vector
-      const latLonToVector3 = (lat, lon, radius) => {
-        const phi = (90 - lat) * (Math.PI / 180)
-        const theta = (lon + 180) * (Math.PI / 180)
-        
-        return new THREE.Vector3(
-          -radius * Math.sin(phi) * Math.cos(theta),
-          radius * Math.cos(phi),
-          radius * Math.sin(phi) * Math.sin(theta)
-        )
-      }
-
       // Calculate great circle path using proper spherical interpolation
       const points = []
       const numPoints = 100
@@ -1728,15 +1704,8 @@ function App() {
       const airportList = Object.values(airports)
       
       airportList.forEach(airport => {
-        const phi = (90 - airport.lat) * (Math.PI / 180)
-        const theta = (airport.lon + 180) * (Math.PI / 180)
-        const radius = 2.005 // Slightly above Earth surface
-        
-        const x = -radius * Math.sin(phi) * Math.cos(theta)
-        const y = radius * Math.cos(phi)
-        const z = radius * Math.sin(phi) * Math.sin(theta)
-        
-        positions.push(x, y, z)
+        const pos = latLonToVector3(airport.lat, airport.lon, 2.005)
+        positions.push(pos.x, pos.y, pos.z)
       })
       
       const geometry = new THREE.BufferGeometry()
@@ -1821,26 +1790,14 @@ function App() {
         .then(res => res.json())
         .then(data => {
           const graticuleGroup = new THREE.Group()
-          graticuleGroup.name = 'graticule'
-          
-          // Convert lat/lon to 3D
-          const latLonToVector3 = (lon, lat, radius) => {
-            const phi = (90 - lat) * (Math.PI / 180)
-            const theta = (lon + 180) * (Math.PI / 180)
-            
-            return new THREE.Vector3(
-              -radius * Math.sin(phi) * Math.cos(theta),
-              radius * Math.cos(phi),
-              radius * Math.sin(phi) * Math.sin(theta)
-            )
-          }
+          graticuleGroup.name = 'graticule'   
           
           // Process each feature (line)
           data.features.forEach(feature => {
             if (feature.geometry.type === 'LineString') {
               const coords = feature.geometry.coordinates
               const points = coords.map(coord => 
-                latLonToVector3(coord[0], coord[1], 2.004)
+                latLonToVector3(coord[1], coord[0], 2.004)
               )
               
               const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
@@ -1857,7 +1814,7 @@ function App() {
             } else if (feature.geometry.type === 'MultiLineString') {
               feature.geometry.coordinates.forEach(lineCoords => {
                 const points = lineCoords.map(coord => 
-                  latLonToVector3(coord[0], coord[1], 2.004)
+                  latLonToVector3(coord[1], coord[0], 2.004)
                 )
                 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
@@ -1950,18 +1907,6 @@ function App() {
           const timezoneGroup = new THREE.Group()
           timezoneGroup.name = 'timezone-boundaries'
           
-          // Convert lat/lon to 3D
-          const latLonToVector3 = (lon, lat, radius) => {
-            const phi = (90 - lat) * (Math.PI / 180)
-            const theta = (lon + 180) * (Math.PI / 180)
-            
-            return new THREE.Vector3(
-              -radius * Math.sin(phi) * Math.cos(theta),
-              radius * Math.cos(phi),
-              radius * Math.sin(phi) * Math.sin(theta)
-            )
-          }
-          
           // Process each feature (timezone boundary)
           data.features.forEach((feature, featureIndex) => {
             const timezoneName = feature.properties.tzid || feature.properties.name || `timezone-${featureIndex}`
@@ -1969,7 +1914,7 @@ function App() {
             if (feature.geometry.type === 'Polygon') {
               feature.geometry.coordinates.forEach(ring => {
                 const points = ring.map(coord => 
-                  latLonToVector3(coord[0], coord[1], 2.005)
+                  latLonToVector3(coord[1], coord[0], 2.005)
                 )
                 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
@@ -1987,7 +1932,7 @@ function App() {
               feature.geometry.coordinates.forEach(polygon => {
                 polygon.forEach(ring => {
                   const points = ring.map(coord => 
-                    latLonToVector3(coord[0], coord[1], 2.005)
+                    latLonToVector3(coord[1], coord[0], 2.005)
                   )
                   
                   const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
@@ -2393,14 +2338,7 @@ function App() {
       const midLon = isMobile ? departure.lon : Math.atan2(y, x) * 180 / Math.PI
 
       // Calculate base camera position (directly above midpoint)
-      const phi = (90 - midLat) * (Math.PI / 180)
-      const theta = (midLon + 180) * (Math.PI / 180)
-      
-      const basePosition = new THREE.Vector3(
-        -radius * Math.sin(phi) * Math.cos(theta),
-        radius * Math.cos(phi),
-        radius * Math.sin(phi) * Math.sin(theta)
-      )
+      const basePosition = latLonToVector3(midLat, midLon, radius)
 
       // Apply 10° south tilt
       const tiltAngle = 10 * Math.PI / 180
@@ -3153,6 +3091,8 @@ function App() {
                 <span className="separator">·</span>
                 <span>Made by</span>
                 <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
+                <span className="separator">·</span>
+                <a href="mailto:lightpath@studiofolder.it">Get in touch</a>
               </div>
             </div>
           </div>
@@ -3251,6 +3191,8 @@ function App() {
           <span className="separator">·</span>
           <span>Made by</span>
           <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
+          <span className="separator">·</span>
+          <a href="mailto:lightpath@studiofolder.it">Get in touch</a>
         </div>
 
         <div 
