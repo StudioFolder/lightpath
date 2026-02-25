@@ -315,6 +315,10 @@ function App() {
     isPlayingRef.current = isPlaying
   }, [isPlaying])
 
+  useEffect(() => {
+    autoRotateRef.current = autoRotate
+  }, [autoRotate])
+
   // Mobile detection - run once on mount
   useEffect(() => {
     const checkMobile = () => {
@@ -326,10 +330,6 @@ function App() {
 
       if (isMobileDevice || (isTouchDevice && isSmallScreen)) {
         setFollowPlaneMode(true)
-      }
-      
-      // Auto-collapse panel on mobile for better view
-      if (isMobileDevice || (isTouchDevice && isSmallScreen)) {
         setIsPanelCollapsed(true)
       }
     }
@@ -406,7 +406,7 @@ function App() {
     const width = window.innerWidth;
     const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.localClippingEnabled = true  // Enable clipping
 
     // Add orbit controls for mouse/touch interaction
@@ -1126,22 +1126,25 @@ function App() {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+
+      // Update Line2 materials resolution
+      Object.values(twilightLinesRef.current).forEach(line => {
+        if (line && line.material.resolution) {
+          line.material.resolution.set(width, height)
+        }
+      })
     }
     window.addEventListener('resize', handleResize);
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleResize);
     }
 
-    // Update Line2 materials resolution
-    Object.values(twilightLinesRef.current).forEach(line => {
-      if (line && line.material.resolution) {
-        line.material.resolution.set(window.innerWidth, window.innerHeight)
-      }
-    })
-
     // 7. Cleanup
     return () => {
       window.removeEventListener('resize', handleResize)
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize)
+      }
       renderer.dispose()
     }
   }, [])
@@ -1174,6 +1177,7 @@ function App() {
       setFlightPath(null)
       setFlightResults(null)
       hasFlightPathRef.current = false
+      transitionLabelsRef.current = []
       
       // Reset animation
       setAnimationProgress(0)
@@ -1201,6 +1205,7 @@ function App() {
         
         flightLineRef.current = null
         hasFlightPathRef.current = false
+        transitionLabelsRef.current = []
       }
 
       const { departure, arrival } = flightPath
@@ -1572,9 +1577,6 @@ function App() {
           flightGroup.add(sprite)
           transitionLabelsRef.current.push(sprite)
         })    
-
-        // Store points for calculating label positions during animation
-        flightGroup.userData.routePoints = points
 
         // Add airport markers (dots)
         const dotGeometry = new THREE.SphereGeometry(0.01, 16, 16)
@@ -2496,7 +2498,7 @@ function App() {
       )
       const distance = earthRadius * angularDistance
       
-      // Estimate flight duration (average cruise speed ~850 km/h)
+      // Estimate flight duration (average cruise speed ~750 km/h)
       const cruiseSpeed = 750 // km/h
       const flightDurationHours = distance / cruiseSpeed
       const flightDurationMs = flightDurationHours * 60 * 60 * 1000
