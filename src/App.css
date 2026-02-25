@@ -2089,6 +2089,10 @@ canvas {
     pointer-events: auto;
   }
 
+  .bw-mode .mobile-menu-offcanvas {
+    color: rgba(40, 40, 40, 0.9);
+  }
+
   .mobile-menu-content-wrap {
     padding: 8px 16px;
     display: flex;
@@ -2155,14 +2159,18 @@ canvas {
   }
 
   .mobile-menu-overlay-bg.open {
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
 
-    .mobile-menu-overlay-bg.closing {
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
+  .mobile-menu-overlay-bg.closing {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .mobile-menu-overlay-bg.bw {
+    background: linear-gradient(to bottom, rgba(245, 245, 245, 0.97) 0%, rgba(245, 245, 245, 0.5) 100%);
+  }
   
 }
 

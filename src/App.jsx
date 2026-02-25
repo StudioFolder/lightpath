@@ -330,7 +330,6 @@ function App() {
 
       if (isMobileDevice || (isTouchDevice && isSmallScreen)) {
         setFollowPlaneMode(true)
-        setIsPanelCollapsed(true)
       }
     }
     
@@ -3049,7 +3048,7 @@ function App() {
 
         {/* Dark overlay behind mobile menu */}
         {showMobileMenu && (
-          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'}`} />       
+          <div className={`mobile-menu-overlay-bg ${isMobileMenuClosing ? 'closing' : 'open'} ${isBWMode ? 'bw' : ''}`} />       
         )}
         
         {/* Mobile menu - sits behind canvas */}
@@ -3256,7 +3255,7 @@ function App() {
 
         <div 
           className="bw-toggle-overlay"
-          style={isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all' } : {}}
+          style={isMobile ? { opacity: isPlaying || showMobileMenu ? 0 : 1, pointerEvents: isPlaying || showMobileMenu ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}
         >
           <label>
             <div className="toggle-switch">
@@ -3273,7 +3272,7 @@ function App() {
 
         <div 
           className="follow-toggle-overlay"
-          style={isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all' } : {}}
+          style={isMobile ? { opacity: isPlaying || showMobileMenu ? 0 : 1, pointerEvents: isPlaying || showMobileMenu ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}
         >
           <label>
             <div className="toggle-switch">
@@ -3289,7 +3288,7 @@ function App() {
           </label>
         </div>
         
-        <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`}>
+        <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`} style={isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}>
           <div className="panel-header">
             <h3>Search Route</h3>
               <button 
