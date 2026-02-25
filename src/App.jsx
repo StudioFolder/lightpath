@@ -3288,19 +3288,35 @@ function App() {
           </label>
         </div>
         
-        <div className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`} style={isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}>
+        <div 
+          className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`}
+          onClick={isPanelCollapsed ? () => {
+            if (!isMobile) {
+              setIsPanelCollapsed(false)
+              return
+            }
+            setIsPanelFading(true)
+            setTimeout(() => {
+              setIsPanelCollapsed(false)
+              setIsPanelFading(false)
+            }, 200)
+          } : undefined}
+          style={isPanelCollapsed ? { cursor: 'pointer', ...( isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}) } : ( isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {})}
+        >
           <div className="panel-header">
             <h3>Search Route</h3>
               <button 
                 className={`collapse-button ${isPanelCollapsed ? 'collapsed' : ''}`}
-                onClick={() => {
+                onClick={(e) => {
+                  if (isPanelCollapsed) return
+                  e.stopPropagation()
                   if (!isMobile) {
-                    setIsPanelCollapsed(!isPanelCollapsed)
+                    setIsPanelCollapsed(true)
                     return
                   }
                   setIsPanelFading(true)
                   setTimeout(() => {
-                    setIsPanelCollapsed(!isPanelCollapsed)
+                    setIsPanelCollapsed(true)
                     setIsPanelFading(false)
                   }, 200)
                 }}
