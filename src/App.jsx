@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import './App.css'
-import SunCalc from 'suncalc'
-import * as solar from 'solar-calculator'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import tzlookup from 'tz-lookup'
 import { DateTime } from 'luxon'
@@ -13,6 +11,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { useNavigate, useParams } from 'react-router-dom'
 import { latLonToVector3 } from './utils/geoUtils'
+import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 
 function App() {
   const navigate = useNavigate()
@@ -131,12 +130,6 @@ function App() {
       g: parseInt(rgb[1]) / 255,
       b: parseInt(rgb[2]) / 255
     }
-  }
-
-  // Calculate solar declination for a given date using NOAA equations
-  const calculateSolarDeclination = (date) => {
-    const t = solar.century(date)  // Convert to J2000.0 centuries
-    return solar.declination(t)     // Returns declination in degrees
   }
 
   // Calculate points along a twilight boundary with latitude-dependent width
@@ -550,15 +543,11 @@ function App() {
 
     // Calculate initial sun position
     const initialTime = new Date()
-    
-    // Get subsolar point (where sun is directly overhead)
-    const times = SunCalc.getTimes(initialTime, 0, 0)
-    const solarNoon = times.solarNoon
-    const hoursSinceNoon = (initialTime - solarNoon) / (1000 * 60 * 60)
-    const subsolarLongitude = -hoursSinceNoon * 15 // 15° per hour westward
 
-    // Solar declination (latitude where sun is overhead)
-    const subsolarLatitude = calculateSolarDeclination(initialTime)
+    // Get subsolar point (where sun is directly overhead)
+    const subsolar = getSubsolarPoint(initialTime)
+    const subsolarLongitude = subsolar.longitude
+    const subsolarLatitude = subsolar.latitude
 
     // Convert subsolar point to 3D direction
     const phi = (90 - subsolarLatitude) * (Math.PI / 180)
@@ -754,13 +743,9 @@ function App() {
       const currentTime = new Date()
       
       // Get subsolar point
-      const times = SunCalc.getTimes(currentTime, 0, 0)
-      const solarNoon = times.solarNoon
-      const hoursSinceNoon = (currentTime - solarNoon) / (1000 * 60 * 60)
-      const subsolarLongitude = -hoursSinceNoon * 15
-
-      // Calculate solar declination
-      const sunDeclination = calculateSolarDeclination(currentTime)
+      const subsolar = getSubsolarPoint(currentTime)
+      const subsolarLongitude = subsolar.longitude
+      const sunDeclination = subsolar.latitude
 
       // Convert subsolar point to 3D direction
       const phi = (90 - sunDeclination) * (Math.PI / 180)
@@ -785,13 +770,9 @@ function App() {
 
     function updateSunPositionForTime(time) {
       // Get subsolar point for specific time
-      const times = SunCalc.getTimes(time, 0, 0)
-      const solarNoon = times.solarNoon
-      const hoursSinceNoon = (time - solarNoon) / (1000 * 60 * 60)
-      const subsolarLongitude = -hoursSinceNoon * 15
-    
-      // Solar declination
-      const subsolarLatitude = calculateSolarDeclination(time)
+      const subsolar = getSubsolarPoint(time)
+      const subsolarLongitude = subsolar.longitude
+      const subsolarLatitude = subsolar.latitude
     
       // Convert subsolar point to 3D direction
       const phi = (90 - subsolarLatitude) * (Math.PI / 180)
@@ -1246,29 +1227,6 @@ function App() {
       const lon2 = arrival.lon * Math.PI / 180
 
       const flightDurationMs = (flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000
-
-      // Helper to calculate sun angle at a point
-      const getSunAngle = (lat, lon, time) => {
-        const times = SunCalc.getTimes(time, 0, 0)
-        const solarNoon = times.solarNoon
-        const hoursSinceNoon = (time - solarNoon) / (1000 * 60 * 60)
-        const subsolarLongitude = -hoursSinceNoon * 15
-
-        const subsolarLatitude = calculateSolarDeclination(time)
-
-        // Calculate angular distance from subsolar point
-        const lat1 = subsolarLatitude * Math.PI / 180
-        const lon1 = subsolarLongitude * Math.PI / 180
-        const lat2 = lat * Math.PI / 180
-        const lon2 = lon * Math.PI / 180
-
-        const angularDistance = Math.acos(
-          Math.sin(lat1) * Math.sin(lat2) + 
-          Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
-        ) * 180 / Math.PI
-
-        return angularDistance
-      }
 
       for (let i = 0; i < numPoints; i++) {
         const fraction = (i + 0.5) / numPoints
@@ -2282,30 +2240,6 @@ function App() {
       }
 
     }, [isPlaying, flightResults, animationProgress, showAirports, showPlaneIcon, showTimezones, showGraticule, showTwilightLines])
-
-    const isPointInDaylight = (lat, lon, time) => {
-      // Get subsolar point at this time
-      const times = SunCalc.getTimes(time, 0, 0)
-      const solarNoon = times.solarNoon
-      const hoursSinceNoon = (time - solarNoon) / (1000 * 60 * 60)
-      const subsolarLongitude = -hoursSinceNoon * 15
-    
-      const subsolarLatitude = calculateSolarDeclination(time)
-    
-      // Calculate angular distance from subsolar point
-      const lat1 = subsolarLatitude * Math.PI / 180
-      const lon1 = subsolarLongitude * Math.PI / 180
-      const lat2 = lat * Math.PI / 180
-      const lon2 = lon * Math.PI / 180
-    
-      const angularDistance = Math.acos(
-        Math.sin(lat1) * Math.sin(lat2) + 
-        Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
-      ) * 180 / Math.PI
-    
-      // Point is in daylight if within ~95 degrees of subsolar point
-      return angularDistance < 95
-    }
 
     const centerCameraOnFlight = (departure, arrival, flightDistance) => {
       const camera = cameraRef.current
