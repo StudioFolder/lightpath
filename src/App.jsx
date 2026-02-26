@@ -1437,11 +1437,19 @@ function App() {
         currentSegment.endIndex = numPoints - 1
         segments.push(currentSegment)
 
+        // Distance-based and viewport scaling
+        const { scaleFactor } = getFlightScale(flightResults.distance)
+        const vScale = viewportScaleRef.current
+        const elementScale = scaleFactor * vScale
+        flightGroup.userData.routePoints = points
+        flightGroup.userData.scaleFactor = scaleFactor
+        flightGroup.userData.elementScale = elementScale
+
         // Create the thin gray base path
         const thinTubeGeometry = new THREE.TubeGeometry(
           new THREE.CatmullRomCurve3(points),
           points.length,
-          0.002,
+          0.002 * elementScale,
           8,
           false
         )
@@ -1454,7 +1462,6 @@ function App() {
         flightGroup.add(thinTube)
 
         // Store points for animated thick tube
-        flightGroup.userData.routePoints = points
         flightGroup.userData.routeCurve = new THREE.CatmullRomCurve3(points)
         flightGroup.userData.segmentData = segmentData
         flightGroup.userData.preCalculatedColorsColor = preCalculatedColorsColor
@@ -1465,7 +1472,7 @@ function App() {
         // Pre-create transition labels and rings
         preCalculatedTransitions.forEach(trans => {
           // Create the ring (torus) at transition point
-          const ringGeometry = new THREE.TorusGeometry(0.008, 0.002, 8, 32)
+          const ringGeometry = new THREE.TorusGeometry(0.008 * elementScale, 0.002 * elementScale, 8, 32)
           const ringMaterial = new THREE.MeshBasicMaterial({
             color: isBWMode ? 0x1a1a1a : 0xffffff,
             transparent: true,
@@ -1489,7 +1496,7 @@ function App() {
             depthTest: true
           })
           const sprite = new THREE.Sprite(material)
-          sprite.scale.set(isMobile ? 0.28 : 0.20, isMobile ? 0.10 : 0.07, 1)
+          sprite.scale.set((isMobile ? 0.28 : 0.20) * elementScale, (isMobile ? 0.10 : 0.07) * elementScale, 1)
           sprite.visible = false
           
           sprite.userData.transitionT = trans.t
@@ -1503,7 +1510,7 @@ function App() {
         })    
 
         // Add airport markers (dots)
-        const dotGeometry = new THREE.SphereGeometry(0.01, 16, 16)
+        const dotGeometry = new THREE.SphereGeometry(0.01 * elementScale, 16, 16)
         const dotMaterial = new THREE.MeshBasicMaterial({ color: isBWMode ? 0x1a1a1a : 0xe0e0e0 })
       
       const departureDot = new THREE.Mesh(dotGeometry, dotMaterial)
@@ -1522,7 +1529,7 @@ function App() {
           sizeAttenuation: true,
         })
         const sprite = new THREE.Sprite(material)
-        sprite.scale.set(isMobile ? 0.22 : 0.16, isMobile ? 0.08 : 0.06, 1)
+        sprite.scale.set((isMobile ? 0.22 : 0.16) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
         return sprite
       }
 
@@ -1532,7 +1539,7 @@ function App() {
         const basePos = latLonToVector3(lat, lon, 2.05)
         const offsetLat = lat - 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.075)
+        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.075 * elementScale)
         label.position.copy(basePos.add(offset))
         return label
       }

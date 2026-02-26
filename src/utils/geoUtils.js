@@ -12,27 +12,31 @@ import * as THREE from 'three'
 export function getFlightScale(distanceKm) {
   const d = Math.max(200, distanceKm)
   
+  let cameraRadius, scaleFactor
+  
   if (d >= 2000) {
-    return { cameraRadius: 3.5, scaleFactor: 1.0 }
+    cameraRadius = 3.5
+    scaleFactor = 1.0
   } else if (d >= 1000) {
-    const t = (d - 1000) / 1000 // 0 at 1000km, 1 at 2000km
-    return {
-      cameraRadius: 2.9 + t * 0.6,
-      scaleFactor: 0.7 + t * 0.3
-    }
+    const t = (d - 1000) / 1000
+    cameraRadius = 2.9 + t * 0.6
+    scaleFactor = 0.7 + t * 0.3
   } else if (d >= 500) {
-    const t = (d - 500) / 500 // 0 at 500km, 1 at 1000km
-    return {
-      cameraRadius: 2.5 + t * 0.4,
-      scaleFactor: 0.5 + t * 0.2
-    }
+    const t = (d - 500) / 500
+    cameraRadius = 2.5 + t * 0.4
+    scaleFactor = 0.5 + t * 0.2
   } else {
-    const t = Math.max(0, (d - 200) / 300) // 0 at 200km, 1 at 500km
-    return {
-      cameraRadius: 2.3 + t * 0.2,
-      scaleFactor: 0.4 + t * 0.1
-    }
+    const t = Math.max(0, (d - 200) / 300)
+    cameraRadius = 2.3 + t * 0.2
+    scaleFactor = 0.4 + t * 0.1
   }
+  
+  // Compensate for closer camera making elements appear larger
+  const defaultRadius = 3.5
+  const cameraCompensation = cameraRadius / defaultRadius
+  scaleFactor *= cameraCompensation
+  
+  return { cameraRadius, scaleFactor }
 }
 
 /**
