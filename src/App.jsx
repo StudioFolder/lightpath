@@ -394,6 +394,7 @@ function App() {
       1000  // far clipping plane
     )
     camera.position.z = 3.5  // move camera back so we can see the sphere
+    camera.userData.initialHeight = window.innerHeight
     cameraRef.current = camera 
 
     // 3. Create the renderer
@@ -1096,9 +1097,15 @@ function App() {
     function handleResize() {
       const width = window.innerWidth;
       const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-      camera.aspect = width / height;
+      
+      // On mobile, use the taller of current or initial height to prevent
+      // globe shrinking when keyboard appears (canvas gets clipped instead)
+      const initialHeight = camera.userData.initialHeight || height
+      const renderHeight = Math.max(height, initialHeight)
+      
+      camera.aspect = width / renderHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      renderer.setSize(width, renderHeight);
 
       // Update viewport scale for 3D element sizing
       viewportScaleRef.current = getViewportScale(width)
