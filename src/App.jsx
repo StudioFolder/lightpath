@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { latLonToVector3 } from './utils/geoUtils'
 import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
+import { animateValue } from './utils/animationUtils'
 
 function App() {
   const navigate = useNavigate()
@@ -1560,20 +1561,13 @@ function App() {
       const existingDots = sceneRef.current.getObjectByName('airportDots')
       if (existingDots) {
         const material = existingDots.material
-        let opacity = material.opacity
-        
-        const fadeOut = setInterval(() => {
-          opacity -= 0.02
-          if (opacity <= 0) {
-            opacity = 0
-            clearInterval(fadeOut)
-            sceneRef.current.remove(existingDots)
-            existingDots.geometry.dispose()
-            material.dispose()
-          } else {
-            material.opacity = opacity
-          }
-        }, 20)
+        animateValue(material.opacity, 0, (v) => {
+          material.opacity = v
+        }, () => {
+          sceneRef.current.remove(existingDots)
+          existingDots.geometry.dispose()
+          material.dispose()
+        })
       }
       
       if (!showAirports) return
@@ -1616,15 +1610,9 @@ function App() {
       sceneRef.current.add(points)
 
       // Fade in animation
-      let opacity = 0
-      const fadeIn = setInterval(() => {
-        opacity += 0.02
-        if (opacity >= 0.8) {
-          opacity = 0.8
-          clearInterval(fadeIn)
-        }
-        material.opacity = opacity
-      }, 20) // Update every 20ms
+      animateValue(0, 0.8, (v) => {
+        material.opacity = v
+      })
       
       return () => {
         if (fadeInterval) clearInterval(fadeInterval)
@@ -1640,26 +1628,17 @@ function App() {
       // Remove existing graticule if exists
       const existingGraticule = sceneRef.current.getObjectByName('graticule')
       if (existingGraticule) {
-        let opacity = 0.2 // Start from current opacity
-        
-        const fadeOut = setInterval(() => {
-          opacity -= 0.02
-          if (opacity <= 0) {
-            clearInterval(fadeOut)
-            sceneRef.current.remove(existingGraticule)
-            existingGraticule.traverse((child) => {
-              if (child.geometry) child.geometry.dispose()
-              if (child.material) child.material.dispose()
-            })
-          } else {
-            // Update all child materials
-            existingGraticule.traverse((child) => {
-              if (child.material) {
-                child.material.opacity = opacity
-              }
-            })
-          }
-        }, 20)
+        animateValue(0.2, 0, (v) => {
+          existingGraticule.traverse((child) => {
+            if (child.material) child.material.opacity = v
+          })
+        }, () => {
+          sceneRef.current.remove(existingGraticule)
+          existingGraticule.traverse((child) => {
+            if (child.geometry) child.geometry.dispose()
+            if (child.material) child.material.dispose()
+          })
+        })
       }
       
       if (!showGraticule) return
@@ -1714,19 +1693,11 @@ function App() {
           sceneRef.current.add(graticuleGroup)
           
           // Fade in
-          let opacity = 0
-          fadeInterval = setInterval(() => {
-            opacity += 0.02
-            if (opacity >= 0.2) {
-              opacity = 0.2
-              clearInterval(fadeInterval)
-            }
+          animateValue(0, 0.2, (v) => {
             graticuleGroup.traverse((child) => {
-              if (child.material) {
-                child.material.opacity = opacity
-              }
+              if (child.material) child.material.opacity = v
             })
-          }, 20)
+          })
 
           // Apply B&W color if in B&W mode
           if (isBWModeRef.current) {
@@ -1754,25 +1725,17 @@ function App() {
       // Remove existing timezones if exists
       const existingTimezones = sceneRef.current.getObjectByName('timezone-boundaries')
       if (existingTimezones) {
-        let opacity = 0.3
-        
-        const fadeOut = setInterval(() => {
-          opacity -= 0.02
-          if (opacity <= 0) {
-            clearInterval(fadeOut)
-            sceneRef.current.remove(existingTimezones)
-            existingTimezones.traverse((child) => {
-              if (child.geometry) child.geometry.dispose()
-              if (child.material) child.material.dispose()
-            })
-          } else {
-            existingTimezones.traverse((child) => {
-              if (child.material) {
-                child.material.opacity = opacity
-              }
-            })
-          }
-        }, 20)
+        animateValue(0.3, 0, (v) => {
+          existingTimezones.traverse((child) => {
+            if (child.material) child.material.opacity = v
+          })
+        }, () => {
+          sceneRef.current.remove(existingTimezones)
+          existingTimezones.traverse((child) => {
+            if (child.geometry) child.geometry.dispose()
+            if (child.material) child.material.dispose()
+          })
+        })
       }
       
       if (!showTimezones) return
@@ -1925,24 +1888,17 @@ function App() {
           sceneRef.current.add(timezoneGroup)
           
           // Fade in
-          let opacity = 0
-          fadeInterval = setInterval(() => {
-            opacity += 0.02
-            if (opacity >= 0.3) {
-              opacity = 0.3
-              clearInterval(fadeInterval)
-            }
+          animateValue(0, 0.3, (v) => {
             timezoneGroup.traverse((child) => {
               if (child.material) {
-                // Skip date line, label sprite, and label mesh
                 if (child.userData.isDateLine || child.isSprite || child.userData.isDateLineLabel) {
                   child.material.opacity = Math.min(child.material.opacity, 0.9)
                 } else {
-                  child.material.opacity = opacity  // Timezone lines stay dim
+                  child.material.opacity = v
                 }
               }
             })
-          }, 20)
+          })
           
         })
         .catch(err => console.error('Error loading timezone boundaries:', err))
