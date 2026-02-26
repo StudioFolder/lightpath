@@ -10,7 +10,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { useNavigate, useParams } from 'react-router-dom'
-import { latLonToVector3 } from './utils/geoUtils'
+import { latLonToVector3, getFlightScale, getViewportScale } from './utils/geoUtils'
 import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
@@ -115,6 +115,9 @@ function App() {
   const isBWModeRef = useRef(false)
   const followPlaneModeRef = useRef(false)
   const isPlayingRef = useRef(false)
+
+  // Scaling
+  const viewportScaleRef = useRef(getViewportScale(window.innerWidth))
   
   // External Data & Intervals
   const timezoneDataRef = useRef(null)
@@ -1097,6 +1100,9 @@ function App() {
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
 
+      // Update viewport scale for 3D element sizing
+      viewportScaleRef.current = getViewportScale(width)
+
       // Update Line2 materials resolution
       Object.values(twilightLinesRef.current).forEach(line => {
         if (line && line.material.resolution) {
@@ -1153,6 +1159,12 @@ function App() {
       setAnimationProgress(0)
       animationProgressRef.current = 0
       setIsPlaying(false)
+
+      // Reset OrbitControls to default range
+      if (controlsRef.current) {
+        controlsRef.current.minDistance = 3.0
+        controlsRef.current.maxDistance = 3.5
+      }
       
     }, [departureSearch, arrivalSearch])
 
@@ -2123,8 +2135,14 @@ function App() {
       const controls = controlsRef.current
       if (!camera || !controls) return
 
-      // Zoom in for short flights
-      const radius = flightDistance < 500 ? 3.0 : 3.5
+      // Distance-based camera zoom
+      const { cameraRadius } = getFlightScale(flightDistance)
+      const radius = cameraRadius
+
+      // Widen OrbitControls limits to allow smooth transition from current to target distance
+      const currentDistance = camera.position.length()
+      controls.minDistance = Math.min(currentDistance, cameraRadius) - 0.2
+      controls.maxDistance = Math.max(currentDistance, cameraRadius) + 0.2
 
       // Convert to radians
       const lat1 = departure.lat * Math.PI / 180
@@ -2171,8 +2189,13 @@ function App() {
 
       // Smooth animation to target position
       const startPosition = camera.position.clone()
+      const startRadius = camera.position.length()
       const duration = 1500
       const startTime = Date.now()
+
+      // Widen OrbitControls limits to encompass both start and target distance
+      controls.minDistance = Math.min(startRadius, radius) - 0.2
+      controls.maxDistance = Math.max(startRadius, radius) + 0.2
 
       const animateCamera = () => {
         const elapsed = Date.now() - startTime
@@ -2189,9 +2212,12 @@ function App() {
         // Calculate angle between start and target
         const angle = startNormal.angleTo(targetNormal)
         
+        // Interpolate distance from current to target
+        const currentRadius = startRadius + (radius - startRadius) * eased
+
         // Handle edge case where positions are identical or opposite
         if (angle < 0.0001) {
-          camera.position.copy(targetPosition)
+          camera.position.copy(startNormal.clone().multiplyScalar(currentRadius))
         } else if (angle > Math.PI - 0.0001) {
           // Positions are opposite - use linear interpolation
           camera.position.lerpVectors(startPosition, targetPosition, eased)
@@ -2201,8 +2227,8 @@ function App() {
           const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle * eased)
           const interpolatedNormal = startNormal.clone().applyQuaternion(quaternion)
           
-          // Apply the radius (keeps constant zoom)
-          camera.position.copy(interpolatedNormal.multiplyScalar(radius))
+          // Apply interpolated radius (smooth zoom)
+          camera.position.copy(interpolatedNormal.multiplyScalar(currentRadius))
         }
         
         camera.lookAt(0, 0, 0)
@@ -2210,6 +2236,10 @@ function App() {
 
         if (progress < 1) {
           requestAnimationFrame(animateCamera)
+        } else {
+          // Tighten OrbitControls limits to final distance
+          controls.minDistance = cameraRadius - 0.2
+          controls.maxDistance = cameraRadius + 0.2
         }
       }
 
