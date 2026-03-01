@@ -897,7 +897,8 @@ function App() {
                 // Show label and position it
                 label.visible = true
                 const point = curve.getPoint(transitionT)
-                const offset = point.clone().normalize().multiplyScalar(0.06)
+                const eScale = flightLineRef.current?.userData.elementScale || 1.0
+                const offset = point.clone().normalize().multiplyScalar(0.06 * eScale)
                 label.position.copy(point).add(offset)
                 
                 // Fade in over 2% of progress after appearing
@@ -930,7 +931,7 @@ function App() {
             const thickGeometry = new THREE.TubeGeometry(
               new THREE.CatmullRomCurve3(completedPoints),
               Math.min(completedPoints.length * 2, 800),  // More tubular segments
-              0.006,
+              0.006 * (flightLineRef.current?.userData.elementScale || 1.0),
               8,
               false
             )
@@ -980,8 +981,9 @@ function App() {
           const up = new THREE.Vector3().crossVectors(right, tangent).normalize()
           
           // Position plane slightly above surface and ahead along the path
-          const surfaceOffset = normal.clone().multiplyScalar(0.02) // Adjust this value
-          const forwardOffset = tangent.clone().multiplyScalar(0.035)  // Adjust this value
+          const eScale = flightLineRef.current?.userData.elementScale || 1.0
+          const surfaceOffset = normal.clone().multiplyScalar(0.02 * eScale) // Adjust this value
+          const forwardOffset = tangent.clone().multiplyScalar(0.035 * eScale)  // Adjust this value
           planeIconRef.current.position.copy(position).add(surfaceOffset).add(forwardOffset)
 
           // Camera follow mode
@@ -2183,8 +2185,9 @@ function App() {
       // Calculate base camera position (directly above midpoint)
       const basePosition = latLonToVector3(midLat, midLon, radius)
 
-      // Apply 10° south tilt
-      const tiltAngle = 10 * Math.PI / 180
+      // Apply south tilt — disabled for closer zoom to keep path centered
+      const { scaleFactor } = getFlightScale(flightDistance)
+      const tiltAngle = (10 * scaleFactor) * Math.PI / 180
       const planeNormal = basePosition.clone().normalize()
       
       // Calculate "south" direction
@@ -2374,6 +2377,13 @@ function App() {
 
       // Center camera on flight path
       centerCameraOnFlight(departure, arrival, distance)
+
+      // Scale plane icon for flight distance
+      const { scaleFactor } = getFlightScale(distance)
+      const planeScale = scaleFactor * viewportScaleRef.current
+      if (planeIconRef.current) {
+        planeIconRef.current.scale.set(planeScale, 1, planeScale)
+      }
 
       // Stop auto-rotation when flight is calculated
       setAutoRotate(false)
