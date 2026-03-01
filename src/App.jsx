@@ -1535,13 +1535,25 @@ function App() {
         return sprite
       }
 
-      // Create labels with offset
-      const createLabelWithOffset = async (code, lat, lon, iconSrc) => {
+      // Determine label placement direction based on flight path orientation
+      // Labels go on the opposite side of the dot from the path direction
+      const latDiff = arrival.lat - departure.lat
+      // East-west threshold: at 0.3, flights need <30% lat-vs-lon ratio to count as east-west
+      const isEastWest = Math.abs(latDiff) < Math.abs(arrival.lon - departure.lon) * 0.3
+
+      // For departure: path heads toward arrival
+      // For arrival: path arrives from departure
+      const departureLabelSouth = isEastWest || latDiff > 0  // path goes north → label south
+      const arrivalLabelSouth = isEastWest || latDiff < 0    // path comes from north → label south
+
+      // Create labels with offset — positioned away from the flight path
+      const createLabelWithOffset = async (code, lat, lon, iconSrc, placeSouth) => {
         const label = await createTextLabel(code, iconSrc, isBWModeRef.current)
         const basePos = latLonToVector3(lat, lon, 2.05)
-        const offsetLat = lat - 0.5
+        const offsetLat = placeSouth ? lat - 0.5 : lat + 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(0.075 * elementScale)
+        const offsetDistance = placeSouth ? 0.075 : 0.055
+        const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(offsetDistance * elementScale)
         label.position.copy(basePos.add(offset))
         return label
       }
@@ -1554,7 +1566,7 @@ function App() {
           const depIcon = isBWMode ? '/departure-icon-bw.svg' : '/departure-icon.svg'
           const arrIcon = isBWMode ? '/arrival-icon-bw.svg' : '/arrival-icon.svg'
                 
-        const departureLabel = await createLabelWithOffset(departureCode, departure.lat, departure.lon, depIcon)
+        const departureLabel = await createLabelWithOffset(departureCode, departure.lat, departure.lon, depIcon, departureLabelSouth)
         departureLabel.userData.code = departureCode
         departureLabel.userData.lat = departure.lat
         departureLabel.userData.lon = departure.lon
@@ -1562,7 +1574,7 @@ function App() {
         flightGroup.add(departureLabel)
         departureLabelRef.current = departureLabel
 
-        const arrivalLabel = await createLabelWithOffset(arrivalCode, arrival.lat, arrival.lon, arrIcon)
+        const arrivalLabel = await createLabelWithOffset(arrivalCode, arrival.lat, arrival.lon, arrIcon, arrivalLabelSouth)
         arrivalLabel.userData.code = arrivalCode
         arrivalLabel.userData.lat = arrival.lat
         arrivalLabel.userData.lon = arrival.lon
