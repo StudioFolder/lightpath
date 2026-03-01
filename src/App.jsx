@@ -1082,10 +1082,10 @@ function App() {
         }
       }
 
-      // Keep location dot constant size
+      // Keep location dot constant size, accounting for viewport width
       const currentDistance = camera.position.length()
       const baseDistance = 5  // Initial camera distance
-      const dotScale = currentDistance / baseDistance
+      const dotScale = (currentDistance / baseDistance) * viewportScaleRef.current
       dot.scale.setScalar(dotScale)
       
       controls.autoRotate = autoRotateRef.current
@@ -2209,10 +2209,6 @@ function App() {
       const startRadius = camera.position.length()
       const duration = 1500
       const startTime = Date.now()
-
-      // Widen OrbitControls limits to encompass both start and target distance
-      controls.minDistance = Math.min(startRadius, radius) - 0.2
-      controls.maxDistance = Math.max(startRadius, radius) + 0.2
 
       const animateCamera = () => {
         const elapsed = Date.now() - startTime
