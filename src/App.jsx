@@ -1002,8 +1002,9 @@ function App() {
             // Get plane's normal (pointing away from Earth)
             const planeNormal = position.clone().normalize()
             
-            // Create a tilt: shift camera 10° toward south
-            const tiltAngle = 10 * Math.PI / 180  // 10 degrees in radians
+            // Create a tilt: shift camera 10° toward south, scaled for short flights
+            const followScaleFactor = flightLineRef.current?.userData.scaleFactor || 1.0
+            const tiltAngle = (10 * followScaleFactor) * Math.PI / 180
             
             // Calculate "south" direction (perpendicular to plane normal, toward negative latitude)
             const south = new THREE.Vector3(0, -1, 0)  // Start with down direction
@@ -1552,7 +1553,7 @@ function App() {
         const basePos = latLonToVector3(lat, lon, 2.05)
         const offsetLat = placeSouth ? lat - 0.5 : lat + 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offsetDistance = placeSouth ? 0.075 : 0.055
+        const offsetDistance = placeSouth ? 0.075 : 0.025
         const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(offsetDistance * elementScale)
         label.position.copy(basePos.add(offset))
         return label
@@ -2069,7 +2070,10 @@ function App() {
       const flightDistanceKm = flightResults ? parseFloat(flightResults.distance) : 5000
       
       // Define speed in km per second of animation
-      const kmPerSecond = 400 // Adjust this! Higher = faster line movement
+      // Slower for short flights so the animation doesn't feel rushed
+      // 400 km/s above 2000km, scaling down to 150 km/s for very short flights
+      const kmPerSecond = flightDistanceKm >= 2000 ? 400 : 
+        150 + (250 * Math.max(0, (flightDistanceKm - 200) / 1800))
       
       // Calculate total animation duration based on distance
       const animationDurationMs = (flightDistanceKm / kmPerSecond) * 1000
