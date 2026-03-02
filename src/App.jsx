@@ -3086,7 +3086,31 @@ function App() {
                 setDepartureAirport(null)
                 setSearchEditing(prev => prev + 1)
               }}
+              onClear={() => {
+                setDepartureCode('')
+                setDepartureAirport(null)
+                setSearchEditing(prev => prev + 1)
+              }}
             />
+
+            <div className="swap-airports-row">
+              <button
+                className="swap-airports-btn"
+                onClick={() => {
+                  const tempCode = departureCode
+                  const tempAirport = departureAirport
+                  setDepartureCode(arrivalCode)
+                  setDepartureAirport(arrivalAirport)
+                  setArrivalCode(tempCode)
+                  setArrivalAirport(tempAirport)
+                  setSearchEditing(prev => prev + 1)
+                }}
+                aria-label="Swap departure and arrival airports"
+                title="Swap airports"
+              >
+                ⇅
+              </button>
+            </div>
 
             <AirportSearchInput
               label="Arrival"
@@ -3098,6 +3122,11 @@ function App() {
                 setArrivalAirport(selected)
               }}
               onSearchChange={() => {
+                setArrivalCode('')
+                setArrivalAirport(null)
+                setSearchEditing(prev => prev + 1)
+              }}
+              onClear={() => {
                 setArrivalCode('')
                 setArrivalAirport(null)
                 setSearchEditing(prev => prev + 1)

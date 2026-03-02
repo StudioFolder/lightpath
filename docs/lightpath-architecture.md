@@ -1,7 +1,7 @@
 # Lightpath — Application Architecture
 
-**Version:** 0.6.15  
-**Last updated:** February 2026  
+**Version:** 0.7.0  
+**Last updated:** March 2026  
 **Repository:** StudioFolder/lightpath on GitHub  
 **Deployment:** Vercel (automatic pipeline)
 
@@ -34,24 +34,50 @@ Lightpath is a 3D flight path visualization that shows how aviation routes inter
 
 ```
 src/
-├── App.jsx              (3,443 lines — main component)
-├── App.css              (2,352 lines — all styles)
+├── App.jsx                  (3,376 lines — main component)
+├── App.css                  (2,352 lines — all styles)
+├── components/
+│   └── AirportSearchInput.jsx (95 lines — airport autocomplete input)
 ├── utils/
-│   ├── geoUtils.js      (21 lines — coordinate conversion)
-│   ├── solarUtils.js    (69 lines — solar position calculations)
-│   ├── sceneUtils.js    (106 lines — label texture creation)
-│   └── animationUtils.js (38 lines — fade animations)
+│   ├── geoUtils.js          (69 lines — coordinate conversion + flight scaling)
+│   ├── solarUtils.js        (69 lines — solar position calculations)
+│   ├── sceneUtils.js        (106 lines — label texture creation)
+│   └── animationUtils.js    (38 lines — fade animations)
 public/
-├── earth-texture.png    (custom Earth texture, created in QGIS)
-├── graticule-10.geojson (10° latitude/longitude grid)
-├── timezones.geojson    (timezone boundaries)
+├── earth-texture.png        (custom Earth texture, created in QGIS)
+├── graticule-10.geojson     (10° latitude/longitude grid)
+├── timezones.geojson        (timezone boundaries)
 ├── plane-icon.svg / plane-icon-bw.svg
 ├── departure-icon.svg / departure-icon-bw.svg
 ├── arrival-icon.svg / arrival-icon-bw.svg
 ├── sunrise-icon.svg / sunrise-icon-bw.svg
 ├── sunset-icon.svg / sunset-icon-bw.svg
-├── about.md / data.md   (info panel content)
+├── about.md / data.md       (info panel content)
 ```
+
+---
+
+## Components
+
+### `AirportSearchInput.jsx`
+
+A reusable airport search input with autocomplete dropdown. Manages its own search/suggestions state internally. Used twice in App.jsx (departure and arrival).
+
+**Internal state:** `search`, `results`, `showSuggestions`, `selectedIndex`
+
+**Props:**
+| Prop | Type | Purpose |
+|---|---|---|
+| `label` | string | "Departure" or "Arrival" |
+| `code` | string | Selected IATA code (controlled by parent) |
+| `airport` | object | Selected airport `{ city, country, ... }` (controlled by parent) |
+| `searchAirports` | function | Search function: `(query) => results[]` |
+| `onSelect` | function | Called when user picks an airport |
+| `onSearchChange` | function | Called when user starts typing (signals parent to clear flight) |
+
+**Handles internally:** Text input, keyboard navigation (arrow keys, Enter), dropdown visibility, focus/blur, suggestion rendering.
+
+**Future:** When alternative search modes are added (e.g., flight number lookup), this component stays as-is within the airport search mode, alongside sibling components for other modes.
 
 ---
 
@@ -60,6 +86,8 @@ public/
 ### `geoUtils.js`
 - **`latLonToVector3(lat, lon, radius)`** → `THREE.Vector3`
   Converts geographic coordinates to 3D position on the globe. Single source of truth for the app's coordinate convention (Y-up, negative X at 0° longitude, +180° theta offset).
+- **`getFlightScale(distanceKm)`** → `{ cameraRadius, scaleFactor }`
+  Distance-based scaling for short flights. Flights >2,000 km use default scale (1.0). Below that, camera zooms closer and visual elements shrink proportionally. Three tiers: 1,000–2,000 km, 500–1,000 km, <500 km.
 
 ### `solarUtils.js`
 - **`calculateSolarDeclination(date)`** → degrees
@@ -85,20 +113,20 @@ public/
 
 ## App.jsx Structure
 
-App.jsx is a single large React component. Here's how it's organized from top to bottom:
+App.jsx is the main React component containing all 3D scene logic, state management, and UI rendering. Here's how it's organized from top to bottom:
 
-### 1. State Variables (lines 22–71)
+### 1. State Variables
 
 | Group | Variables | Purpose |
 |---|---|---|
 | Loading | `isLoading`, `departureTime` | Initial load state, selected departure time |
-| Airport Search | `departureCode/Search/Results/Airport`, `arrivalCode/Search/Results/Airport`, `selectedIndex`, `showSuggestions` | Two mirrored search input states |
+| Airport Selection | `departureCode`, `arrivalCode`, `airports`, `departureAirport`, `arrivalAirport`, `searchEditing` | Selected airports and search edit counter (triggers flight cleanup) |
 | Flight | `flightPath`, `flightResults`, `isPlaying`, `animationProgress`, `showFlightStats` | Calculated flight data, animation state |
 | UI Toggles | `showAirports`, `showGraticule`, `showPlaneIcon`, `showTimezones`, `showTwilightLines`, `isBWMode`, `autoRotate`, `followPlaneMode` | Feature toggles |
 | Panel | `isPanelCollapsed`, `isPanelFading`, `expandedSection`, `aboutContent`, `dataContent`, `isClosing` | Control panel and accordion state |
 | Mobile | `isMobile`, `showMobileMenu`, `isMobileMenuClosing`, `isMobileMenuAnimating` | Mobile UI state |
 
-### 2. Refs (lines 73–121)
+### 2. Refs
 
 | Group | Refs | Purpose |
 |---|---|---|
@@ -110,25 +138,25 @@ App.jsx is a single large React component. Here's how it's organized from top to
 
 **Why both state and refs for toggles?** State drives React re-renders (UI updates). Refs are readable inside the Three.js animation loop without triggering re-renders. They're kept in sync via `useEffect` hooks.
 
-### 3. Standalone Functions (lines 122–260)
+### 3. Standalone Functions
 
 - **`getCSSColor(varName)`** — Reads CSS custom property RGB values
 - **`calculateTwilightBoundary(sunDirection, baseElevationAngle, currentTime)`** — Computes twilight boundary line positions with latitude-dependent width and solar declination effects. Contains the artistic tuning for twilight visualization.
 - **`updateTwilightLines(sunDirection, currentTime)`** — Updates all 8 twilight boundary line geometries
 
-### 4. useEffects — Initialization & Sync (lines 269–336)
+### 4. useEffects — Initialization & Sync
 
-- **Airport data loading** — Fetches from URL params, sets state
+- **URL parameter loading** — Reads flight route from URL params, auto-calculates flight
 - **Ref sync effects** — `followPlaneMode`, `isPlaying`, `autoRotate` → refs
 - **Mobile detection** — User agent + touch + screen width, runs on resize
 
-### 5. Main Scene Setup useEffect (lines 338–1113)
+### 5. Main Scene Setup useEffect
 
 This is the largest block (~775 lines). Runs once on mount (`[]` dependency). Contains:
 
 1. **Airport data fetch** from OpenFlights CSV
 2. **Scene creation** — Scene, camera (75° FOV, z=3.5), renderer (capped 2× pixel ratio)
-3. **OrbitControls** — Damping, rotation speed, zoom disabled, min/max distance 3–3.5
+3. **OrbitControls** — Damping, rotation speed, min/max distance dynamically set per flight
 4. **Globe** — SphereGeometry radius 2, 96 segments, custom Earth texture
 5. **Plane icon** — PlaneGeometry mesh (not sprite), mobile-responsive size
 6. **Atmospheric glow** — Custom vertex/fragment shader, BackSide rendering
@@ -145,7 +173,7 @@ This is the largest block (~775 lines). Runs once on mount (`[]` dependency). Co
 13. **Animation loop** — `requestAnimationFrame` with:
     - Mobile frame throttling (30fps cap)
     - Real-time sun position updates
-    - Flight animation progress tube rendering
+    - Flight animation progress tube rendering (scaled by `scaleFactor`)
     - Transition label fade-in/fade-out at correct progress points
     - Plane icon positioning and orientation along path
     - Follow-plane camera mode
@@ -153,42 +181,42 @@ This is the largest block (~775 lines). Runs once on mount (`[]` dependency). Co
 14. **Resize handler** — Camera, renderer, Line2 material resolution
 15. **Cleanup** — Renderer dispose, event listener removal
 
-### 6. Flight Path Cleanup useEffect (lines 1120–1148)
+### 6. Flight Path Cleanup useEffect
 
-Triggers on `[departureSearch, arrivalSearch]`. When user edits search fields:
+Triggers on `[searchEditing]`. When user edits either search input (signaled via `onSearchChange` callback from `AirportSearchInput`):
 - Removes flight group from scene
 - Disposes all geometries and materials
 - Clears `transitionLabelsRef` array
 - Resets animation state
+- Resets OrbitControls to default distance range
 
-### 7. Flight Path Drawing useEffect (lines 1150–1600)
+### 7. Flight Path Drawing useEffect
 
 Triggers on `[flightPath, flightResults, departureTime, departureCode, arrivalCode]`. The flight visualization pipeline:
 
-1. **Great circle path** — Spherical interpolation (slerp) between departure and arrival, 100 points at radius 2.01
-2. **Sun angle computation** — For each point along path, calculates sun angle at the corresponding time
-3. **Color mapping** — Multi-threshold gradient system:
+1. **Distance-based scaling** — `getFlightScale(distance)` determines `scaleFactor` for all visual elements
+2. **Great circle path** — Spherical interpolation (slerp) between departure and arrival, 100 points at radius 2.01
+3. **Sun angle computation** — For each point along path, calculates sun angle at the corresponding time
+4. **Color mapping** — Multi-threshold gradient system:
    - Differentiates sunset (warmer reds/oranges) vs sunrise (cooler purples/blues)
    - 8 angle bands: full daylight (<85°), approaching horizon (85–88°), near-horizon (88–91°), civil twilight (91–94°, 94–97°), nautical (97–100°), astronomical (100–108°), full darkness (>108°)
-4. **Pre-calculated colors** — Both color and BW arrays computed once, stored in `userData`
-5. **Transition detection** — Identifies day→night and night→day crossings along the path
-6. **Thin base tube** — 0.002 radius, white, 30% opacity
-7. **Transition labels and rings** — Pre-created at each transition point, initially hidden
-8. **Airport dots** — Small spheres at departure/arrival
-9. **Airport labels** — Sprites with offset positioning, created via `createAirportLabelTexture()`
+5. **Pre-calculated colors** — Both color and BW arrays computed once, stored in `userData`
+6. **Transition detection** — Identifies day→night and night→day crossings along the path
+7. **Thin base tube** — 0.002 × scaleFactor radius, white, 30% opacity
+8. **Transition labels and rings** — Pre-created at each transition point, scaled by `scaleFactor`, initially hidden
+9. **Airport dots** — Small spheres at departure/arrival, scaled by `scaleFactor`
+10. **Airport labels** — Sprites with offset positioning, created via `createAirportLabelTexture()`, scaled by `scaleFactor`
 
-### 8. Layer Toggle useEffects (lines 1633–2033)
+### 8. Layer Toggle useEffects
 
-Each layer follows the same pattern: fade-out existing → early return if toggled off → create new → fade-in.
+Each layer follows the same pattern: fade-out existing → early return if toggled off → create new → fade-in. All fades use `animateValue()` (300ms ease-out).
 
 - **Airport dots** (triggers: `showAirports`, `airports`, `isBWMode`) — Points geometry with circular canvas texture, resting opacity 0.8
 - **Graticule** (triggers: `showGraticule`) — Loaded from GeoJSON, LineBasicMaterial, resting opacity 0.2
 - **Timezone boundaries** (triggers: `showTimezones`) — Loaded from GeoJSON, includes International Date Line with curved label mesh, resting opacity 0.3
 - **Twilight lines** (triggers: `showTwilightLines`) — requestAnimationFrame-based fade, individual target opacities per line type (terminator 0.8, civil 0.6, nautical 0.4, astronomical 0.2)
 
-All layer fades use `animateValue()` from animationUtils (300ms ease-out), except twilight lines which have their own interpolation for per-line opacity targets.
-
-### 9. BW Mode useEffects (lines 2118–2471)
+### 9. BW Mode useEffects
 
 - **Twilight line colors** — Switches between white/gray tones and dark gray
 - **Scene transition** — 400ms animated transition handling:
@@ -202,11 +230,11 @@ All layer fades use `animateValue()` from animationUtils (300ms ease-out), excep
   - Transition label texture swap
   - Ring, dot, and airport dot color updates
 
-### 10. Animation & Playback (lines 2148–2176)
+### 10. Animation & Playback
 
 Flight animation using `setInterval` at 16ms. Speed based on distance (400 km/s visual speed). Clamps to 1.0, auto-stops, shows flight stats.
 
-### 11. Keyboard Shortcuts (lines 2179–2119)
+### 11. Keyboard Shortcuts
 
 | Key | Action |
 |---|---|
@@ -217,14 +245,14 @@ Flight animation using `setInterval` at 16ms. Speed based on distance (400 km/s 
 | G | Toggle graticule (disables timezones) |
 | L | Toggle twilight lines |
 
-### 12. Business Logic Functions (lines 2121–2470)
+### 12. Business Logic Functions
 
-- **`centerCameraOnFlight(departure, arrival, flightDistance)`** — Smooth camera slerp to flight midpoint with 10° south tilt, 1500ms ease-in-out
+- **`centerCameraOnFlight(departure, arrival, flightDistance)`** — Smooth camera slerp to flight midpoint with 10° south tilt, 1500ms ease-in-out. Camera distance determined by `getFlightScale(flightDistance).cameraRadius`.
 - **`calculateFlight()`** — Main calculation: great circle distance (Haversine), duration estimate (750 km/h), daylight/darkness time sampling, state updates, URL update
 - **`getAirportTimezone()`**, **`getLocalTimeAtAirport()`**, **`getTimezoneAbbreviation()`** — Timezone utilities using tz-lookup + Luxon
 - **`searchAirports(query)`** — Priority-ordered search: exact IATA → prefix → city name, max 8 results
 
-### 13. JSX Return (lines ~2470–3443)
+### 13. JSX Return
 
 UI structure:
 
@@ -235,8 +263,8 @@ UI structure:
   Mobile hamburger button + menu
   Desktop layer toggles (A, G, T, L, P, BW, Follow)
   Control panel:
-    Departure search input + suggestions
-    Arrival search input + suggestions  
+    <AirportSearchInput> (departure)
+    <AirportSearchInput> (arrival)
     Date/time picker
     Calculate button
     Accordion sections (About, Data)
@@ -268,11 +296,11 @@ Scene
 │   └── astronomicalDay / astronomicalNight
 ├── Plane icon mesh (PlaneGeometry)
 ├── Flight group (when flight calculated)
-│   ├── Thin base tube (radius 0.002)
-│   ├── Progress tube (animated, radius 0.006)
-│   ├── Departure dot + label sprite
-│   ├── Arrival dot + label sprite
-│   └── Transition labels + rings (per transition)
+│   ├── Thin base tube (radius 0.002 × scaleFactor)
+│   ├── Progress tube (animated, radius 0.006 × scaleFactor)
+│   ├── Departure dot + label sprite (scaled by scaleFactor)
+│   ├── Arrival dot + label sprite (scaled by scaleFactor)
+│   └── Transition labels + rings (per transition, scaled by scaleFactor)
 ├── Airport dots (Points geometry, when toggled on)
 ├── Graticule group (LineBasicMaterial, when toggled on)
 └── Timezone group (LineBasicMaterial + Date Line, when toggled on)
@@ -285,16 +313,21 @@ Scene
 - **Globe radius:** 2.0 (scene units)
 - **Surface layers:** Twilight 2.003, graticule 2.004, timezones 2.005, airport dots 2.005, flight path 2.01
 - **Coordinate system:** Y-up, with `latLonToVector3` converting geographic to 3D
-- **Camera distance:** Default 3.5, range 3.0–3.5 (OrbitControls clamped)
+- **Camera distance:** Default 3.5, dynamically adjusted per flight via `getFlightScale()` (range 2.3–3.5)
 
 ---
 
 ## Data Flow
 
 ```
-User selects airports → calculateFlight() → 
+User selects airports (via AirportSearchInput) →
+  onSelect → sets departureCode/Airport, arrivalCode/Airport in App.jsx
+  onSearchChange → increments searchEditing → clears any existing flight
+
+User clicks Calculate → calculateFlight() → 
   ├── Haversine distance
   ├── Duration estimate (750 km/h)  
+  ├── getFlightScale(distance) → cameraRadius + scaleFactor
   ├── Great circle path (100 slerp points)
   ├── Sun angle at each point + time
   ├── Color gradient mapping (color + BW pre-calculated)
@@ -302,12 +335,12 @@ User selects airports → calculateFlight() →
   ├── Daylight/darkness time sampling
   └── setFlightPath() + setFlightResults()
         ↓
-Flight path useEffect draws everything to scene
+Flight path useEffect draws everything to scene (scaled)
         ↓
 Play button → setInterval updates animationProgress
         ↓  
 Animation loop reads animationProgressRef:
-  ├── Builds progress tube up to current point
+  ├── Builds progress tube up to current point (scaled)
   ├── Updates plane position + orientation
   ├── Fades transition labels at crossing points
   ├── Updates sun position for current flight time
@@ -346,11 +379,11 @@ git push && git push --tags
 
 ## Known Architectural Notes
 
-- **Single component:** App.jsx contains all logic. Phase 3 (planned) will extract UI components.
+- **Single main component with extracted utilities:** App.jsx contains all 3D scene logic and state. UI components are being progressively extracted (AirportSearchInput is the first).
 - **State/ref duality:** Feature toggles exist as both `useState` (for React UI) and `useRef` (for animation loop access). Synced via `useEffect`.
-- **No state management library:** All state is local `useState`. Works because there's only one component.
+- **No state management library:** All state is local `useState`. Works because there's effectively one main component.
 - **GeoJSON loaded at runtime:** Graticule and timezone boundaries fetched on toggle, not bundled.
 - **Airport data from OpenFlights:** Fetched from GitHub raw URL on mount.
 - **Custom Earth texture:** Created in QGIS, stored in `/public`.
 - **Two color modes:** Every visual element has both color and BW variants. BW transition is animated over 400ms.
-- **Zoom disabled:** OrbitControls zoom is off. Camera distance is controlled programmatically per-flight.
+- **Distance-based scaling:** Camera distance and all flight path element sizes scale continuously based on flight distance via `getFlightScale()`. Flights >2,000 km use default scale; shorter flights zoom in progressively.

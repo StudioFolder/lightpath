@@ -273,6 +273,19 @@ body:has(.bw-mode) {
   width: 100%;
 }
 
+.autocomplete-container:hover .input-clear-btn {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.autocomplete-container .airport-name-inline {
+  transition: right 0.2s ease;
+}
+
+.autocomplete-container:hover .airport-name-inline {
+  right: 32px;
+}
+
 .autocomplete-dropdown {
   position: absolute;
   top: 100%;
@@ -337,6 +350,62 @@ body:has(.bw-mode) {
 .autocomplete-city {
   font-size: 12px;
   opacity: 0.8;
+}
+
+/* ── Clear button inside selected input ── */
+.input-group input.has-clear {
+  padding-right: 32px;
+}
+
+/* ── Swap airports row ── */
+.swap-airports-row {
+  position: relative;
+  height: 0;
+  display: flex;
+  z-index: 2;
+}
+
+.swap-airports-btn {
+  position: absolute;
+  top: -6px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: none !important;
+  border-radius: 50%;
+  color: rgba(30, 30, 30, 0.85) !important;
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 13px !important;
+  cursor: pointer;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: none !important;
+  margin: 0 !important;
+}
+
+.swap-airports-btn:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: transparent !important;
+}
+
+/* BW mode */
+.bw-mode .input-clear-btn {
+  color: rgba(40, 40, 40, 0.35);
+}
+.bw-mode .input-clear-btn:hover {
+  color: rgba(40, 40, 40, 0.8);
+}
+.bw-mode .swap-airports-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(40, 40, 40, 0.5);
+}
+.bw-mode .swap-airports-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(40, 40, 40, 0.85);
 }
 
 canvas {
@@ -496,6 +565,35 @@ canvas {
   background: transparent;
   color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
+}
+
+.flight-input .input-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px !important;
+  height: 18px;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: none !important;
+  border-radius: 50%;
+  color: rgba(30, 30, 30, 0.85) !important;
+  cursor: pointer;
+  text-transform: none;
+  font-weight: 400;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease !important;
+}
+
+.flight-input .input-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: transparent !important;
 }
 
 .collapse-lens {
@@ -1733,6 +1831,15 @@ canvas {
   .footer-info .github-icon {
     width: 11px;
     height: 11px;
+  }
+
+  .flight-input .input-clear-btn,
+  .swap-airports-btn {
+    width: 18px !important;
+    height: 18px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 }
 
