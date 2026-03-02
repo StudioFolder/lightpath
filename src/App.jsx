@@ -2168,7 +2168,7 @@ function App() {
       if (!camera || !controls) return
 
       // Distance-based camera zoom
-      const { cameraRadius } = getFlightScale(flightDistance)
+      const { cameraRadius, scaleFactor } = getFlightScale(flightDistance)
       const radius = cameraRadius
 
       // Widen OrbitControls limits to allow smooth transition from current to target distance
@@ -2202,7 +2202,6 @@ function App() {
       const basePosition = latLonToVector3(midLat, midLon, radius)
 
       // Apply south tilt — disabled for closer zoom to keep path centered
-      const { scaleFactor } = getFlightScale(flightDistance)
       const tiltAngle = (10 * scaleFactor) * Math.PI / 180
       const planeNormal = basePosition.clone().normalize()
       

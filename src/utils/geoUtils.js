@@ -19,11 +19,11 @@ export function getFlightScale(distanceKm) {
     scaleFactor = 1.0
   } else if (d >= 1000) {
     const t = (d - 1000) / 1000
-    cameraRadius = 2.9 + t * 0.6
+    cameraRadius = 2.7 + t * 0.6
     scaleFactor = 0.7 + t * 0.3
   } else if (d >= 500) {
     const t = (d - 500) / 500
-    cameraRadius = 2.5 + t * 0.4
+    cameraRadius = 2.4 + t * 0.4
     scaleFactor = 0.5 + t * 0.2
   } else {
     const t = Math.max(0, (d - 200) / 300)
