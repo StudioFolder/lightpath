@@ -63,6 +63,7 @@ function App() {
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isMobileMenuClosing, setIsMobileMenuClosing] = useState(false)
   const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false)
+  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false)
 
   // ===== REFS =====
   // Three.js Core
@@ -2759,21 +2760,25 @@ function App() {
         {/* Hamburger menu button - shows on mobile */}
         {isMobile && (
           <button 
-            className={`hamburger-button ${showMobileMenu ? 'open' : ''}`}
+            className={`hamburger-button ${isHamburgerOpen ? 'open' : ''}`}
             onClick={() => {
               if (isMobileMenuAnimating) return
               if (!showMobileMenu) {
                 setIsMobileMenuAnimating(true)
                 setShowMobileMenu(true)
+                setIsHamburgerOpen(true)
                 setTimeout(() => setIsMobileMenuAnimating(false), 50)
               } else {
                 setIsMobileMenuAnimating(true)
+                setIsHamburgerOpen(false)
                 setIsMobileMenuClosing(true)
                 setTimeout(() => {
                   setShowMobileMenu(false)
-                  setIsMobileMenuClosing(false)
-                  setIsMobileMenuAnimating(false)
-                }, 300)
+                  setTimeout(() => {
+                    setIsMobileMenuClosing(false)
+                    setIsMobileMenuAnimating(false)
+                  }, 300)
+                }, 50)
               }
             }}
             aria-label="Menu"
@@ -2793,7 +2798,7 @@ function App() {
           <div className="mobile-menu-offcanvas">
             <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
               <p className="mobile-menu-tagline">
-                Explore how long your flight will spend in daytime, nighttime, or twilight.
+                Explore how long your flight spends in daylight, twilight, and darkness.
               </p>
 
               <button 
@@ -2909,7 +2914,7 @@ function App() {
 
         <div className="nav-accordion">
           <p className="nav-tagline">
-            Explore how long your flight will spend in daytime, nighttime, or twilight.
+            Explore how long your flight spends in daylight, twilight, and darkness.
           </p>
 
           <button 

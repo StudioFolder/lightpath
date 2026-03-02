@@ -2307,9 +2307,9 @@ canvas {
   }
 
   /* No canvas movement - just fade overlays */
-  .app.menu-open .animation-controls,
-  .app.menu-open .bw-toggle-overlay,
-  .app.menu-open .follow-toggle-overlay {
+  .app.menu-open:not(.menu-closing) .animation-controls,
+  .app.menu-open:not(.menu-closing) .bw-toggle-overlay,
+  .app.menu-open:not(.menu-closing) .follow-toggle-overlay {
     opacity: 0;
     transition: opacity 0.3s ease;
   }
