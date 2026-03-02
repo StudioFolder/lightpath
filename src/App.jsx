@@ -14,6 +14,7 @@ import { latLonToVector3, getFlightScale, getViewportScale } from './utils/geoUt
 import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
+import AirportSearchInput from './components/AirportSearchInput'
 
 function App() {
   const navigate = useNavigate()
@@ -30,14 +31,7 @@ function App() {
   const [airports, setAirports] = useState(null)
   const [departureAirport, setDepartureAirport] = useState(null)
   const [arrivalAirport, setArrivalAirport] = useState(null)
-  const [departureSearch, setDepartureSearch] = useState('')
-  const [departureResults, setDepartureResults] = useState([])
-  const [showDepartureSuggestions, setShowDepartureSuggestions] = useState(false)
-  const [selectedDepartureIndex, setSelectedDepartureIndex] = useState(-1)
-  const [arrivalSearch, setArrivalSearch] = useState('')
-  const [arrivalResults, setArrivalResults] = useState([])
-  const [showArrivalSuggestions, setShowArrivalSuggestions] = useState(false)
-  const [selectedArrivalIndex, setSelectedArrivalIndex] = useState(-1)
+  const [searchEditing, setSearchEditing] = useState(0)
   
   // Flight Calculation & Animation
   const [flightPath, setFlightPath] = useState(null)
@@ -291,11 +285,9 @@ function App() {
     // Set everything needed for the flight - mimicking the selection click
     setDepartureCode(from)
     setDepartureAirport(departureAirport)
-    setDepartureSearch('') // Clear search like the onClick does
     
     setArrivalCode(to)
     setArrivalAirport(arrivalAirport)
-    setArrivalSearch('') // Clear search like the onClick does
     
     setDepartureTime(flightDateTime)
     
@@ -1176,7 +1168,7 @@ function App() {
         controlsRef.current.maxDistance = 3.5
       }
       
-    }, [departureSearch, arrivalSearch])
+    }, [searchEditing])
 
     // Effect to draw flight path when flightPath state changes
     useEffect(() => {
@@ -3080,160 +3072,37 @@ function App() {
           </div>
           
           <div className="panel-content">
-            <div className="input-group">
-              <label>Departure</label>
-              <div className="autocomplete-container">
-                <input 
-                  type="text"
-                  value={departureAirport ? departureCode : departureSearch}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setDepartureSearch(value)
-                    setDepartureCode('')
-                    setDepartureAirport(null)
-                    
-                    const results = searchAirports(value)
-                    setDepartureResults(results)
-                    setShowDepartureSuggestions(results.length > 0)
-                    setSelectedDepartureIndex(-1)
-                  }}
-                  onFocus={() => {
-                    if (departureSearch.length >= 2) {
-                      const results = searchAirports(departureSearch)
-                      setDepartureResults(results)
-                      setShowDepartureSuggestions(results.length > 0)
-                    }
-                  }}
-                  onBlur={() => {
-                    // Delay to allow click on suggestion
-                    setTimeout(() => setShowDepartureSuggestions(false), 200)
-                  }}
-                  onKeyDown={(e) => {
-                    if (!showDepartureSuggestions) return
-                    
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault()
-                      setSelectedDepartureIndex(prev => 
-                        prev < departureResults.length - 1 ? prev + 1 : prev
-                      )
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault()
-                      setSelectedDepartureIndex(prev => prev > 0 ? prev - 1 : -1)
-                    } else if (e.key === 'Enter' && selectedDepartureIndex >= 0) {
-                      e.preventDefault()
-                      const selected = departureResults[selectedDepartureIndex]
-                      setDepartureCode(selected.code)
-                      setDepartureAirport(selected)
-                      setDepartureSearch('')
-                      setShowDepartureSuggestions(false)
-                    }
-                  }}
-                />
+            <AirportSearchInput
+              label="Departure"
+              code={departureCode}
+              airport={departureAirport}
+              searchAirports={searchAirports}
+              onSelect={(selected) => {
+                setDepartureCode(selected.code)
+                setDepartureAirport(selected)
+              }}
+              onSearchChange={() => {
+                setDepartureCode('')
+                setDepartureAirport(null)
+                setSearchEditing(prev => prev + 1)
+              }}
+            />
 
-                {departureAirport && (
-                  <span className="airport-name-inline">
-                    {departureAirport.city} ({departureAirport.country})
-                  </span>
-                )}
-                                
-                {showDepartureSuggestions && departureResults.length > 0 && (
-                  <div className="autocomplete-dropdown">
-                    {departureResults.map((result, index) => (
-                      <div
-                        key={result.code}
-                        className={`autocomplete-item ${index === selectedDepartureIndex ? 'selected' : ''}`}
-                        onClick={() => {
-                          setDepartureCode(result.code)
-                          setDepartureAirport(result)
-                          setDepartureSearch('')
-                          setShowDepartureSuggestions(false)
-                        }}
-                      >
-                        <span className="autocomplete-code">{result.code}</span>
-                        <span className="autocomplete-city">{result.city}, {result.country}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="input-group">
-              <label>Arrival</label>
-              <div className="autocomplete-container">
-                <input 
-                  type="text"
-                  value={arrivalAirport ? arrivalCode : arrivalSearch}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setArrivalSearch(value)
-                    setArrivalCode('')
-                    setArrivalAirport(null)
-                    
-                    const results = searchAirports(value)
-                    setArrivalResults(results)
-                    setShowArrivalSuggestions(results.length > 0)
-                    setSelectedArrivalIndex(-1)
-                  }}
-                  onFocus={() => {
-                    if (arrivalSearch.length >= 2) {
-                      const results = searchAirports(arrivalSearch)
-                      setArrivalResults(results)
-                      setShowArrivalSuggestions(results.length > 0)
-                    }
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => setShowArrivalSuggestions(false), 200)
-                  }}
-                  onKeyDown={(e) => {
-                    if (!showArrivalSuggestions) return
-                    
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault()
-                      setSelectedArrivalIndex(prev => 
-                        prev < arrivalResults.length - 1 ? prev + 1 : prev
-                      )
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault()
-                      setSelectedArrivalIndex(prev => prev > 0 ? prev - 1 : -1)
-                    } else if (e.key === 'Enter' && selectedArrivalIndex >= 0) {
-                      e.preventDefault()
-                      const selected = arrivalResults[selectedArrivalIndex]
-                      setArrivalCode(selected.code)
-                      setArrivalAirport(selected)
-                      setArrivalSearch('')
-                      setShowArrivalSuggestions(false)
-                    }
-                  }}
-                />
-                
-                {arrivalAirport && (
-                  <span className="airport-name-inline">
-                    {arrivalAirport.city} ({arrivalAirport.country})
-                  </span>
-                )}
-                
-                {showArrivalSuggestions && arrivalResults.length > 0 && (
-                  <div className="autocomplete-dropdown">
-                    {arrivalResults.map((result, index) => (
-                      <div
-                        key={result.code}
-                        className={`autocomplete-item ${index === selectedArrivalIndex ? 'selected' : ''}`}
-                        onClick={() => {
-                          setArrivalCode(result.code)
-                          setArrivalAirport(result)
-                          setArrivalSearch('')
-                          setShowArrivalSuggestions(false)
-                        }}
-                      >
-                        <span className="autocomplete-code">{result.code}</span>
-                        <span className="autocomplete-city">{result.city}, {result.country}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <AirportSearchInput
+              label="Arrival"
+              code={arrivalCode}
+              airport={arrivalAirport}
+              searchAirports={searchAirports}
+              onSelect={(selected) => {
+                setArrivalCode(selected.code)
+                setArrivalAirport(selected)
+              }}
+              onSearchChange={() => {
+                setArrivalCode('')
+                setArrivalAirport(null)
+                setSearchEditing(prev => prev + 1)
+              }}
+            />
 
             <div className="datetime-group">
               <label>Departure Time (Local)</label>
