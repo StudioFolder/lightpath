@@ -2767,11 +2767,13 @@ function App() {
                 setIsMobileMenuAnimating(true)
                 setShowMobileMenu(true)
                 setIsHamburgerOpen(true)
+                setIsPanelCollapsed(true)  // ← add this
                 setTimeout(() => setIsMobileMenuAnimating(false), 50)
               } else {
                 setIsMobileMenuAnimating(true)
                 setIsHamburgerOpen(false)
                 setIsMobileMenuClosing(true)
+                setExpandedSection(null)  // ← add this
                 setTimeout(() => {
                   setShowMobileMenu(false)
                   setTimeout(() => {
@@ -3060,6 +3062,19 @@ function App() {
             if (!isMobile) {
               setIsPanelCollapsed(false)
               return
+            }
+            // Close mobile menu if open
+            if (showMobileMenu) {
+              setIsHamburgerOpen(false)
+              setIsMobileMenuClosing(true)
+              setExpandedSection(null)
+              setTimeout(() => {
+                setShowMobileMenu(false)
+                setTimeout(() => {
+                  setIsMobileMenuClosing(false)
+                  setIsMobileMenuAnimating(false)
+                }, 300)
+              }, 50)
             }
             setIsPanelFading(true)
             setTimeout(() => {
