@@ -4,7 +4,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #606569;
+  background: var(--bg-color);
 }
 
 body:has(.bw-mode) {
@@ -27,7 +27,7 @@ body:has(.bw-mode) {
 }
 
 :root {
-  --bg-color: #606569;
+  --bg-color: #2a2d31;
   --path-day-color: rgb(255, 217, 0);
   --path-twilight-warm: rgb(255, 140, 0);
   --path-twilight-cool: rgb(128, 100, 200);
@@ -510,7 +510,7 @@ canvas {
 }
 
 .input-group {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .input-group label {
@@ -618,13 +618,18 @@ canvas {
 
 .datetime-group input[type="datetime-local"] {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: none;
   border-radius: 6px;
   font-size: 16px;
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
   color-scheme: dark;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .datetime-group input[type="datetime-local"]:focus {

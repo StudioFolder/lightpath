@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export default function AirportSearchInput({ label, code, airport, searchAirports, onSelect, onSearchChange, onClear }) {
   const [search, setSearch] = useState('')
   const [results, setResults] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const inputRef = useRef(null)
 
   return (
     <div className="input-group">
       <label>{label}</label>
       <div className="autocomplete-container">
         <input 
+          ref={inputRef}
           type="text"
           value={airport ? code : search}
           className={airport ? 'has-clear' : ''}
@@ -56,17 +58,19 @@ export default function AirportSearchInput({ label, code, airport, searchAirport
               {airport.city} ({airport.country})
             </span>
             <button
-            className="input-clear-btn"
-            onClick={() => {
+              className="input-clear-btn"
+              onMouseDown={(e) => {
+                e.preventDefault()
                 setSearch('')
                 onClear()
-            }}
-            aria-label={`Clear ${label} airport`}
+                inputRef.current?.focus()
+              }}
+              aria-label={`Clear ${label} airport`}
             >
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 <line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+              </svg>
             </button>
           </>
         )}

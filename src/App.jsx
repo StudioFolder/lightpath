@@ -16,6 +16,12 @@ import { createAirportLabelTexture, createTransitionLabelTexture } from './utils
 import { animateValue } from './utils/animationUtils'
 import AirportSearchInput from './components/AirportSearchInput'
 
+// ===== THEME COLOR CONSTANTS =====
+// Single source of truth for background colors used in Three.js scene,
+// document body, and meta theme-color. Mirror values in App.css :root / .bw-mode.
+const BG_COLOR_DARK = '#2a2d31'   // tweak this to test color mode background
+const BG_COLOR_BW   = '#f5f5f5'
+
 function App() {
   const navigate = useNavigate()
   const params = useParams()
@@ -376,7 +382,7 @@ function App() {
 
     // 1. Create the scene
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x606569) // darker gray
+    scene.background = new THREE.Color(BG_COLOR_DARK)
     sceneRef.current = scene  // Store scene reference
 
     // 2. Create the camera
@@ -470,7 +476,7 @@ function App() {
     const glowGeometry = new THREE.SphereGeometry(2.05, 64, 64)
     const glowMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        glowColor: { value: new THREE.Vector3(1.0, 1.0, 1.0) }
+        glowColor: { value: new THREE.Vector3(3.0, 3.5, 5.0) }
       },
       vertexShader: `
         varying vec3 vNormal;
@@ -1293,81 +1299,85 @@ function App() {
             isSunset = sunAngle > earlierAngle
           }
           
+          // COLOR MODE colors
+          // Bands anchored exactly to twilight line boundaries:
+          //   90°  = terminator (sun on horizon)
+          //   96°  = civil twilight end
+          //  102°  = nautical twilight end
+          //  108°  = astronomical twilight end / full night
+
           let r, g, b
 
-          // COLOR MODE colors
           if (sunAngle < 85) {
+            // Full daylight — gentle drift from near-white midday to pale yellow afternoon
+            // sunAngle ~0° (overhead) → cool white-yellow
+            // sunAngle ~85° (pre-horizon) → warm pale yellow, seamlessly entering golden hour
+            const t = sunAngle / 85
             r = 1.0
-            g = 0.85
-            b = 0.0
-          } else if (sunAngle < 88) {
-            const t = (sunAngle - 85) / 3
+            g = 0.98 - t * 0.08  // 0.98 → 0.90
+            b = 0.5 - t * 0.1    // 0.5 → 0.4, blue drops out as sun descends
+
+          } else if (sunAngle < 90) {
+            // Golden hour — amber deepening toward orange (sunset) or peach-pink (sunrise)
+            const t = (sunAngle - 85) / 5
             if (isSunset) {
               r = 1.0
-              g = 0.85 - t * 0.25
-              b = 0.0
+              g = 0.95 - t * 0.55  // pale yellow → deep orange
+              b = 0.4 - t * 0.4    // blue drops out completely
             } else {
               r = 1.0
-              g = 0.85 - t * 0.2
-              b = 0.0 + t * 0.1
+              g = 0.95 - t * 0.4   // pale yellow → peach
+              b = 0.4 - t * 0.15   // slight blue lingers for cooler morning feel
             }
-          } else if (sunAngle < 91) {
-            const t = (sunAngle - 88) / 3
+
+          } else if (sunAngle < 96) {
+            // CIVIL TWILIGHT — between terminator and civil line
+            // Sunset: orange-red → crimson-magenta
+            // Sunrise: pink → violet-mauve
+            const t = (sunAngle - 90) / 6
             if (isSunset) {
-              r = 1.0
-              g = 0.6 - t * 0.15
-              b = 0.0
-            } else {
-              r = 1.0
-              g = 0.65 - t * 0.15
-              b = 0.1 + t * 0.15
-            }
-          } else if (sunAngle < 94) {
-            const t = (sunAngle - 91) / 3
-            if (isSunset) {
-              r = 1.0 - t * 0.15
-              g = 0.45 - t * 0.15
-              b = 0.0 + t * 0.1
+              r = 1.0 - t * 0.1
+              g = 0.40 - t * 0.30
+              b = 0.0 + t * 0.35
             } else {
               r = 1.0 - t * 0.2
-              g = 0.5 - t * 0.15
-              b = 0.25 + t * 0.2
+              g = 0.55 - t * 0.35
+              b = 0.25 + t * 0.40
             }
-          } else if (sunAngle < 97) {
-            const t = (sunAngle - 94) / 3
+
+          } else if (sunAngle < 102) {
+            // NAUTICAL TWILIGHT — between civil and nautical line
+            // Sunset: magenta → deep violet
+            // Sunrise: violet → cool indigo
+            const t = (sunAngle - 96) / 6
             if (isSunset) {
-              r = 0.85 - t * 0.4
-              g = 0.3 - t * 0.15
-              b = 0.1 + t * 0.15
+              r = 0.90 - t * 0.55
+              g = 0.10 - t * 0.05
+              b = 0.35 + t * 0.25
             } else {
-              r = 0.8 - t * 0.2
-              g = 0.35 - t * 0.15
-              b = 0.45 + t * 0.25
+              r = 0.80 - t * 0.55
+              g = 0.20 - t * 0.12
+              b = 0.65 - t * 0.05
             }
-          } else if (sunAngle < 100) {
-            const t = (sunAngle - 97) / 3
-            if (isSunset) {
-              r = 0.45 - t * 0.35
-              g = 0.15 - t * 0.0
-              b = 0.25 + t * 0.25
-            } else {
-              r = 0.6 - t * 0.5
-              g = 0.2 - t * 0.05
-              b = 0.7 - t * 0.2
-            }
+
           } else if (sunAngle < 108) {
-            // Deep twilight to astronomical twilight end (100° to 108°)
-            const t = (sunAngle - 100) / 8
-            r = 0.08 - t * 0.03  // Gentler fade
-            g = 0.12 - t * 0.06  // Gentler fade
-            b = 0.35 - t * 0.15  // Gentler fade
+            // ASTRONOMICAL TWILIGHT — between nautical and astronomical line
+            const t = (sunAngle - 102) / 6
+            r = 0.35 - t * 0.32
+            g = 0.05 - t * 0.03
+            b = 0.60 - t * 0.45
+
+          } else if (sunAngle < 114) {
+            // DEEP NIGHT FADE — soft landing into full darkness
+            const t = (sunAngle - 108) / 6
+            r = 0.03
+            g = 0.02
+            b = 0.15 - t * 0.05   // 0.15 → 0.10, very gentle final fade
+
           } else {
-            // Complete darkness - beyond astronomical twilight
-            r = 0.05
-            g = 0.06
-            b = 0.20
+            // FULL NIGHT
+            r = 0.03; g = 0.02; b = 0.10
           }
-          
           preCalculatedColorsColor.push({ r, g, b })
           
           // B&W MODE colors
@@ -2512,9 +2522,9 @@ function App() {
       isBWModeRef.current = isBWMode
       
       // Update Safari status bar and html background
-      document.documentElement.style.background = isBWMode ? '#f5f5f5' : '#606569'
+      document.documentElement.style.background = isBWMode ? BG_COLOR_BW : BG_COLOR_DARK
       const meta = document.getElementById('theme-color-meta')
-      if (meta) meta.setAttribute('content', isBWMode ? '#f5f5f5' : '#606569')
+      if (meta) meta.setAttribute('content', isBWMode ? BG_COLOR_BW : BG_COLOR_DARK)
       
       if (isBWMode) {
         const appElement = document.querySelector('.bw-mode')
@@ -2530,18 +2540,18 @@ function App() {
 
     // Update scene background when B&W mode changes
     useEffect(() => {
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isBWMode ? '#f5f5f5' : '#606569')
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isBWMode ? BG_COLOR_BW : BG_COLOR_DARK)
 
       if (!sceneRef.current) return
       
       // Target values for each mode
       const targets = isBWMode ? {
-        bgColor: new THREE.Color(0xf5f5f5),
+        bgColor: new THREE.Color(BG_COLOR_BW),
         ambientIntensity: 1.8,
         overlayIntensity: 0.55,
         graticuleColor: 0x0f0f0f
       } : {
-        bgColor: new THREE.Color(0x606569),
+        bgColor: new THREE.Color(BG_COLOR_DARK),
         ambientIntensity: 0.3,
         overlayIntensity: 0.65,
         graticuleColor: 0xffffff
@@ -2611,7 +2621,7 @@ function App() {
         // Interpolate glow
         if (glowRef.current) {
           const startGlowColor = isBWMode ? new THREE.Vector3(1.5, 1.5, 1.5) : new THREE.Vector3(0.5, 0.5, 0.5)
-          const endGlowColor = isBWMode ? new THREE.Vector3(0.5, 0.5, 0.5) : new THREE.Vector3(1.5, 1.5, 1.5)
+          const endGlowColor = isBWMode ? new THREE.Vector3(0.5, 0.5, 0.5) : new THREE.Vector3(3.0, 3.5, 5.0)
           
           glowRef.current.material.uniforms.glowColor.value.set(
             startGlowColor.x + (endGlowColor.x - startGlowColor.x) * easeT,
