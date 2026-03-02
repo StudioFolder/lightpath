@@ -1110,30 +1110,57 @@ canvas {
 }
 
 /* Navigation links */
-.nav-links {
-  position: absolute;
-  top: 80px;
-  left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: all;
-  z-index: 100;
-}
-
 .nav-link {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 0;
   text-align: left;
   transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav-link:hover {
   color: rgba(255, 255, 255, 1);
+}
+
+/* Accordion chevron */
+.nav-chevron {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s;
+  transform: rotate(0deg);
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.nav-chevron.open {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.nav-link:hover .nav-chevron {
+  opacity: 1;
+}
+
+.bw-mode .nav-chevron {
+  color: var(--bw-text-secondary);
+}
+
+/* Tagline below logo */
+.nav-tagline {
+  margin: 0 0 8px 0;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bw-mode .nav-tagline {
+  color: var(--bw-text-secondary);
 }
 
 /* Side panel overlay */
@@ -1213,6 +1240,7 @@ canvas {
   pointer-events: all;
   z-index: 100;
   max-width: 260px;
+  align-items: flex-start;
 }
 
 .nav-link {
@@ -1245,6 +1273,52 @@ canvas {
   font-size: 13px; 
   line-height: 1.5;
   animation: expandDown 0.2s ease-out;
+}
+
+/* Links inside accordion content */
+.accordion-content a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.accordion-content a:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.accordion-content > *:first-child {
+  margin-top: 0;
+}
+
+.bw-mode .accordion-content a {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .accordion-content a:hover {
+  color: var(--bw-text-secondary);
+}
+
+/* Links inside mobile accordion content */
+.mobile-menu-accordion a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.mobile-menu-accordion a:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.bw-mode .mobile-menu-accordion a {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .mobile-menu-accordion a:hover {
+  color: var(--bw-text-secondary);
+}
+
+.mobile-menu-accordion > *:first-child {
+  margin-top: 0;
 }
 
 @keyframes expandDown {
@@ -1585,7 +1659,7 @@ canvas {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 16px;
+  font-size: 14px;
   text-align: left;
   cursor: pointer;
   border-radius: 8px;
@@ -1614,6 +1688,19 @@ canvas {
   max-height: 0;
   opacity: 0;
   animation: accordionOpen 0.4s ease forwards;
+}
+
+/* Mobile tagline */
+.mobile-menu-tagline {
+  margin: 0 0 4px 0;
+  padding: 10px 16px 10px 20px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bw-mode .mobile-menu-tagline {
+  color: rgba(40, 40, 40, 0.7);
 }
 
 @keyframes accordionOpen {
@@ -2259,7 +2346,7 @@ canvas {
     bottom: -100px;
     left: 0;
     right: 0;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.25) 100%);
+    background: linear-gradient(to bottom, var(--bg-color) 0%, transparent 150%);
     z-index: 90;
     opacity: 0;
     transition: opacity 0.3s ease;

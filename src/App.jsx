@@ -2792,11 +2792,18 @@ function App() {
         {showMobileMenu && (
           <div className="mobile-menu-offcanvas">
             <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
+              <p className="mobile-menu-tagline">
+                Explore how long your flight will spend in daytime, nighttime, or twilight.
+              </p>
+
               <button 
                 className="mobile-menu-link"
                 onClick={() => loadMarkdownContent('about.md', 'about')}
               >
-                About
+                {expandedSection === 'about' ? 'Less' : 'More'}
+                <svg className={`nav-chevron ${expandedSection === 'about' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
               
               {expandedSection === 'about' && aboutContent && (
@@ -2812,6 +2819,9 @@ function App() {
                 onClick={() => loadMarkdownContent('data.md', 'data')}
               >
                 Data
+                <svg className={`nav-chevron ${expandedSection === 'data' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
               
               {expandedSection === 'data' && dataContent && (
@@ -2898,11 +2908,18 @@ function App() {
         )}
 
         <div className="nav-accordion">
+          <p className="nav-tagline">
+            Explore how long your flight will spend in daytime, nighttime, or twilight.
+          </p>
+
           <button 
             className="nav-link"
             onClick={() => loadMarkdownContent('about.md', 'about')}
           >
-            About
+            {expandedSection === 'about' ? 'Less' : 'More'}
+            <svg className={`nav-chevron ${expandedSection === 'about' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
           
           {expandedSection === 'about' && aboutContent && (
@@ -2918,6 +2935,9 @@ function App() {
             onClick={() => loadMarkdownContent('data.md', 'data')}
           >
             Data
+            <svg className={`nav-chevron ${expandedSection === 'data' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
             
           {expandedSection === 'data' && dataContent && (

@@ -1,3 +1,3 @@
-This interactive visualization shows how flights traverse different lighting conditions—from full daylight through twilight into darkness.
+Lightpath calculates approximate trajectories for any flight between two airports, visualising how a flight traverses different light conditions.
 
-It features real-time terminator visualization, accurate timezone calculations, flight path color coding by sun angle, and access to over 6000 airports worldwide. The application uses astronomical calculations for accurate sun position modeling.
+It adopts accurate astronomical calculations for sun position modeling in order to determine precise twilight gradients. 

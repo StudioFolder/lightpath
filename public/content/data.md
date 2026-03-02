@@ -1,10 +1,8 @@
-## Data Sources
-- Airport data: OpenFlights
-- Cloud imagery: NOAA GOES-16
-- Timezone data: tz-lookup
+## Layers
+- Airports: [OpenFlights](https://openflights.org)
+- Timezones: [tz-lookup](https://github.com/darkskyapp/tz-lookup-oss)
+- Coastline: GSHHG/NOAA
+- Graticule: Natural Earth
 
 ## Libraries
-- Three.js for 3D visualization
-- React for UI
-- Luxon for timezone handling
-- SunCalc for astronomical calculations
+Three.js, React, Luxon, SunCalc
