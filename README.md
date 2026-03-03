@@ -1,16 +1,79 @@
-# React + Vite
+# Lightpath
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**An interactive 3D visualization showing how flight paths intersect with Earth's day-night cycle.**
 
-Currently, two official plugins are available:
+Lightpath calculates the flight trajectory between any two airports and visualizes how the route moves through different light conditions—from full daylight through twilight to darkness. The app uses accurate astronomical calculations to determine the sun's position and render precise twilight gradients along the path.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+[lightpath.cc](https://lightpath.cc)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## What it does
 
-## Expanding the ESLint configuration
+- **Great circle routing** — Plots the shortest path between airports on a 3D globe
+- **Solar illumination mapping** — Color-codes flight segments by daylight, twilight (civil/nautical/astronomical), and darkness
+- **Time animation** — Watch flights move through changing light as Earth rotates
+- **Astronomical accuracy** — Uses NOAA equations for solar declination and Jean Meeus algorithms for solar position
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Tech stack
+
+- **React 19** + **Three.js** for 3D rendering
+- **Vite** for build tooling
+- **solar-calculator** (NOAA) + **suncalc** (Jean Meeus) for astronomical calculations
+- **Custom GLSL shaders** for twilight visualization
+
+---
+
+## Key features
+
+- Real-time solar position calculation
+- Latitude-dependent twilight width modeling
+- Animated flight playback with sun position sync
+- Color and black-and-white visualization modes
+- Shareable flight URLs
+
+---
+
+## Project structure
+```
+src/
+├── App.jsx              # Main component 
+├── App.css              # All styles
+└── utils/
+    ├── geoUtils.js      # Coordinate conversion
+    ├── solarUtils.js    # Solar position calculations
+    ├── sceneUtils.js    # Label texture generation
+    └── animationUtils.js # Fade animations
+
+public/
+├── earth-texture.png    # Custom Earth texture
+├── graticule-10.geojson # Latitude/longitude grid
+├── timezones.geojson    # Timezone boundaries
+└── icons/               # SVG icons
+```
+
+---
+
+## Development
+```bash
+npm install
+npm run dev
+```
+
+Build for production:
+```bash
+npm run build
+```
+
+---
+
+## Credits
+
+Airport data: [OpenFlights](https://openflights.org/data.html)  
+Astronomical calculations: [solar-calculator](https://www.npmjs.com/package/solar-calculator) (NOAA) and [suncalc](https://github.com/mourner/suncalc) (Jean Meeus)   
+
+Designed and developed by [Studio Folder](https:www.studiofolder.it)
+
+---
