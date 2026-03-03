@@ -61,14 +61,6 @@ body:has(.bw-mode) {
 
 /* Text colors */
 .bw-mode .nav-link,
-.bw-mode .toggle-overlay label span,
-.bw-mode .airport-toggle-overlay label span,
-.bw-mode .graticule-toggle-overlay label span,
-.bw-mode .plane-toggle-overlay label span,
-.bw-mode .timezone-toggle-overlay label span,
-.bw-mode .bw-toggle-overlay label span,
-.bw-mode .follow-toggle-overlay label span,
-.bw-mode .twilight-toggle-overlay label span,
 .bw-mode .accordion-content {
   color: var(--bw-text-primary);
 }
@@ -93,6 +85,27 @@ body:has(.bw-mode) {
   color: var(--bw-text-secondary);
 }
 
+.bw-mode .airport-toggle-overlay label,
+.bw-mode .graticule-toggle-overlay label,
+.bw-mode .timezone-toggle-overlay label,
+.bw-mode .twilight-toggle-overlay label {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .airport-toggle-overlay label:hover,
+.bw-mode .graticule-toggle-overlay label:hover,
+.bw-mode .timezone-toggle-overlay label:hover,
+.bw-mode .twilight-toggle-overlay label:hover {
+  color: var(--bw-text-secondary);
+}
+
+.bw-mode .airport-toggle-overlay label:has(input:checked),
+.bw-mode .graticule-toggle-overlay label:has(input:checked),
+.bw-mode .timezone-toggle-overlay label:has(input:checked),
+.bw-mode .twilight-toggle-overlay label:has(input:checked) {
+  color: var(--bw-text-primary);
+}
+
 .bw-mode .airport-name-inline {
   color: var(--bw-text-tertiary);
 }
@@ -100,6 +113,21 @@ body:has(.bw-mode) {
 .bw-mode .accordion-content h1,
 .bw-mode .accordion-content h2 {
   color: var(--bw-text-dark);
+}
+
+.bw-mode .bw-toggle-overlay label,
+.bw-mode .follow-toggle-overlay label {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .bw-toggle-overlay label:hover,
+.bw-mode .follow-toggle-overlay label:hover {
+  color: var(--bw-text-secondary);
+}
+
+.bw-mode .bw-toggle-overlay label:has(input:checked),
+.bw-mode .follow-toggle-overlay label:has(input:checked) {
+  color: var(--bw-text-primary);
 }
 
 /* Hover states */
@@ -230,7 +258,7 @@ body:has(.bw-mode) {
 /* Shared toggle overlay styles */
 .toggle-overlay {
   position: absolute;
-  left: 20px;
+  left: 28px;
   pointer-events: all;
 }
 
@@ -415,46 +443,6 @@ canvas {
   
 }
 
-.airport-toggle-overlay {
-  bottom: 160px;
-}
-
-.airport-toggle-overlay label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.airport-toggle-overlay input[type="checkbox"] {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-  accent-color: #2d2e2f;
-}
-
-.graticule-toggle-overlay {
-  bottom: 130px;
-}
-
-.graticule-toggle-overlay label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.graticule-toggle-overlay input[type="checkbox"] {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-  accent-color: #2d2e2f;
-}
-
 .flight-info-center {
   display: flex;
   flex-direction: column;
@@ -465,21 +453,29 @@ canvas {
 .info-overlay {
   position: absolute;
   top: 36px;
-  left: 20px;
+  left: 28px;
   pointer-events: none;
   user-select: none;
 }
 
 .info-overlay .logo {
-  height: 32px;
+  height: 36px;
   width: auto;
-  opacity: 0.9;
+  opacity: 0.85;
   pointer-events: all;
   cursor: pointer;
   transition: opacity 0.2s ease;
 }
 
 .info-overlay .logo:hover {
+  opacity: 1;
+}
+
+.bw-mode .info-overlay .logo {
+  opacity: 0.8;
+}
+
+.bw-mode .info-overlay .logo:hover {
   opacity: 1;
 }
 
@@ -1033,8 +1029,46 @@ canvas {
   max-width: 200px; 
 }
 
+.airport-toggle-overlay {
+  bottom: 170px;
+}
+
+.airport-toggle-overlay label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.airport-toggle-overlay input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2d2e2f;
+}
+
+.graticule-toggle-overlay {
+  bottom: 140px;
+}
+
+.graticule-toggle-overlay label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.graticule-toggle-overlay input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2d2e2f;
+}
+
 .timezone-toggle-overlay {
-  bottom: 70px;
+  bottom: 80px;
 }
 
 .timezone-toggle-overlay label {
@@ -1043,7 +1077,6 @@ canvas {
   gap: 8px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
 }
 
 .timezone-toggle-overlay input[type="checkbox"] {
@@ -1054,7 +1087,7 @@ canvas {
 }
 
 .twilight-toggle-overlay {
-  bottom: 100px;
+  bottom: 110px;
 }
 
 .twilight-toggle-overlay label {
@@ -1063,7 +1096,6 @@ canvas {
   gap: 8px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
 }
 
 .twilight-toggle-overlay input[type="checkbox"] {
@@ -1072,10 +1104,32 @@ canvas {
   height: 16px;
 }
 
+.airport-toggle-overlay label,
+.graticule-toggle-overlay label,
+.timezone-toggle-overlay label,
+.twilight-toggle-overlay label {
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
+}
+
+.airport-toggle-overlay label:hover,
+.graticule-toggle-overlay label:hover,
+.timezone-toggle-overlay label:hover,
+.twilight-toggle-overlay label:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.airport-toggle-overlay label:has(input:checked),
+.graticule-toggle-overlay label:has(input:checked),
+.timezone-toggle-overlay label:has(input:checked),
+.twilight-toggle-overlay label:has(input:checked) {
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .footer-info {
   position: absolute;
   bottom: 20px;
-  left: 20px;
+  left: 32px;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   pointer-events: all;
@@ -1157,7 +1211,7 @@ canvas {
 
 /* Tagline below logo */
 .nav-tagline {
-  margin: 0 0 8px 0;
+  margin: 12px 0 18px 0;
   padding: 0;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
@@ -1238,7 +1292,7 @@ canvas {
 .nav-accordion {
   position: absolute;
   top: 92px;
-  left: 20px;
+  left: 28px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1273,7 +1327,6 @@ canvas {
   border-radius: 0;
   padding: 0;
   padding-left: 12px;
-  margin-bottom: 12px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px; 
   line-height: 1.5;
@@ -1378,6 +1431,14 @@ canvas {
   overflow: hidden;
 }
 
+.accordion-content .accordion-less {
+  margin-left: -12px;
+}
+
+.accordion-less {
+  margin-bottom: 0;
+}
+
 .result-row-double {
   display: flex;
   gap: 60px;
@@ -1392,8 +1453,8 @@ canvas {
 
 .bw-toggle-overlay {
   position: absolute;
-  bottom: 240px; 
-  left: 20px;
+  bottom: 250px; 
+  left: 28px;
   pointer-events: all;
 }
 
@@ -1403,7 +1464,8 @@ canvas {
   gap: 11px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
 }
 
 .bw-toggle-overlay input[type="checkbox"] {
@@ -1415,8 +1477,8 @@ canvas {
 
 .follow-toggle-overlay {
   position: absolute;
-  bottom: 210px; 
-  left: 20px;
+  bottom: 220px; 
+  left: 28px;
   pointer-events: all;
 }
 
@@ -1426,7 +1488,8 @@ canvas {
   gap: 11px;
   cursor: pointer;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
 }
 
 .follow-toggle-overlay label:has(input:disabled) {
@@ -1441,6 +1504,16 @@ canvas {
 
 .follow-toggle-overlay input[type="checkbox"]:disabled + .toggle-slider:before {
   background-color: rgba(255, 255, 255, 0.4);
+}
+
+.bw-toggle-overlay label:hover,
+.follow-toggle-overlay label:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bw-toggle-overlay label:has(input:checked),
+.follow-toggle-overlay label:has(input:checked) {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .toggle-switch {
@@ -1685,14 +1758,18 @@ canvas {
 }
 
 .mobile-menu-accordion {
-  padding: 8px 16px 12px 42px;
+  padding: 8px 16px 4px 42px;
   color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   max-height: 0;
   opacity: 0;
   animation: accordionOpen 0.4s ease forwards;
+}
+
+.mobile-menu-accordion .accordion-less {
+  margin-left: -22px !important;
 }
 
 /* Mobile tagline */
@@ -1700,7 +1777,7 @@ canvas {
   margin: 0 0 4px 0;
   padding: 10px 16px 10px 20px;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
 }
 
@@ -1739,6 +1816,10 @@ canvas {
 
 .mobile-menu-accordion p {
   margin: 0 0 8px 0;
+}
+
+.mobile-menu-accordion > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Mobile menu divider */
@@ -1873,7 +1954,7 @@ canvas {
   }
   
   .info-overlay .logo {
-    height: 28px;
+    height: 30px;
   }
   
   /* Nav accordion - narrower */
@@ -1963,13 +2044,18 @@ canvas {
   }
   
   .info-overlay .logo {
-    height: 24px;
+    height: 26px;
     margin-top: 2px;  /* Fine-tune vertical alignment */
   }
   
   /* Nav accordion - hide on mobile */
   .nav-accordion {
     display: none;
+  }
+
+  .mobile-menu-accordion .accordion-less {
+  padding-left: 0;
+  margin-left: -26px;
   }
   
   /* Hamburger button - right aligned */
@@ -2375,8 +2461,13 @@ canvas {
 
 /* Very small mobile - 400px and below */
 @media (max-width: 400px) {
+
+  .info-overlay {
+    left: 22px;
+  }
+  
   .info-overlay .logo {
-    height: 22px;
+    height: 24px;
   }
   
   .flight-input {

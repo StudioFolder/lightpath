@@ -1161,6 +1161,7 @@ function App() {
       // Reset flight path state
       setFlightPath(null)
       setFlightResults(null)
+      setIsPanelCollapsed(false)
       hasFlightPathRef.current = false
       transitionLabelsRef.current = []
       
@@ -1535,7 +1536,7 @@ function App() {
           sizeAttenuation: true,
         })
         const sprite = new THREE.Sprite(material)
-        sprite.scale.set((isMobile ? 0.22 : 0.16) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
+        sprite.scale.set((isMobile ? 0.16 : 0.16) * elementScale, (isMobile ? 0.06 : 0.06) * elementScale, 1)
         return sprite
       }
 
@@ -2764,6 +2765,18 @@ function App() {
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
             alt="Lightpath"
             className="logo"
+            onClick={() => {
+              navigate('/')
+              setFlightPath(null)
+              setFlightResults(null)
+              setIsPanelCollapsed(false)
+              setDepartureCode('')
+              setDepartureAirport(null)
+              setArrivalCode('')
+              setArrivalAirport(null)
+              setAnimationProgress(0)
+              setIsPlaying(false)
+            }}
           />
         </div>
 
@@ -2810,24 +2823,35 @@ function App() {
           <div className="mobile-menu-offcanvas">
             <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
               <p className="mobile-menu-tagline">
-                Explore how long your flight spends in daylight, twilight, and darkness.
+                Explore how your flight moves through daylight, twilight, and darkness.
               </p>
 
-              <button 
-                className="mobile-menu-link"
-                onClick={() => loadMarkdownContent('about.md', 'about')}
-              >
-                {expandedSection === 'about' ? 'Less' : 'More'}
-                <svg className={`nav-chevron ${expandedSection === 'about' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              
+              {expandedSection !== 'about' && (
+                <button 
+                  className="mobile-menu-link"
+                  onClick={() => loadMarkdownContent('about.md', 'about')}
+                >
+                  More
+                  <svg className="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
+
               {expandedSection === 'about' && aboutContent && (
                 <div className="mobile-menu-accordion">
                   <ReactMarkdown>
                     {aboutContent.replace('{version}', packageJson.version)}
                   </ReactMarkdown>
+                  <button 
+                    className="mobile-menu-link accordion-less"
+                    onClick={() => loadMarkdownContent('about.md', 'about')}
+                  >
+                    Less
+                    <svg className="nav-chevron open" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
                 </div>
               )}
               
@@ -2926,24 +2950,35 @@ function App() {
 
         <div className="nav-accordion">
           <p className="nav-tagline">
-            Explore how long your flight spends in daylight, twilight, and darkness.
+            Explore how your flight moves through daylight, twilight, and darkness.
           </p>
 
-          <button 
-            className="nav-link"
-            onClick={() => loadMarkdownContent('about.md', 'about')}
-          >
-            {expandedSection === 'about' ? 'Less' : 'More'}
-            <svg className={`nav-chevron ${expandedSection === 'about' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          
+          {expandedSection !== 'about' && (
+            <button 
+              className="nav-link"
+              onClick={() => loadMarkdownContent('about.md', 'about')}
+            >
+              More
+              <svg className="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+
           {expandedSection === 'about' && aboutContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
               <ReactMarkdown>
                 {aboutContent.replace('{version}', packageJson.version)}
               </ReactMarkdown>
+              <button 
+                className="nav-link accordion-less"
+                onClick={() => loadMarkdownContent('about.md', 'about')}
+              >
+                Less
+                <svg className="nav-chevron open" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             </div>
           )}
                     
@@ -3044,7 +3079,7 @@ function App() {
               />
               <span className="toggle-slider"></span>
             </div>
-            <span>B&W Mode</span>
+            <span>Paper Mode</span>
           </label>
         </div>
 
@@ -3256,16 +3291,16 @@ function App() {
                 </span>
               </div>
     
-              <div className="flight-info-center">
-                <div className="animation-route"
-                  onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
-                  onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
-                  onClick={() => {
-                    if ('ontouchstart' in window) {
-                      setShowFlightStats(prev => !prev)
-                    }
-                  }}
-                >
+              <div className="flight-info-center"
+                onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
+                onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
+                onClick={() => {
+                  if ('ontouchstart' in window) {
+                    setShowFlightStats(prev => !prev)
+                  }
+                }}
+              >
+                <div className="animation-route">
                   <span>{departureCode}</span>
                   <img 
                     src={isBWMode ? "/plane-icon-bw.svg" : "/plane-icon.svg"} 

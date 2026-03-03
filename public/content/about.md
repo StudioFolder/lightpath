@@ -1,3 +1,3 @@
-Lightpath calculates approximate trajectories for any flight between two airports, visualising how a flight traverses different light conditions.
+Lightpath calculates approximate flight trajectories between any two airports (aka 'great circle routes') and shows how they traverse different light conditions.
 
-It adopts accurate astronomical calculations for sun position modeling in order to determine precise twilight gradients. 
+The visualisation uses accurate astronomical calculations to model the sun's position and render precise twilight gradients. 
