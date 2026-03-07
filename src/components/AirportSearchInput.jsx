@@ -7,15 +7,25 @@ export default function AirportSearchInput({ label, code, airport, searchAirport
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const inputRef = useRef(null)
 
+  const hasContent = airport || search.length > 0
+  const showLabel = !!airport
+
   return (
     <div className="input-group">
-      <label>{label}</label>
+      <label style={{
+        opacity: showLabel ? 1 : 0,
+        maxHeight: showLabel ? '20px' : '0px',
+        marginBottom: showLabel ? '4px' : '0px',
+        transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
+        pointerEvents: 'none'
+      }}>{label}</label>
       <div className="autocomplete-container">
         <input 
           ref={inputRef}
           type="text"
           value={airport ? code : search}
           className={airport ? 'has-clear' : ''}
+          placeholder={!hasContent ? `${label} city or airport` : ''}
           onChange={(e) => {
             const value = e.target.value
             setSearch(value)

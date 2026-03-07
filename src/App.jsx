@@ -3155,6 +3155,13 @@ function App() {
                 </svg>
               </button>
           </div>
+
+          <p className="panel-subtitle">
+            {isMobile 
+              ? <>Find a route between any airport and explore how your flight moves through <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
+              : "Find a route between any airport."
+            }
+          </p>
           
           <div className="panel-content">
             <AirportSearchInput
@@ -3179,22 +3186,24 @@ function App() {
             />
 
             <div className="swap-airports-row">
-              <button
-                className="swap-airports-btn"
-                onClick={() => {
-                  const tempCode = departureCode
-                  const tempAirport = departureAirport
-                  setDepartureCode(arrivalCode)
-                  setDepartureAirport(arrivalAirport)
-                  setArrivalCode(tempCode)
-                  setArrivalAirport(tempAirport)
-                  setSearchEditing(prev => prev + 1)
-                }}
-                aria-label="Swap departure and arrival airports"
-                title="Swap airports"
-              >
-                ⇅
-              </button>
+              {(departureAirport && arrivalAirport) && (
+                <button
+                  className="swap-airports-btn"
+                  onClick={() => {
+                    const tempCode = departureCode
+                    const tempAirport = departureAirport
+                    setDepartureCode(arrivalCode)
+                    setDepartureAirport(arrivalAirport)
+                    setArrivalCode(tempCode)
+                    setArrivalAirport(tempAirport)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  aria-label="Swap departure and arrival airports"
+                  title="Swap airports"
+                >
+                  ⇅
+                </button>
+              )}
             </div>
 
             <AirportSearchInput
@@ -3218,8 +3227,21 @@ function App() {
               }}
             />
 
-            <div className="datetime-group">
-              <label>Departure Time (Local)</label>
+            <div className="datetime-group" style={{
+              opacity: departureAirport ? 1 : 0,
+              maxHeight: departureAirport ? '80px' : '0px',
+              marginBottom: departureAirport ? '12px' : '0px',
+              overflow: 'hidden',
+              transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
+              pointerEvents: departureAirport ? 'all' : 'none'
+            }}>
+              <label style={{
+                opacity: departureAirport ? 1 : 0,
+                maxHeight: departureAirport ? '20px' : '0px',
+                marginBottom: departureAirport ? '4px' : '0px',
+                transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
+                pointerEvents: 'none'
+              }}>Departure Time (Local)</label>
               <input 
                 type="datetime-local"
                 value={departureAirport && departureTime ? getLocalDateTimeString(departureTime, departureAirport) : ''}
@@ -3231,20 +3253,28 @@ function App() {
                   setDepartureTime(localDateTime.toJSDate())
                 }}
                 disabled={!departureAirport}
-                style={{ opacity: departureAirport ? 1 : 0.5 }}
               />
             </div>
               <button 
-              onClick={calculateFlight}
-              disabled={
-                !airports || 
-                departureCode.length !== 3 || 
-                arrivalCode.length !== 3 || 
-                departureCode === arrivalCode
-              }
-            >
-              {!airports ? 'Loading airports...' : 'Calculate Flight'}
-            </button>
+                onClick={calculateFlight}
+                disabled={
+                  !airports || 
+                  departureCode.length !== 3 || 
+                  arrivalCode.length !== 3 || 
+                  departureCode === arrivalCode
+                }
+                style={{
+                  opacity: departureAirport ? 1 : 0,
+                  maxHeight: departureAirport ? '60px' : '0px',
+                  paddingTop: departureAirport ? '10px' : '0px',
+                  paddingBottom: departureAirport ? '10px' : '0px',
+                  overflow: 'hidden',
+                  transition: isMobile ? 'none' : 'opacity 0.15s ease, max-height 0.15s ease, padding 0.15s ease',
+                  pointerEvents: departureAirport ? 'all' : 'none'
+                }}
+              >
+                {!airports ? 'Loading airports...' : 'Calculate Flight'}
+              </button>
     
           </div>
         </div>

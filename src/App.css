@@ -187,7 +187,7 @@ body:has(.bw-mode) {
 
 .bw-mode .input-group input:focus,
 .bw-mode .datetime-group input[type="datetime-local"]:focus {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.2);
   border: none;
 }
 
@@ -395,7 +395,7 @@ body:has(.bw-mode) {
 
 .swap-airports-btn {
   position: absolute;
-  top: -6px;
+  top: -8px;
   right: 8px;
   background: rgba(255, 255, 255, 0.4) !important;
   border: none !important;
@@ -488,7 +488,7 @@ canvas {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 20px;
+  padding: 16px 24px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   width: 400px;
@@ -512,9 +512,12 @@ canvas {
 .input-group label {
   display: block;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.5);
   margin-bottom: 4px;
   font-weight: 500;
+  max-height: 20px;
+  overflow: hidden;
+  transition: max-height 0.15s ease, opacity 0.15s ease, margin-bottom 0.15s ease;
 }
 
 .input-group input {
@@ -535,6 +538,17 @@ canvas {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.input-group input::placeholder {
+  text-transform: none;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.2);
+  letter-spacing: 0;
+}
+
+.bw-mode .input-group input::placeholder {
+  color: rgba(40, 40, 40, 0.3);
+}
+
 .flight-input button {
   width: auto;
   padding: 10px 24px;
@@ -545,7 +559,6 @@ canvas {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  margin-top: 20px;
   text-transform: uppercase;
   transition: border-color 0.2s ease;
   display: block;
@@ -618,7 +631,7 @@ canvas {
   border: none;
   border-radius: 6px;
   font-size: 16px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.25);
   color: #fff;
   color-scheme: dark;
   height: 40px;
@@ -911,7 +924,7 @@ canvas {
   justify-content: space-between;
   align-items: center;
   height: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 40px;
   transition: margin-bottom 0.35s ease-out;
 }
 
@@ -946,6 +959,29 @@ canvas {
   padding: 0;
   line-height: 24px;
   flex-shrink: 0;
+}
+
+.panel-subtitle {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  line-height: 1.5;
+  max-height: 80px;  /* add this */
+  overflow: hidden;  /* add this */
+  transition: max-height 0.35s ease-out, opacity 0.35s ease-out, margin 0.35s ease-out;
+}
+
+.bw-mode .panel-subtitle {
+  color: var(--bw-text-tertiary);
+}
+
+.flight-input.collapsed .panel-subtitle {
+  opacity: 0;
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease-in, opacity 0.2s ease-in, margin 0.25s ease-in;
 }
 
 .flight-input .collapse-button {
@@ -998,7 +1034,7 @@ canvas {
 }
 
 .panel-content {
-  overflow: hidden;
+  overflow: visible;
   max-height: 380px;
   opacity: 1;
   transition: max-height 0.35s ease-out, 
@@ -2034,6 +2070,7 @@ canvas {
   bottom: 0;
 }
 
+
 /* ===== MOBILE HEADER LAYOUT ===== */
   
   /* Logo - left aligned */
@@ -2117,6 +2154,7 @@ canvas {
 
   .panel-header {
     transition: none !important;
+    margin-bottom: 16px;
   }
 
   .flight-input.collapsed .panel-header h3 {
@@ -2124,6 +2162,36 @@ canvas {
   }
 
   .flight-input h3 {
+    transition: none !important;
+    margin-top: 0;
+    margin-bottom: 0;
+    }
+
+  .panel-subtitle {
+    transition: none !important;
+    padding: 0 28px;
+  }
+
+  .subtitle-daylight {
+    color: var(--path-day-color);
+    opacity: 0.8;
+  }
+
+  .subtitle-twilight {
+    background: linear-gradient(90deg, var(--path-twilight-warm), var(--path-twilight-cool));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0.8;
+  }
+
+  .subtitle-darkness {
+    color: var(--path-night-color);
+    filter: brightness(1.4);
+    opacity: 0.9;
+  }
+
+  .datetime-group {
     transition: none !important;
   }
   
@@ -2601,7 +2669,7 @@ canvas {
 /* Touch interaction improvements */
 @media (hover: none) and (pointer: coarse) {
   /* Larger touch targets */
-  .flight-input button,
+  .flight-input button:not(:disabled),
   .play-button {
     min-height: 44px;
     padding: 12px 24px;
