@@ -71,8 +71,8 @@ export function createTransitionLabelTexture(timeText, transitionType, isBW) {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
-    canvas.width = 280
-    canvas.height = 100
+    canvas.width = 240
+    canvas.height = 80
 
     const iconSrc = transitionType === 'sunrise'
       ? (isBW ? '/sunrise-icon-bw.svg' : '/sunrise-icon.svg')
@@ -81,9 +81,9 @@ export function createTransitionLabelTexture(timeText, transitionType, isBW) {
     const icon = new Image()
     icon.onload = () => {
       context.fillStyle = isBW ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)'
-      context.font = '40px system-ui'
+      context.font = '42px system-ui'
 
-      const iconSize = 40
+      const iconSize = 42
       const gap = 12
       const textWidth = context.measureText(timeText).width
       const totalWidth = iconSize + gap + textWidth

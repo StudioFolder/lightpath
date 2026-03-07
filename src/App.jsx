@@ -707,24 +707,24 @@ function App() {
     scene.add(terminatorLineNight)
 
     // Civil twilight lines (dashed)
-    const civilLineDay = createTwilightLine(0x6ba3d8, 0.4, 1, true, 0.025, 0.025)  // dashed
+    const civilLineDay = createTwilightLine(0xb8d8f0, 0.4, 1, true, 0.025, 0.025)  // dashed
     scene.add(civilLineDay)
 
-    const civilLineNight = createTwilightLine(0x6ba3d8, 0.4, 1, true, 0.025, 0.025)
+    const civilLineNight = createTwilightLine(0xb8d8f0, 0.4, 1, true, 0.025, 0.025)
     scene.add(civilLineNight)
 
     // Nautical twilight lines (dotted - small gaps)
-    const nauticalLineDay = createTwilightLine(0x4a7fb8, 0.4, 2, true, 0.005, 0.03)  // dotted
+    const nauticalLineDay = createTwilightLine(0x8ab8e0, 0.4, 2, true, 0.003, 0.03)  // dotted
     scene.add(nauticalLineDay)
 
-    const nauticalLineNight = createTwilightLine(0x4a7fb8, 0.4, 2, true, 0.005, 0.03)
+    const nauticalLineNight = createTwilightLine(0x8ab8e0, 0.4, 2, true, 0.003, 0.03)
     scene.add(nauticalLineNight)
 
     // Astronomical twilight lines (dotted - large gaps)
-    const astronomicalLineDay = createTwilightLine(0x3d6fa0, 0.4, 1.8, true, 0.005, 0.015)  // dotted
+    const astronomicalLineDay = createTwilightLine(0x6a9fd0, 0.4, 1.8, true, 0.005, 0.015)  // dotted
     scene.add(astronomicalLineDay)
 
-    const astronomicalLineNight = createTwilightLine(0x3d6fa0, 0.4, 1.8, true, 0.005, 0.015)
+    const astronomicalLineNight = createTwilightLine(0x6a9fd0, 0.4, 1.8, true, 0.005, 0.015)
     scene.add(astronomicalLineNight)
 
     twilightLinesRef.current = {
@@ -1308,77 +1308,68 @@ function App() {
           //  108°  = astronomical twilight end / full night
 
           let r, g, b
+          
+          // Full daylight — sky blue at midday, warming toward pale white as sun descends
+          if (sunAngle < 87) {
+            // Full daylight — vivid sky blue holding right up to near the terminator
+            const t = sunAngle / 87
+            const tSlow = t * t
+            r = 0.15 + tSlow * 0.80
+            g = 0.50 + tSlow * 0.45
+            b = 1.00 - tSlow * 0.55
 
-          if (sunAngle < 85) {
-            // Full daylight — gentle drift from near-white midday to pale yellow afternoon
-            // sunAngle ~0° (overhead) → cool white-yellow
-            // sunAngle ~85° (pre-horizon) → warm pale yellow, seamlessly entering golden hour
-            const t = sunAngle / 85
-            r = 1.0
-            g = 0.98 - t * 0.08  // 0.98 → 0.90
-            b = 0.5 - t * 0.1    // 0.5 → 0.4, blue drops out as sun descends
-
-          } else if (sunAngle < 90) {
-            // Golden hour — amber deepening toward orange (sunset) or peach-pink (sunrise)
-            const t = (sunAngle - 85) / 5
-            if (isSunset) {
-              r = 1.0
-              g = 0.95 - t * 0.55  // pale yellow → deep orange
-              b = 0.4 - t * 0.4    // blue drops out completely
-            } else {
-              r = 1.0
-              g = 0.95 - t * 0.4   // pale yellow → peach
-              b = 0.4 - t * 0.15   // slight blue lingers for cooler morning feel
-            }
+          } else if (sunAngle < 91) {
+            // Golden hour — tight 4° burst of warm colours around the terminator
+            const t = (sunAngle - 87) / 4
+            r = 1.00
+            g = 0.95 - t * 0.55
+            b = 0.45 - t * 0.45
 
           } else if (sunAngle < 96) {
-            // CIVIL TWILIGHT — between terminator and civil line
-            // Sunset: orange-red → crimson-magenta
-            // Sunrise: pink → violet-mauve
-            const t = (sunAngle - 90) / 6
+            // CIVIL TWILIGHT — compressed, 91–96°
+            const t = (sunAngle - 91) / 5
             if (isSunset) {
-              r = 1.0 - t * 0.1
-              g = 0.40 - t * 0.30
-              b = 0.0 + t * 0.35
+              r = 1.00 - t * 0.10
+              g = 0.40 - t * 0.35
+              b = 0.00 + t * 0.40
             } else {
-              r = 1.0 - t * 0.2
-              g = 0.55 - t * 0.35
-              b = 0.25 + t * 0.40
+              r = 1.00 - t * 0.10
+              g = 0.40 - t * 0.30
+              b = 0.00 + t * 0.25
             }
 
           } else if (sunAngle < 102) {
-            // NAUTICAL TWILIGHT — between civil and nautical line
-            // Sunset: magenta → deep violet
-            // Sunrise: violet → cool indigo
+            // NAUTICAL TWILIGHT — 96–102°
             const t = (sunAngle - 96) / 6
             if (isSunset) {
               r = 0.90 - t * 0.55
-              g = 0.10 - t * 0.05
-              b = 0.35 + t * 0.25
+              g = 0.05
+              b = 0.40 + t * 0.20
             } else {
-              r = 0.80 - t * 0.55
-              g = 0.20 - t * 0.12
-              b = 0.65 - t * 0.05
+              r = 0.90 - t * 0.45
+              g = 0.10 - t * 0.05
+              b = 0.25 + t * 0.15
             }
 
           } else if (sunAngle < 108) {
-            // ASTRONOMICAL TWILIGHT — between nautical and astronomical line
+            // ASTRONOMICAL TWILIGHT
             const t = (sunAngle - 102) / 6
             r = 0.35 - t * 0.32
             g = 0.05 - t * 0.03
-            b = 0.60 - t * 0.45
+            b = 0.60 - t * 0.42
 
           } else if (sunAngle < 114) {
-            // DEEP NIGHT FADE — soft landing into full darkness
+            // DEEP NIGHT FADE
             const t = (sunAngle - 108) / 6
-            r = 0.03
-            g = 0.02
-            b = 0.15 - t * 0.05   // 0.15 → 0.10, very gentle final fade
+            r = 0.03 - t * 0.01
+            g = 0.02 - t * 0.01
+            b = 0.18 - t * 0.08
 
           } else {
             // FULL NIGHT
-            r = 0.03; g = 0.02; b = 0.10
+            r = 0.02; g = 0.01; b = 0.10
           }
+
           preCalculatedColorsColor.push({ r, g, b })
           
           // B&W MODE colors
@@ -1973,7 +1964,7 @@ function App() {
         terminator: 0.8,
         civil: 0.6,
         nautical: 0.4,
-        astronomical: 0.2
+        astronomical: 0.3
       } : {
         terminator: 0,
         civil: 0,
