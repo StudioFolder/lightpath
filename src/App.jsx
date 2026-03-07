@@ -2484,7 +2484,7 @@ function App() {
           setTimeout(() => {
             setExpandedSection(null)
             setIsClosing(false)
-          }, 200) // Match animation duration
+          }, 250) // Match animation duration
           return
         }
         
@@ -2819,17 +2819,22 @@ function App() {
                 Explore how your flight moves through daylight, twilight, and darkness.
               </p>
 
-              {expandedSection !== 'about' && (
-                <button 
-                  className="mobile-menu-link"
-                  onClick={() => loadMarkdownContent('about.md', 'about')}
-                >
-                  More
-                  <svg className="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              )}
+              <button 
+                className="nav-link"
+                onClick={() => loadMarkdownContent('about.md', 'about')}
+                style={{
+                  maxHeight: expandedSection === 'about' ? 0 : 30,
+                  opacity: expandedSection === 'about' ? 0 : 1,
+                  overflow: 'hidden',
+                  transition: 'max-height 0.2s ease, opacity 0.15s ease',
+                  pointerEvents: expandedSection === 'about' ? 'none' : 'all'
+                }}
+              >
+                More
+                <svg className="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
 
               {expandedSection === 'about' && aboutContent && (
                 <div className="mobile-menu-accordion">
@@ -2942,8 +2947,25 @@ function App() {
         )}
 
         <div className="nav-accordion">
-          <p className="nav-tagline">
-            Explore how your flight moves through daylight, twilight, and darkness.
+          <p 
+            className="nav-tagline"
+            onMouseMove={(e) => {
+              const spans = e.currentTarget.querySelectorAll('.tagline-word')
+              spans.forEach(span => {
+                const rect = span.getBoundingClientRect()
+                span.style.setProperty('--torch-x', `${e.clientX - rect.left}px`)
+                span.style.setProperty('--torch-y', `${e.clientY - rect.top}px`)
+              })
+            }}
+            onMouseLeave={(e) => {
+              const spans = e.currentTarget.querySelectorAll('.tagline-word')
+              spans.forEach(span => {
+                span.style.setProperty('--torch-x', `-200px`)
+                span.style.setProperty('--torch-y', `-200px`)
+              })
+            }}
+          >
+            Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.
           </p>
 
           {expandedSection !== 'about' && (
