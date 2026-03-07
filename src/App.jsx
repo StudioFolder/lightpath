@@ -1357,18 +1357,18 @@ function App() {
             const t = (sunAngle - 102) / 6
             r = 0.35 - t * 0.32
             g = 0.05 - t * 0.03
-            b = 0.60 - t * 0.42
+            b = 0.55 - t * 0.38  // was 0.60 - t * 0.42, less purple
 
           } else if (sunAngle < 114) {
             // DEEP NIGHT FADE
             const t = (sunAngle - 108) / 6
-            r = 0.03 - t * 0.01
-            g = 0.02 - t * 0.01
-            b = 0.18 - t * 0.08
+            r = 0.03 - t * 0.02
+            g = 0.02
+            b = 0.17 - t * 0.01  // very gentle fade, 0.17 → 0.16
 
           } else {
             // FULL NIGHT
-            r = 0.02; g = 0.01; b = 0.10
+            r = 0.01; g = 0.02; b = 0.16
           }
 
           preCalculatedColorsColor.push({ r, g, b })
