@@ -1162,6 +1162,7 @@ function App() {
       setFlightPath(null)
       setFlightResults(null)
       setIsPanelCollapsed(false)
+      setShowFlightStats(false)
       hasFlightPathRef.current = false
       transitionLabelsRef.current = []
       
@@ -2761,6 +2762,7 @@ function App() {
               setFlightPath(null)
               setFlightResults(null)
               setIsPanelCollapsed(false)
+              setShowFlightStats(false)
               setDepartureCode('')
               setDepartureAirport(null)
               setArrivalCode('')
@@ -3097,6 +3099,7 @@ function App() {
           onClick={isPanelCollapsed ? () => {
             if (!isMobile) {
               setIsPanelCollapsed(false)
+              setShowFlightStats(false)
               return
             }
             // Close mobile menu if open
@@ -3115,6 +3118,7 @@ function App() {
             setIsPanelFading(true)
             setTimeout(() => {
               setIsPanelCollapsed(false)
+              setShowFlightStats(false)
               setIsPanelFading(false)
             }, 200)
           } : undefined}
