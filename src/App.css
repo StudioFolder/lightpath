@@ -28,10 +28,10 @@ body:has(.bw-mode) {
 
 :root {
   --bg-color: #2a2d31;
-  --path-day-color: rgb(255, 217, 0);
+  --path-day-color: rgb(156, 221, 239);
   --path-twilight-warm: rgb(255, 140, 0);
   --path-twilight-cool: rgb(128, 100, 200);
-  --path-night-color: rgb(25, 38, 128);
+  --path-night-color: rgb(20, 30, 100);
 }
 
 * {
@@ -965,6 +965,7 @@ canvas {
 .panel-subtitle {
   margin: 0 0 16px 0;
   font-size: 13px;
+  padding: 0 48px;
   color: rgba(255, 255, 255, 0.5);
   text-align: center;
   line-height: 1.5;
@@ -1260,26 +1261,27 @@ canvas {
 }
 
 /* Torch reveal effect on tagline words */
-.nav-tagline .tagline-word {
+.tagline-word {
   --torch-x: -240px;
   --torch-y: -240px;
 }
 
-.nav-tagline .tagline-daylight {
-  background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-day-color) 0%, rgba(255, 255, 255, 0.7) 60%);
+.tagline-daylight {
+  background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-day-color) 0%, rgb(255, 240, 130) 30%, rgba(255, 255, 255, 0.7) 60%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: brightness(1.2);
+}
+
+.tagline-twilight {
+  background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-twilight-warm) 0%, var(--path-twilight-cool) 30%, rgba(255, 255, 255, 0.7) 60%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.nav-tagline .tagline-twilight {
-  background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-twilight-warm) 0%, rgba(255, 255, 255, 0.7) 60%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.nav-tagline .tagline-darkness {
+.tagline-darkness {
   background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-night-color) 0%, rgba(255, 255, 255, 0.7) 60%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1288,21 +1290,21 @@ canvas {
 }
 
 /* BW mode torch colors */
-.bw-mode .nav-tagline .tagline-daylight {
+.bw-mode .tagline-daylight {
   background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-day-color) 0%, var(--bw-text-secondary) 60%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.bw-mode .nav-tagline .tagline-twilight {
+.bw-mode .tagline-twilight {
   background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-twilight-warm) 0%, var(--bw-text-secondary) 60%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.bw-mode .nav-tagline .tagline-darkness {
+.bw-mode .tagline-darkness {
   background: radial-gradient(circle 80px at var(--torch-x) var(--torch-y), var(--path-night-color) 0%, var(--bw-text-secondary) 60%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1857,7 +1859,7 @@ canvas {
 }
 
 .mobile-menu-accordion {
-  padding: 8px 16px 4px 42px;
+  padding: 8px 16px 36px 42px;
   color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   line-height: 1.6;
@@ -1921,25 +1923,66 @@ canvas {
   margin-bottom: 0;
 }
 
+.mobile-menu-about {
+  padding: 10px 16px 4px 20px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.mobile-menu-about h1 {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  color: #fff;
+}
+
+.mobile-menu-about h2 {
+  font-size: 14px;
+  margin: 12px 0 6px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mobile-menu-about p {
+  margin: 0 0 8px 0;
+}
+
+.mobile-menu-about > *:first-child {
+  margin-top: 0;
+}
+
+.mobile-menu-about a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.mobile-menu-about a:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.bw-mode .mobile-menu-about {
+  color: rgba(40, 40, 40, 0.8);
+}
+
+.bw-mode .mobile-menu-about h1 {
+  color: rgba(40, 40, 40, 0.9);
+}
+
+.bw-mode .mobile-menu-about h2 {
+  color: rgba(40, 40, 40, 0.85);
+}
+
+.bw-mode .mobile-menu-about a {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .mobile-menu-about a:hover {
+  color: var(--bw-text-secondary);
+}
+
 /* Mobile menu divider */
 .mobile-menu-divider {
   display: none;
-}
-
-.mobile-menu-scroll {
-  position: relative;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.mobile-menu-scroll::after {
-  content: '';
-  position: sticky;
-  bottom: 0;
-  display: block;
-  height: 48px;
-  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.45));
-  pointer-events: none;
 }
 
 .mobile-menu-bottom {
@@ -2236,7 +2279,10 @@ canvas {
   }
 
   .subtitle-daylight {
-    color: var(--path-day-color);
+    background: linear-gradient(90deg, var(--path-day-color) 60%, rgb(255, 240, 130));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     opacity: 0.8;
   }
 
@@ -2249,8 +2295,28 @@ canvas {
   }
 
   .subtitle-darkness {
-    color: var(--path-night-color);
+    background: linear-gradient(90deg, rgb(89, 13, 140), var(--path-night-color) 40%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     filter: brightness(1.4);
+    opacity: 0.9;
+  }
+
+  .bw-mode .subtitle-daylight {
+    background: linear-gradient(90deg, var(--path-day-color) 60%, rgb(220, 220, 220));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0.8;
+  }
+
+  .bw-mode .subtitle-darkness {
+    background: linear-gradient(90deg, rgb(80, 80, 80), var(--path-night-color) 40%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: none;
     opacity: 0.9;
   }
 
@@ -2509,7 +2575,7 @@ canvas {
     color: rgba(40, 40, 40, 0.9);
   }
 
-  .mobile-menu-content-wrap {
+.mobile-menu-content-wrap {
     padding: 8px 16px;
     display: flex;
     flex-direction: column;
@@ -2517,6 +2583,8 @@ canvas {
     overflow-y: auto;
     opacity: 0;
     transition: opacity 0.3s ease;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 24px, black calc(100% - 32px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 24px, black calc(100% - 32px), transparent 100%);
   }
 
   .mobile-menu-content-wrap.visible {

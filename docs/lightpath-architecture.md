@@ -42,7 +42,10 @@ src/
 │   ├── geoUtils.js            (coordinate conversion + flight scaling)
 │   ├── solarUtils.js          (solar position calculations)
 │   ├── sceneUtils.js          (label texture creation)
-│   └── animationUtils.js      (fade animations)
+│   ├── animationUtils.js      (fade animations)
+│   └── idleAnimation.js       (idle globe animation — fully self-contained)
+├── data/
+│   └── idleAirports.js        (curated ~80 global hub airports for idle animation)
 public/
 ├── earth-texture.png          (custom Earth texture, created in QGIS)
 ├── graticule-10.geojson       (10° latitude/longitude grid)
@@ -396,6 +399,61 @@ git push && git push --tags
 - **More precise terminator visualization:** Anchor visual gradients more tightly to actual astronomical boundaries (terminator at 90°, civil at 96°, nautical at 102°, astronomical at 108°). Key for credibility with scientifically-minded users.
 - **Phase 3 UI component extraction:** Remaining work from the ongoing refactoring plan. Extract additional UI components from App.jsx following the pattern established by `AirportSearchInput`.
 - **Final mobile polish pass:** Real-device testing on iPhone for any remaining edge cases.
+- **Idle globe animation:** Animate random flight arcs on the globe when the app is in its initial state (no flight calculated). Disappears when the user clicks Calculate. See implementation plan below.
+
+---
+
+### Idle Animation — Implementation Plan
+
+**Concept:** While the app is idle (no flight calculated), random great circle arcs draw themselves progressively across the globe as thin white lines, hold briefly, then fade out. Multiple routes overlap at different phases creating a live radar aesthetic. Triggered on mount, stopped and cleaned up when the user clicks Calculate.
+
+**Data source:** Curated hardcoded list of ~80 major global airport hubs with lat/lon. Routes are randomly paired at runtime. No extra fetch, no external file — airports are already in memory and the great circle math is already implemented in `geoUtils.js`.
+
+**Key design decisions (validated via preview):**
+- Line style: thin white, additive blending, opacity ~0.18–0.25
+- Route lifecycle: draw → hold 1.5s → fade out → remove from scene
+- Default density: 8 routes simultaneously on desktop, 4 on mobile
+- Draw speed: ~0.002 progress/frame (~8–10s per long-haul route)
+- Airport dots: same curated hub list rendered as a `Points` layer (opacity ~0.4), visible during idle only
+
+**Architecture — critical notes:**
+- **Completely self-contained** — no shared state, refs, or logic with the main flight system
+- `idleAnimation.js` manages all its own internal state (active flag, routes array, spawn timing, dots mesh)
+- Only receives `scene` (Three.js Scene) and `isMobile` (boolean) as inputs
+- Exposes two functions only: `startIdleAnimation(scene, isMobile)` and `stopIdleAnimation()`
+- `idleAirports.js` exports a single constant `IDLE_AIRPORTS` — a plain array of `{ code, lat, lon }` objects
+- Idle update is called once per frame from inside the existing App.jsx animation loop — a single function call, no other coupling
+- **Do not restart** after a flight is cleared — idle is only for the first landing experience
+
+**Files:**
+
+`src/data/idleAirports.js`
+- Exports `IDLE_AIRPORTS`: ~80 curated major global hubs with IATA code, lat, lon
+- Plain data, no logic, no imports
+
+`src/utils/idleAnimation.js`
+- Imports `IDLE_AIRPORTS` from `../data/idleAirports`
+- Imports `THREE` for geometry/material creation
+- Internal state: `active` (bool), `routes` (array), `lastSpawnTime` (number), `dotsMesh` (Points)
+- Each route object: `{ line, geo, pts, progress, opacity, state: 'drawing'|'holding'|'fading', holdFrames }`
+- `startIdleAnimation(scene, isMobile)` — sets active, builds airport dots Points, begins spawning
+- `stopIdleAnimation()` — sets active false, removes and disposes all routes and dots from scene
+- `tickIdleAnimation(time)` — called each frame from App.jsx animation loop; handles spawning + per-route lifecycle updates
+- Uses haversine distance filter: only pairs airports >3000km apart for dramatic arcs
+
+**App.jsx — only 3 changes, nothing modified:**
+1. Import: `import { startIdleAnimation, stopIdleAnimation, tickIdleAnimation } from './utils/idleAnimation'`
+2. After scene setup: `startIdleAnimation(scene, isMobile)`
+3. Inside animation loop: `tickIdleAnimation(time)` (one line, gated internally by active flag)
+4. At top of `calculateFlight()`: `stopIdleAnimation()`
+
+**Implementation steps:**
+1. Create `src/data/idleAirports.js` with the ~80 hub airport list
+2. Create `src/utils/idleAnimation.js` with `startIdleAnimation`, `stopIdleAnimation`, `tickIdleAnimation`
+3. Add the 3 import + call lines to App.jsx
+4. Test idle animation in isolation (before wiring Calculate cleanup)
+5. Test cleanup: confirm all geometry disposed, no memory leaks, scene clean after Calculate
+6. Mobile: verify 4-route cap, check frame rate alongside twilight shader on real device
 
 ### Post-launch (after v1.0.0)
 

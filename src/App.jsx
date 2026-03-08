@@ -337,6 +337,14 @@ function App() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Load about content on mount (for mobile menu)
+  useEffect(() => {
+    fetch('/content/about.md')
+      .then(res => res.text())
+      .then(text => setAboutContent(text))
+      .catch(err => console.error('Error loading about content:', err))
+  }, [])
+
   useEffect(() => {
     if (!canvasRef.current) return
 
@@ -2815,41 +2823,15 @@ function App() {
         {showMobileMenu && (
           <div className="mobile-menu-offcanvas">
             <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
-              <p className="mobile-menu-tagline">
+              {/* <p className="mobile-menu-tagline">
                 Explore how your flight moves through daylight, twilight, and darkness.
-              </p>
+              </p> */}
 
-              <button 
-                className="nav-link"
-                onClick={() => loadMarkdownContent('about.md', 'about')}
-                style={{
-                  maxHeight: expandedSection === 'about' ? 0 : 30,
-                  opacity: expandedSection === 'about' ? 0 : 1,
-                  overflow: 'hidden',
-                  transition: 'max-height 0.2s ease, opacity 0.15s ease',
-                  pointerEvents: expandedSection === 'about' ? 'none' : 'all'
-                }}
-              >
-                More
-                <svg className="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-
-              {expandedSection === 'about' && aboutContent && (
-                <div className="mobile-menu-accordion">
+              {aboutContent && (
+                <div className="mobile-menu-about">
                   <ReactMarkdown>
                     {aboutContent.replace('{version}', packageJson.version)}
                   </ReactMarkdown>
-                  <button 
-                    className="mobile-menu-link accordion-less"
-                    onClick={() => loadMarkdownContent('about.md', 'about')}
-                  >
-                    Less
-                    <svg className="nav-chevron open" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
                 </div>
               )}
               
@@ -2947,7 +2929,7 @@ function App() {
         )}
 
         <div className="nav-accordion">
-          <p 
+          {/* <p 
             className="nav-tagline"
             onMouseMove={(e) => {
               const spans = e.currentTarget.querySelectorAll('.tagline-word')
@@ -2966,34 +2948,23 @@ function App() {
             }}
           >
             Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.
-          </p>
+          </p> */}
 
-          {expandedSection !== 'about' && (
-            <button 
-              className="nav-link"
-              onClick={() => loadMarkdownContent('about.md', 'about')}
-            >
-              More
-              <svg className="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          )}
+          <button 
+            className="nav-link"
+            onClick={() => loadMarkdownContent('about.md', 'about')}
+          >
+            About
+            <svg className={`nav-chevron ${expandedSection === 'about' ? 'open' : ''}`} width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
 
           {expandedSection === 'about' && aboutContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
               <ReactMarkdown>
                 {aboutContent.replace('{version}', packageJson.version)}
               </ReactMarkdown>
-              <button 
-                className="nav-link accordion-less"
-                onClick={() => loadMarkdownContent('about.md', 'about')}
-              >
-                Less
-                <svg className="nav-chevron open" width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
             </div>
           )}
                     
@@ -3173,13 +3144,30 @@ function App() {
               </button>
           </div>
 
-          <p className="panel-subtitle">
+          <p 
+            className="panel-subtitle"
+            onMouseMove={!isMobile ? (e) => {
+              const spans = e.currentTarget.querySelectorAll('.tagline-word')
+              spans.forEach(span => {
+                const rect = span.getBoundingClientRect()
+                span.style.setProperty('--torch-x', `${e.clientX - rect.left}px`)
+                span.style.setProperty('--torch-y', `${e.clientY - rect.top}px`)
+              })
+            } : undefined}
+            onMouseLeave={!isMobile ? (e) => {
+              const spans = e.currentTarget.querySelectorAll('.tagline-word')
+              spans.forEach(span => {
+                span.style.setProperty('--torch-x', `-200px`)
+                span.style.setProperty('--torch-y', `-200px`)
+              })
+            } : undefined}
+          >
             {isMobile 
               ? <>Find a route between any airport and explore how your flight moves through <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
-              : "Find a route between any airport."
+              : <>Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.</>
             }
           </p>
-          
+
           <div className="panel-content">
             <AirportSearchInput
               label="Departure"
