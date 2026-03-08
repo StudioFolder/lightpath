@@ -2109,50 +2109,54 @@ function App() {
         }
         
         // Only respond to spacebar when there's a flight
-        if (e.code === 'Space' && flightResults) {
+        if (e.code === 'Space' && hasFlightPathRef.current) {
           e.preventDefault()
           
-          if (animationProgress >= 1) {
+          if (animationProgressRef.current >= 1) {
             setAnimationProgress(0)
             animationProgressRef.current = 0
             setShowFlightStats(true)
           }
           
-          if (!isPlaying) {
+          if (!isPlayingRef.current) {
             setShowFlightStats(false)
           }
           
-          setIsPlaying(!isPlaying)
+          setIsPlaying(prev => !prev)
         }
 
         // A for airports toggle
         if (e.key === 'a' || e.key === 'A') {
-          setShowAirports(!showAirports)
+          setShowAirports(prev => !prev)
         }
 
         // P for plane toggle
         if (e.key === 'p' || e.key === 'P') {
-          setShowPlaneIcon(!showPlaneIcon)
-          showPlaneIconRef.current = !showPlaneIcon
+          setShowPlaneIcon(prev => {
+            showPlaneIconRef.current = !prev
+            return !prev
+          })
         }
 
         // T for timezones toggle
         if (e.key === 't' || e.key === 'T') {
-          const newValue = !showTimezones
-          setShowTimezones(newValue)
-          if (newValue) setShowGraticule(false)
+          setShowTimezones(prev => {
+            if (!prev) setShowGraticule(false)
+            return !prev
+          })
         }
 
         // G for graticule toggle
         if (e.key === 'g' || e.key === 'G') {
-          const newValue = !showGraticule
-          setShowGraticule(newValue)
-          if (newValue) setShowTimezones(false)
+          setShowGraticule(prev => {
+            if (!prev) setShowTimezones(false)
+            return !prev
+          })
         }
 
         // L for twilight lines toggle
         if (e.key === 'l' || e.key === 'L') {
-          setShowTwilightLines(!showTwilightLines)
+          setShowTwilightLines(prev => !prev)
         }
 
       }
@@ -2163,7 +2167,7 @@ function App() {
         window.removeEventListener('keydown', handleKeyPress)
       }
 
-    }, [isPlaying, flightResults, animationProgress, showAirports, showPlaneIcon, showTimezones, showGraticule, showTwilightLines])
+    }, [])
 
     const centerCameraOnFlight = (departure, arrival, flightDistance) => {
       const camera = cameraRef.current

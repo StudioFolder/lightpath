@@ -898,6 +898,8 @@ canvas {
   opacity: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
   transition: max-height 0.25s ease-in, 
               opacity 0.25s ease-in !important;
 }
