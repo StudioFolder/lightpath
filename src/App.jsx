@@ -122,7 +122,6 @@ function App() {
   
   // External Data & Intervals
   const timezoneDataRef = useRef(null)
-  const timezoneFadeIntervalRef = useRef(null)
 
   // Helper to get RGB color from CSS variable
   const getCSSColor = (varName, element = document.documentElement) => {
@@ -1598,8 +1597,6 @@ function App() {
     // Effect to show/hide all airports
     useEffect(() => {
       if (!sceneRef.current || !airports) return
-
-      let fadeInterval = null
       
       // Remove existing airport dots with fade out
       const existingDots = sceneRef.current.getObjectByName('airportDots')
@@ -1658,16 +1655,11 @@ function App() {
         material.opacity = v
       })
       
-      return () => {
-        if (fadeInterval) clearInterval(fadeInterval)
-      }
     }, [showAirports, airports, isBWMode])
 
     // Effect to show/hide graticule
     useEffect(() => {
       if (!sceneRef.current) return
-      
-      let fadeInterval = null
       
       // Remove existing graticule if exists
       const existingGraticule = sceneRef.current.getObjectByName('graticule')
@@ -1755,16 +1747,11 @@ function App() {
         })
         .catch(err => console.error('Error loading graticule:', err))
       
-      return () => {
-        if (fadeInterval) clearInterval(fadeInterval)
-      }
     }, [showGraticule])
 
     // Effect to show/hide timezone boundaries
     useEffect(() => {
       if (!sceneRef.current) return
-      
-      let fadeInterval = null
       
       // Remove existing timezones if exists
       const existingTimezones = sceneRef.current.getObjectByName('timezone-boundaries')
@@ -1947,10 +1934,6 @@ function App() {
         })
         .catch(err => console.error('Error loading timezone boundaries:', err))
       
-      return () => {
-        if (fadeInterval) clearInterval(fadeInterval)
-        if (timezoneFadeIntervalRef.current) clearInterval(timezoneFadeIntervalRef.current)
-      }
     }, [showTimezones])
 
     useEffect(() => {
@@ -2521,8 +2504,9 @@ function App() {
       return dt.toFormat('MMM d').toUpperCase()
     }
 
-    // Sync isBWMode state to ref and update colors
+    // Update scene background when B&W mode changes
     useEffect(() => {
+      // Sync isBWMode state to ref and update colors
       isBWModeRef.current = isBWMode
       
       // Update Safari status bar and html background
@@ -2540,11 +2524,6 @@ function App() {
           }
         }
       }
-    }, [isBWMode])
-
-    // Update scene background when B&W mode changes
-    useEffect(() => {
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isBWMode ? BG_COLOR_BW : BG_COLOR_DARK)
 
       if (!sceneRef.current) return
       
