@@ -38,6 +38,7 @@ function App() {
   const [departureAirport, setDepartureAirport] = useState(null)
   const [arrivalAirport, setArrivalAirport] = useState(null)
   const [searchEditing, setSearchEditing] = useState(0)
+  const [pendingUrlFlight, setPendingUrlFlight] = useState(false)
   
   // Flight Calculation & Animation
   const [flightPath, setFlightPath] = useState(null)
@@ -270,38 +271,34 @@ function App() {
     
   }
 
-  // Read URL parameters and auto-load flight if present
+  // Read URL parameters and set up flight data
   useEffect(() => {
     if (!params.route || !params.date || !params.time) return
-    if (!airports) return // Wait for airports to load
-    
+    if (!airports) return
+
     const [from, to] = params.route.split('-')
-    
-    // Check if airports exist
-    if (!airports[from] || !airports[to]) {
-      return
-    }
-    
-    const departureAirport = airports[from]
-    const arrivalAirport = airports[to]
-    
+
+    if (!airports[from] || !airports[to]) return
+
     const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00`
     const flightDateTime = new Date(dateTime)
-    
-    // Set everything needed for the flight - mimicking the selection click
+
     setDepartureCode(from)
-    setDepartureAirport(departureAirport)
-    
+    setDepartureAirport(airports[from])
     setArrivalCode(to)
-    setArrivalAirport(arrivalAirport)
-    
+    setArrivalAirport(airports[to])
     setDepartureTime(flightDateTime)
-    
-    // Calculate flight after state is set
-    setTimeout(() => {
-      calculateFlight()
-    }, 100)
+    setPendingUrlFlight(true)
   }, [airports])
+
+  // Auto-calculate flight once URL state is ready
+  useEffect(() => {
+    if (!pendingUrlFlight) return
+    if (!departureCode || !arrivalCode || !departureAirport || !arrivalAirport) return
+
+    setPendingUrlFlight(false)
+    calculateFlight()
+  }, [pendingUrlFlight, departureCode, arrivalCode, departureAirport, arrivalAirport])
 
   // Keep refs in sync with state
   useEffect(() => {
