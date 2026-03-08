@@ -1858,6 +1858,12 @@ canvas {
   background: rgba(40, 40, 40, 0.08);
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .bw-mode .mobile-menu-link:hover {
+    background: none;
+  }
+}
+
 .mobile-menu-accordion {
   padding: 8px 16px 36px 42px;
   color: rgba(255, 255, 255, 0.8);
@@ -2015,7 +2021,7 @@ canvas {
 }
 
 .bw-mode .mobile-menu-toggle-item:hover {
-  background: rgba(40, 40, 40, 0.08);
+  background: none;
 }
 
 .mobile-menu-toggle-item input[type="checkbox"] {
@@ -2304,11 +2310,12 @@ canvas {
   }
 
   .bw-mode .subtitle-daylight {
-    background: linear-gradient(90deg, var(--path-day-color) 60%, rgb(220, 220, 220));
+    background: linear-gradient(90deg, var(--path-day-color) 30%, rgb(220, 220, 220));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    opacity: 0.8;
+    opacity: 1;
+    filter: brightness(0.9);
   }
 
   .bw-mode .subtitle-darkness {
