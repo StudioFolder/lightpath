@@ -812,6 +812,24 @@ function App() {
     let lastFrameTime = 0
     const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
+    // Scratch objects for animation loop — reused every frame, never allocate inside animate()
+    const _tangent = new THREE.Vector3()
+    const _normal = new THREE.Vector3()
+    const _right = new THREE.Vector3()
+    const _up = new THREE.Vector3()
+    const _surfaceOffset = new THREE.Vector3()
+    const _forwardOffset = new THREE.Vector3()
+    const _matrix = new THREE.Matrix4()
+    const _planeNormal = new THREE.Vector3()
+    const _south = new THREE.Vector3()
+    const _east = new THREE.Vector3()
+    const _actualSouth = new THREE.Vector3()
+    const _tiltedNormal = new THREE.Vector3()
+    const _currentNormal = new THREE.Vector3()
+    const _targetNormal = new THREE.Vector3()
+    const _axis = new THREE.Vector3()
+    const _camTarget = new THREE.Vector3()
+
     function animate(currentTime) {
       requestAnimationFrame(animate)
       
@@ -843,127 +861,48 @@ function App() {
       // Update flight path progress visualization
       if (hasFlightPathRef.current && flightLineRef.current && flightLineRef.current.userData.routeCurve) {
         const progress = animationProgressRef.current
-        
-        // Remove old progress tube if exists
-        if (progressTubeRef.current) {
-          flightLineRef.current.remove(progressTubeRef.current)
-          
-          // Properly dispose based on whether it's a Group or Mesh
-          progressTubeRef.current.traverse((child) => {
-            if (child.geometry) child.geometry.dispose()
-            if (child.material) child.material.dispose()
-          })
-          
-          progressTubeRef.current = null
+        const curve = flightLineRef.current.userData.routeCurve
+
+        // Reveal progress tube via drawRange
+        if (progressTubeRef.current && progress > 0) {
+          const geo = progressTubeRef.current.geometry
+          const totalIndices = geo.index ? geo.index.count : geo.attributes.position.count
+          progressTubeRef.current.geometry.setDrawRange(0, Math.floor(progress * totalIndices))
+        } else if (progressTubeRef.current) {
+          progressTubeRef.current.geometry.setDrawRange(0, 0)
         }
 
-        // Transition labels are pre-created, no need to remove/recreate
-        
-        if (progress > 0) {
-          // Get points for completed portion
-          const curve = flightLineRef.current.userData.routeCurve
-          const completedPoints = []
-          const numSamples = 800
-          
-          for (let i = 0; i <= numSamples; i++) {
-            const t = (i / numSamples) * progress
-            completedPoints.push(curve.getPoint(t))
-          }
-          
-          if (completedPoints.length > 1) {
+        // Update pre-created transition labels and rings visibility
+        transitionLabelsRef.current.forEach(label => {
+          const transitionT = label.userData.transitionT
+          const ring = label.userData.ring
 
-            // Use pre-calculated colors with interpolation (pick correct set based on mode)
-            const preCalculatedColors = isBWModeRef.current 
-              ? flightLineRef.current.userData.preCalculatedColorsBW 
-              : flightLineRef.current.userData.preCalculatedColorsColor
-            const colors = []
-            
-            for (let i = 0; i < completedPoints.length; i++) {
-              const exactIndex = (i / completedPoints.length) * progress * preCalculatedColors.length
-              const lowerIndex = Math.min(Math.floor(exactIndex), preCalculatedColors.length - 1)
-              const upperIndex = Math.min(lowerIndex + 1, preCalculatedColors.length - 1)
-              const t = exactIndex - lowerIndex  // Fractional part for interpolation
-              
-              const lowerColor = preCalculatedColors[lowerIndex]
-              const upperColor = preCalculatedColors[upperIndex]
-              
-              // Linearly interpolate between colors
-              const r = lowerColor.r * (1 - t) + upperColor.r * t
-              const g = lowerColor.g * (1 - t) + upperColor.g * t
-              const b = lowerColor.b * (1 - t) + upperColor.b * t
-              
-              colors.push(r, g, b)
+          if (transitionT <= progress) {
+            label.visible = true
+            const point = curve.getPoint(transitionT)
+            const eScale = flightLineRef.current?.userData.elementScale || 1.0
+            const offset = point.clone().normalize().multiplyScalar(0.06 * eScale)
+            label.position.copy(point).add(offset)
+
+            const fadeProgress = (progress - transitionT) / 0.02
+            label.material.opacity = Math.min(fadeProgress, 1)
+
+            if (ring) {
+              ring.visible = true
+              ring.position.copy(point)
+              const tangent = curve.getTangent(transitionT).normalize()
+              ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent)
+              ring.material.opacity = Math.min(fadeProgress, 1)
             }
-
-            // Update pre-created transition labels and rings visibility and position
-            transitionLabelsRef.current.forEach(label => {
-              const transitionT = label.userData.transitionT
-              const ring = label.userData.ring
-              
-              if (transitionT <= progress) {
-                // Show label and position it
-                label.visible = true
-                const point = curve.getPoint(transitionT)
-                const eScale = flightLineRef.current?.userData.elementScale || 1.0
-                const offset = point.clone().normalize().multiplyScalar(0.06 * eScale)
-                label.position.copy(point).add(offset)
-                
-                // Fade in over 2% of progress after appearing
-                const fadeProgress = (progress - transitionT) / 0.02
-                label.material.opacity = Math.min(fadeProgress, 1)
-                
-                // Show and position ring perpendicular to path
-                if (ring) {
-                  ring.visible = true
-                  ring.position.copy(point)
-                  
-                  // Orient ring so it wraps around the path
-                  const tangent = curve.getTangent(transitionT).normalize()
-                  ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent)
-                  
-                  ring.material.opacity = Math.min(fadeProgress, 1)
-                }
-              } else {
-                // Hide label and ring (not reached yet)
-                label.visible = false
-                label.material.opacity = 0
-                if (ring) {
-                  ring.visible = false
-                  ring.material.opacity = 0
-                }
-              }
-            })
-
-            // Create single tube with vertex colors
-            const thickGeometry = new THREE.TubeGeometry(
-              new THREE.CatmullRomCurve3(completedPoints),
-              Math.min(completedPoints.length * 2, 800),  // More tubular segments
-              0.006 * (flightLineRef.current?.userData.elementScale || 1.0),
-              8,
-              false
-            )
-            
-            // Apply vertex colors
-            const colorArray = new Float32Array(colors.length * thickGeometry.attributes.position.count / completedPoints.length)
-            for (let i = 0; i < thickGeometry.attributes.position.count; i++) {
-              const pointIndex = Math.floor(i * completedPoints.length / thickGeometry.attributes.position.count)
-              const colorIndex = Math.min(pointIndex * 3, colors.length - 3)
-              colorArray[i * 3] = colors[colorIndex]
-              colorArray[i * 3 + 1] = colors[colorIndex + 1]
-              colorArray[i * 3 + 2] = colors[colorIndex + 2]
+          } else {
+            label.visible = false
+            label.material.opacity = 0
+            if (ring) {
+              ring.visible = false
+              ring.material.opacity = 0
             }
-            
-            thickGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3))
-            
-            const thickMaterial = new THREE.MeshBasicMaterial({ 
-              vertexColors: true
-            })
-            const thickTube = new THREE.Mesh(thickGeometry, thickMaterial)
-            
-            flightLineRef.current.add(thickTube)
-            progressTubeRef.current = thickTube
           }
-        }
+        })
       }
 
       // Update plane icon position and rotation
@@ -976,22 +915,22 @@ function App() {
           const position = curve.getPoint(progress)
           
           // Get tangent (direction of travel)
-          const tangent = curve.getTangent(progress).normalize()
+          _tangent.copy(curve.getTangent(progress)).normalize()
           
           // Get normal (pointing away from Earth)
-          const normal = position.clone().normalize()
+          _normal.copy(position).normalize()
           
           // Calculate right vector
-          const right = new THREE.Vector3().crossVectors(tangent, normal).normalize()
+          _right.crossVectors(_tangent, _normal).normalize()
           
           // Recalculate up to ensure orthogonal
-          const up = new THREE.Vector3().crossVectors(right, tangent).normalize()
+          _up.crossVectors(_right, _tangent).normalize()
           
           // Position plane slightly above surface and ahead along the path
           const eScale = flightLineRef.current?.userData.elementScale || 1.0
-          const surfaceOffset = normal.clone().multiplyScalar(0.02 * eScale) // Adjust this value
-          const forwardOffset = tangent.clone().multiplyScalar(0.035 * eScale)  // Adjust this value
-          planeIconRef.current.position.copy(position).add(surfaceOffset).add(forwardOffset)
+          _surfaceOffset.copy(_normal).multiplyScalar(0.02 * eScale)
+          _forwardOffset.copy(_tangent).multiplyScalar(0.035 * eScale)
+          planeIconRef.current.position.copy(position).add(_surfaceOffset).add(_forwardOffset)
 
           // Camera follow mode
           if (followPlaneModeRef.current && isPlayingRef.current) {
@@ -1007,47 +946,47 @@ function App() {
             const targetDistance = camera.userData.followModeDistance
             
             // Get plane's normal (pointing away from Earth)
-            const planeNormal = position.clone().normalize()
+            _planeNormal.copy(position).normalize()
             
             // Create a tilt: shift camera 10° toward south, scaled for short flights
             const followScaleFactor = flightLineRef.current?.userData.scaleFactor || 1.0
             const tiltAngle = (10 * followScaleFactor) * Math.PI / 180
             
             // Calculate "south" direction (perpendicular to plane normal, toward negative latitude)
-            const south = new THREE.Vector3(0, -1, 0)  // Start with down direction
-            const east = new THREE.Vector3().crossVectors(planeNormal, south).normalize()
-            const actualSouth = new THREE.Vector3().crossVectors(east, planeNormal).normalize()
+            _south.set(0, -1, 0)
+            _east.crossVectors(_planeNormal, _south).normalize()
+            _actualSouth.crossVectors(_east, _planeNormal).normalize()
             
             // Tilt the normal slightly toward south
-            const tiltedNormal = planeNormal.clone()
+            _tiltedNormal.copy(_planeNormal)
               .multiplyScalar(Math.cos(tiltAngle))
-              .add(actualSouth.multiplyScalar(Math.sin(tiltAngle)))
+              .add(_actualSouth.multiplyScalar(Math.sin(tiltAngle)))
               .normalize()
             
             // Position camera at tilted angle
-            const targetCameraPos = tiltedNormal.multiplyScalar(targetDistance)
+            _camTarget.copy(_tiltedNormal).multiplyScalar(targetDistance)
             
             // Smooth camera movement using spherical interpolation (slerp)
-            const currentNormal = camera.position.clone().normalize()
-            const targetNormal = targetCameraPos.clone().normalize()
+            _currentNormal.copy(camera.position).normalize()
+            _targetNormal.copy(_camTarget).normalize()
             
-            const angle = currentNormal.angleTo(targetNormal)
+            const angle = _currentNormal.angleTo(_targetNormal)
             
             if (angle < 0.0001) {
               // Already at target
-              camera.position.copy(targetCameraPos)
+              camera.position.copy(_camTarget)
             } else if (angle > Math.PI - 0.0001) {
               // Opposite positions - use linear interpolation
-              camera.position.lerp(targetCameraPos, 0.05)
+              camera.position.lerp(_camTarget, 0.05)
             } else {
               // Normal case - use spherical interpolation
               const lerpAmount = 0.05
-              const axis = new THREE.Vector3().crossVectors(currentNormal, targetNormal).normalize()
-              const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle * lerpAmount)
-              const interpolatedNormal = currentNormal.clone().applyQuaternion(quaternion)
+              _axis.crossVectors(_currentNormal, _targetNormal).normalize()
+              const quaternion = new THREE.Quaternion().setFromAxisAngle(_axis, angle * lerpAmount)
+              _currentNormal.applyQuaternion(quaternion)
               
               // Apply the distance (keeps constant zoom)
-              camera.position.copy(interpolatedNormal.multiplyScalar(targetDistance))
+              camera.position.copy(_currentNormal.multiplyScalar(targetDistance))
             }
             
             // Point camera at Earth center (0,0,0)
@@ -1067,9 +1006,8 @@ function App() {
           }
           
           // Set orientation using basis vectors
-          const matrix = new THREE.Matrix4()
-          matrix.makeBasis(right, up, tangent.negate())
-          planeIconRef.current.quaternion.setFromRotationMatrix(matrix)
+          _matrix.makeBasis(_right, _up, _tangent.negate())
+          planeIconRef.current.quaternion.setFromRotationMatrix(_matrix)
           
           // Fade out near the end
           let opacity = 1
@@ -1475,6 +1413,67 @@ function App() {
         flightGroup.userData.preCalculatedColorsBW = preCalculatedColorsBW
         flightGroup.userData.preCalculatedTransitions = preCalculatedTransitions
 
+        // === Pre-build full progress tube (revealed via drawRange during animation) ===
+        const fullProgressPoints = []
+        const fullNumSamples = 800
+        for (let i = 0; i <= fullNumSamples; i++) {
+          fullProgressPoints.push(flightGroup.userData.routeCurve.getPoint(i / fullNumSamples))
+        }
+
+        const fullTubeSegments = Math.min(fullProgressPoints.length * 2, 1600)
+        const fullTubeGeo = new THREE.TubeGeometry(
+          new THREE.CatmullRomCurve3(fullProgressPoints),
+          fullTubeSegments,
+          0.006 * elementScale,
+          8,
+          false
+        )
+
+        // Build color arrays for both modes
+        const totalVerts = fullTubeGeo.attributes.position.count
+        const vertsPerSample = totalVerts / fullProgressPoints.length
+
+        const fullColorArrColor = new Float32Array(totalVerts * 3)
+        const fullColorArrBW = new Float32Array(totalVerts * 3)
+
+        for (let i = 0; i < totalVerts; i++) {
+          // Map vertex to its position along the path (0–1)
+          const pathT = (i / vertsPerSample) / fullProgressPoints.length
+          
+          // Interpolate into the pre-calculated color array
+          const exactIndex = pathT * preCalculatedColorsColor.length
+          const lo = Math.min(Math.floor(exactIndex), preCalculatedColorsColor.length - 1)
+          const hi = Math.min(lo + 1, preCalculatedColorsColor.length - 1)
+          const frac = exactIndex - lo
+
+          // Color mode
+          const cLo = preCalculatedColorsColor[lo]
+          const cHi = preCalculatedColorsColor[hi]
+          fullColorArrColor[i * 3]     = cLo.r + (cHi.r - cLo.r) * frac
+          fullColorArrColor[i * 3 + 1] = cLo.g + (cHi.g - cLo.g) * frac
+          fullColorArrColor[i * 3 + 2] = cLo.b + (cHi.b - cLo.b) * frac
+
+          // BW mode
+          const bLo = preCalculatedColorsBW[lo]
+          const bHi = preCalculatedColorsBW[hi]
+          fullColorArrBW[i * 3]     = bLo.r + (bHi.r - bLo.r) * frac
+          fullColorArrBW[i * 3 + 1] = bLo.g + (bHi.g - bLo.g) * frac
+          fullColorArrBW[i * 3 + 2] = bLo.b + (bHi.b - bLo.b) * frac
+        }
+
+        // Apply initial color mode
+        const initialColorArr = isBWModeRef.current ? fullColorArrBW : fullColorArrColor
+        fullTubeGeo.setAttribute('color', new THREE.BufferAttribute(initialColorArr.slice(), 3))
+        fullTubeGeo.setDrawRange(0, 0)
+
+        const fullTubeMat = new THREE.MeshBasicMaterial({ vertexColors: true })
+        const fullTube = new THREE.Mesh(fullTubeGeo, fullTubeMat)
+        flightGroup.add(fullTube)
+        progressTubeRef.current = fullTube
+
+        // Store color arrays for BW switching
+        flightGroup.userData.fullColorArrayColor = fullColorArrColor
+        flightGroup.userData.fullColorArrayBW = fullColorArrBW
 
         // Pre-create transition labels and rings
         preCalculatedTransitions.forEach(trans => {
@@ -2698,6 +2697,17 @@ function App() {
           if (planeIconRef.current && newPlaneTexture) {
             planeIconRef.current.material.map = newPlaneTexture
             planeIconRef.current.material.needsUpdate = true
+          }
+
+          // Swap progress tube colors
+          if (progressTubeRef.current && flightLineRef.current) {
+            const colorArr = isBWMode
+              ? flightLineRef.current.userData.fullColorArrayBW
+              : flightLineRef.current.userData.fullColorArrayColor
+            if (colorArr) {
+              progressTubeRef.current.geometry.attributes.color.array.set(colorArr)
+              progressTubeRef.current.geometry.attributes.color.needsUpdate = true
+            }
           }
           
           // Swap departure label texture
