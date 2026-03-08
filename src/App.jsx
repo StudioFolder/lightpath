@@ -15,6 +15,7 @@ import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDayl
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
 import AirportSearchInput from './components/AirportSearchInput'
+import { Analytics } from '@vercel/analytics/react'
 
 // ===== THEME COLOR CONSTANTS =====
 // Single source of truth for background colors used in Three.js scene,
@@ -3508,7 +3509,8 @@ function App() {
             </button>
           </div>
         )}
-    
+        
+        <Analytics />
       </div>
     )
 }
