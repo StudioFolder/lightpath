@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { DateTime } from 'luxon'
 import AirportSearchInput from './AirportSearchInput'
 
@@ -36,6 +37,15 @@ export default function FlightInputPanel({
   getLocalDateTimeString,
   getAirportTimezone,
 }) {
+
+    const [hasEnteredRouteMode, setHasEnteredRouteMode] = useState(false)
+
+    useEffect(() => {
+    if (departureAirport && arrivalAirport && !hasEnteredRouteMode) {
+        setHasEnteredRouteMode(true)
+    }
+    }, [departureAirport, arrivalAirport, hasEnteredRouteMode])
+
   return (
     <div 
       className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`}
@@ -118,117 +128,200 @@ export default function FlightInputPanel({
       </p>
 
       <div className="panel-content">
-        <AirportSearchInput
-          label="Departure"
-          code={departureCode}
-          airport={departureAirport}
-          searchAirports={searchAirports}
-          onSelect={(selected) => {
-            setDepartureCode(selected.code)
-            setDepartureAirport(selected)
-          }}
-          onSearchChange={() => {
-            setDepartureCode('')
-            setDepartureAirport(null)
-            setSearchEditing(prev => prev + 1)
-          }}
-          onClear={() => {
-            setDepartureCode('')
-            setDepartureAirport(null)
-            setSearchEditing(prev => prev + 1)
-          }}
-        />
 
-        <div className="swap-airports-row">
-          {(departureAirport && arrivalAirport) && (
-            <button
-              className="swap-airports-btn"
-              onClick={() => {
-                const tempCode = departureCode
-                const tempAirport = departureAirport
-                setDepartureCode(arrivalCode)
-                setDepartureAirport(arrivalAirport)
-                setArrivalCode(tempCode)
-                setArrivalAirport(tempAirport)
-                setSearchEditing(prev => prev + 1)
-              }}
-              aria-label="Swap departure and arrival airports"
-              title="Swap airports"
-            >
-              ⇅
-            </button>
-          )}
-        </div>
+       {!hasEnteredRouteMode ? (
+          <>
+            <div className="airport-columns">
+              <div className="airport-column">
+                <span className="column-label">FROM</span>
+                <AirportSearchInput
+                  label="From"
+                  code={departureCode}
+                  airport={departureAirport}
+                  searchAirports={searchAirports}
+                  onSelect={(selected) => {
+                    setDepartureCode(selected.code)
+                    setDepartureAirport(selected)
+                  }}
+                  onSearchChange={() => {
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  onClear={() => {
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                />
+              </div>
 
-        <AirportSearchInput
-          label="Arrival"
-          code={arrivalCode}
-          airport={arrivalAirport}
-          searchAirports={searchAirports}
-          onSelect={(selected) => {
-            setArrivalCode(selected.code)
-            setArrivalAirport(selected)
-          }}
-          onSearchChange={() => {
-            setArrivalCode('')
-            setArrivalAirport(null)
-            setSearchEditing(prev => prev + 1)
-          }}
-          onClear={() => {
-            setArrivalCode('')
-            setArrivalAirport(null)
-            setSearchEditing(prev => prev + 1)
-          }}
-        />
+              <div className="swap-airports-column">
+                <button
+                  className="swap-airports-btn"
+                  onClick={() => {
+                    const tempCode = departureCode
+                    const tempAirport = departureAirport
+                    setDepartureCode(arrivalCode)
+                    setDepartureAirport(arrivalAirport)
+                    setArrivalCode(tempCode)
+                    setArrivalAirport(tempAirport)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  aria-label="Swap departure and arrival airports"
+                  title="Swap airports"
+                >
+                  ⇅
+                </button>
+              </div>
 
-        <div className="datetime-group" style={{
-          opacity: departureAirport ? 1 : 0,
-          maxHeight: departureAirport ? '80px' : '0px',
-          marginBottom: departureAirport ? '12px' : '0px',
-          overflow: 'hidden',
-          transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
-          pointerEvents: departureAirport ? 'all' : 'none'
-        }}>
-          <label style={{
-            opacity: departureAirport ? 1 : 0,
-            maxHeight: departureAirport ? '20px' : '0px',
-            marginBottom: departureAirport ? '4px' : '0px',
-            transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
-            pointerEvents: 'none'
-          }}>Departure Time (Local)</label>
-          <input 
-            type="datetime-local"
-            value={departureAirport && departureTime ? getLocalDateTimeString(departureTime, departureAirport) : ''}
-            onChange={(e) => {
-              if (!departureAirport) return
-              const timezone = getAirportTimezone(departureAirport)
-              const localDateTime = DateTime.fromISO(e.target.value, { zone: timezone })
-              setDepartureTime(localDateTime.toJSDate())
-            }}
-            disabled={!departureAirport}
-          />
-        </div>
+              <div className="airport-column">
+                <span className="column-label">TO</span>
+                <AirportSearchInput
+                  label="To"
+                  code={arrivalCode}
+                  airport={arrivalAirport}
+                  searchAirports={searchAirports}
+                  onSelect={(selected) => {
+                    setArrivalCode(selected.code)
+                    setArrivalAirport(selected)
+                  }}
+                  onSearchChange={() => {
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  onClear={() => {
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="airport-columns route-mode">
+              <div className="airport-column">
+                <span className="column-label">FROM</span>
+                <AirportSearchInput
+                  label="From"
+                  code={departureCode}
+                  airport={departureAirport}
+                  searchAirports={searchAirports}
+                  onSelect={(selected) => {
+                    setDepartureCode(selected.code)
+                    setDepartureAirport(selected)
+                  }}
+                  onSearchChange={() => {
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  onClear={() => {
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                />
+                {departureAirport && (
+                  <div className="airport-details">
+                    <span className="airport-city">{departureAirport.city}</span>
+                    <span className="airport-country">{departureAirport.country}</span>
+                  </div>
+                )}
+              </div>
 
-        <button 
-          onClick={calculateFlight}
-          disabled={
-            !airports || 
-            departureCode.length !== 3 || 
-            arrivalCode.length !== 3 || 
-            departureCode === arrivalCode
-          }
-          style={{
-            opacity: departureAirport ? 1 : 0,
-            maxHeight: departureAirport ? '60px' : '0px',
-            paddingTop: departureAirport ? '10px' : '0px',
-            paddingBottom: departureAirport ? '10px' : '0px',
-            overflow: 'hidden',
-            transition: isMobile ? 'none' : 'opacity 0.15s ease, max-height 0.15s ease, padding 0.15s ease',
-            pointerEvents: departureAirport ? 'all' : 'none'
-          }}
-        >
-          {!airports ? 'Loading airports...' : 'Calculate Flight'}
-        </button>
+              <div className="swap-airports-column">
+                <button
+                  className="swap-airports-btn"
+                  onClick={() => {
+                    const tempCode = departureCode
+                    const tempAirport = departureAirport
+                    setDepartureCode(arrivalCode)
+                    setDepartureAirport(arrivalAirport)
+                    setArrivalCode(tempCode)
+                    setArrivalAirport(tempAirport)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  aria-label="Swap departure and arrival airports"
+                  title="Swap airports"
+                >
+                  ⇅
+                </button>
+              </div>
+
+              <div className="airport-column">
+                <span className="column-label">TO</span>
+                <AirportSearchInput
+                  label="To"
+                  code={arrivalCode}
+                  airport={arrivalAirport}
+                  searchAirports={searchAirports}
+                  onSelect={(selected) => {
+                    setArrivalCode(selected.code)
+                    setArrivalAirport(selected)
+                  }}
+                  onSearchChange={() => {
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  onClear={() => {
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                />
+                {arrivalAirport && (
+                  <div className="airport-details">
+                    <span className="airport-city">{arrivalAirport.city}</span>
+                    <span className="airport-country">{arrivalAirport.country}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flight-action-row">
+              <div className="datetime-pill">
+                <div className="datetime-group">
+                  <label style={{
+                    opacity: departureAirport ? 1 : 0,
+                    maxHeight: departureAirport ? '20px' : '0px',
+                    marginBottom: departureAirport ? '4px' : '0px',
+                    transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
+                    pointerEvents: 'none'
+                  }}>Departure Time (Local)</label>
+                  <input 
+                    type="datetime-local"
+                    value={departureAirport && departureTime ? getLocalDateTimeString(departureTime, departureAirport) : ''}
+                    onChange={(e) => {
+                      if (!departureAirport) return
+                      const timezone = getAirportTimezone(departureAirport)
+                      const localDateTime = DateTime.fromISO(e.target.value, { zone: timezone })
+                      setDepartureTime(localDateTime.toJSDate())
+                    }}
+                    disabled={!departureAirport}
+                  />
+                </div>
+              </div>
+
+              <button 
+                className="calculate-pill"
+                onClick={calculateFlight}
+                disabled={
+                  !airports || 
+                  departureCode.length !== 3 || 
+                  arrivalCode.length !== 3 || 
+                  departureCode === arrivalCode
+                }
+              >
+                CALCULATE
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
