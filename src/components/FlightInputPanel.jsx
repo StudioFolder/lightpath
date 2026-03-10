@@ -34,7 +34,6 @@ export default function FlightInputPanel({
   // Functions
   searchAirports,
   calculateFlight,
-  getLocalDateTimeString,
   getAirportTimezone,
 }) {
 
@@ -281,49 +280,65 @@ export default function FlightInputPanel({
         </div>
       </div>
 
-      {hasEnteredRouteMode && !isPanelCollapsed && (
+      {departureAirport && !isPanelCollapsed && (
         <div className="flight-action-row">
           <div className="datetime-pill">
             <div className="datetime-display">
-              <span className="datetime-icon calendar-icon">📅</span>
-              <span className="datetime-value date-value">
-                {departureAirport && departureTime
-                  ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('MMM dd, yyyy').toUpperCase()
-                  : ''}
-              </span>
-              <span className="datetime-icon clock-icon">🕐</span>
-              <span className="datetime-value time-value">
-                {departureAirport && departureTime
-                  ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
-                  : ''}
-              </span>
+              <div className="datetime-field">
+                <span className="datetime-icon calendar-icon">📅</span>
+                <input 
+                  type="date"
+                  className="datetime-native-input"
+                  value={departureAirport && departureTime 
+                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
+                    : ''}
+                  onChange={(e) => {
+                    if (!departureAirport || !departureTime) return
+                    const timezone = getAirportTimezone(departureAirport)
+                    const currentTime = DateTime.fromJSDate(departureTime, { zone: timezone })
+                    const [year, month, day] = e.target.value.split('-').map(Number)
+                    const updated = currentTime.set({ year, month, day })
+                    setDepartureTime(updated.toJSDate())
+                  }}
+                  disabled={!departureAirport}
+                />
+              </div>
+              <div className="datetime-field">
+                <span className="datetime-icon clock-icon">🕐</span>
+                <input 
+                  type="time"
+                  className="datetime-native-input"
+                  value={departureAirport && departureTime
+                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
+                    : ''}
+                  onChange={(e) => {
+                    if (!departureAirport || !departureTime) return
+                    const timezone = getAirportTimezone(departureAirport)
+                    const currentDateTime = DateTime.fromJSDate(departureTime, { zone: timezone })
+                    const [hour, minute] = e.target.value.split(':').map(Number)
+                    const updated = currentDateTime.set({ hour, minute })
+                    setDepartureTime(updated.toJSDate())
+                  }}
+                  disabled={!departureAirport}
+                />
+              </div>
             </div>
-            <input 
-              type="datetime-local"
-              className="datetime-hidden-input"
-              value={departureAirport && departureTime ? getLocalDateTimeString(departureTime, departureAirport) : ''}
-              onChange={(e) => {
-                if (!departureAirport) return
-                const timezone = getAirportTimezone(departureAirport)
-                const localDateTime = DateTime.fromISO(e.target.value, { zone: timezone })
-                setDepartureTime(localDateTime.toJSDate())
-              }}
-              disabled={!departureAirport}
-            />
           </div>
 
-          <button 
-            className="calculate-pill"
-            onClick={calculateFlight}
-            disabled={
-              !airports || 
-              departureCode.length !== 3 || 
-              arrivalCode.length !== 3 || 
-              departureCode === arrivalCode
-            }
-          >
-            CALCULATE
-          </button>
+          {arrivalAirport && (
+            <button 
+              className="calculate-pill"
+              onClick={calculateFlight}
+              disabled={
+                !airports || 
+                departureCode.length !== 3 || 
+                arrivalCode.length !== 3 || 
+                departureCode === arrivalCode
+              }
+            >
+              CALCULATE
+            </button>
+          )}
         </div>
      )}
     </div>

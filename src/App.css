@@ -22,8 +22,13 @@ body:has(.bw-mode) {
 }
 
 @font-face {
-  font-family: "MonoWeb-Book";
-  src: url("/fonts/MonoWeb-Book.woff2") format("woff2");
+  font-family: "ABCRepro";
+  src: url("/fonts/ABCRepro-Screen.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "ABCReproMono";
+  src: url("/fonts/ABCReproMono-Thin.otf") format("opentype");
 }
 
 :root {
@@ -35,7 +40,7 @@ body:has(.bw-mode) {
 }
 
 * {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'ABCRepro', system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -642,6 +647,30 @@ canvas {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.datetime-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.datetime-native-input {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: 'ABCRepro', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.datetime-native-input:focus {
+  outline: none;
+}
+
 .results-panel {
   margin-top: 16px;
   padding: 12px;
@@ -795,7 +824,7 @@ canvas {
 }
 
 .time-value {
-  font-family: 'MonoWeb-Book', monospace;
+  font-family: 'ABCReproMono', monospace;
   font-size: 28px;
   color: #fff;
   align-self: inherit;
@@ -922,7 +951,7 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 24px;
+  height: 56px;
   background: rgba(20, 20, 20, 0.5);
   margin: -16px -24px 16px -24px;
   padding: 16px 24px;
@@ -1145,9 +1174,10 @@ canvas {
 
 .airport-columns.route-mode .input-group input {
   background: transparent;
+  font-family: 'ABCReproMono', monospace;
   font-size: 48px;
   font-weight: 300;
-  letter-spacing: 4px;
+  letter-spacing: 2px;
   padding: 4px 0;
   text-align: center;
   border-radius: 0;
@@ -1184,7 +1214,7 @@ canvas {
 .datetime-display {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   cursor: pointer;
   position: relative;
   z-index: 1;
@@ -1193,24 +1223,6 @@ canvas {
 .datetime-icon {
   font-size: 16px;
   opacity: 0.6;
-}
-
-.datetime-value {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 400;
-  letter-spacing: 0.5px;
-}
-
-.datetime-hidden-input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  z-index: 2;
 }
 
 .datetime-pill {
