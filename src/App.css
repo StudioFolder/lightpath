@@ -386,37 +386,26 @@ body:has(.bw-mode) {
   padding-right: 32px;
 }
 
-/* ── Swap airports row ── */
-.swap-airports-row {
-  position: relative;
-  height: 0;
-  display: flex;
-  z-index: 2;
-}
-
-.swap-airports-btn {
-  position: absolute;
-  top: -8px;
-  right: 8px;
-  background: rgba(255, 255, 255, 0.4) !important;
+/* ── Swap airports ── */
+.swap-airports-column .swap-airports-btn {
+  background: rgba(255, 255, 255, 0.15) !important;
   border: none !important;
   border-radius: 50%;
-  color: rgba(30, 30, 30, 0.85) !important;
-  width: 18px !important;
-  height: 18px !important;
-  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 15px !important;
   cursor: pointer;
   padding: 0 !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: none !important;
+  transition: background 0.2s ease !important;
   margin: 0 !important;
 }
 
-.swap-airports-btn:hover {
-  background: rgba(255, 255, 255, 0.6) !important;
-  border-color: transparent !important;
+.swap-airports-column .swap-airports-btn:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* BW mode */
@@ -480,11 +469,16 @@ canvas {
   opacity: 1;
 }
 
-.flight-input {
+.flight-input-wrapper {
   position: absolute;
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
+  width: 400px;
+  z-index: 10;
+}
+
+.flight-input {
   background: rgba(30, 30, 30, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -492,7 +486,7 @@ canvas {
   padding: 16px 24px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  width: 400px;
+  width: 100%;
   transition: padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), 
             width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s, 
             border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s;
@@ -927,7 +921,10 @@ canvas {
   justify-content: space-between;
   align-items: center;
   height: 24px;
-  margin-bottom: 40px;
+  background: rgba(20, 20, 20, 0.5);
+  margin: -16px -24px 16px -24px;
+  padding: 16px 24px;
+  border-radius: 24px 24px 0 0;
   transition: margin-bottom 0.35s ease-out;
 }
 
@@ -974,6 +971,13 @@ canvas {
   max-height: 80px;  /* add this */
   overflow: hidden;  /* add this */
   transition: max-height 0.35s ease-out, opacity 0.35s ease-out, margin 0.35s ease-out;
+}
+
+.panel-subtitle.hidden {
+  opacity: 0;
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
 .bw-mode .panel-subtitle {
@@ -1043,6 +1047,118 @@ canvas {
   opacity: 1;
   transition: max-height 0.35s ease-out, 
               opacity 0.35s ease-out;
+}
+
+/* ===== FLIGHT INPUT PANEL — TWO-COLUMN LAYOUT ===== */
+
+.airport-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.airport-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.column-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+
+.swap-airports-column {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 24px;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.airport-columns .input-group label {
+  display: none;
+}
+
+/* ===== ROUTE MODE (post-selection) ===== */
+
+.airport-columns.route-mode .airport-column {
+  align-items: center;
+}
+
+.airport-columns.route-mode .airport-name-inline {
+  display: none;
+}
+
+.airport-details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.airport-details .airport-city {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+}
+
+.airport-details .airport-country {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 300;
+}
+
+/* ===== FLIGHT ACTION ROW (datetime + calculate pills) ===== */
+
+.flight-action-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.datetime-pill {
+  flex: 2;
+  background: rgba(30, 30, 30, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  padding: 12px 20px;
+}
+
+.calculate-pill {
+  flex: 1;
+  background: rgba(30, 30, 30, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  padding: 12px 20px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.calculate-pill:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.calculate-pill:disabled {
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
 }
 
 .input-with-name {
