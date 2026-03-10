@@ -1359,6 +1359,7 @@ canvas {
 
 .datetime-pill {
   flex: 3;
+  max-width: 67%;
   background: rgba(30, 30, 30, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -2600,32 +2601,45 @@ canvas {
   
   /* Flight input panel - centered between logo and hamburger */
   .flight-input {
-    width: calc(100vw - 32px);
-    max-width: 380px;
-    top: 70px;
+    width: 100%;
+    max-width: none;
+    top: auto;
     padding: 16px 20px !important;
-    border-radius: 20px;
+    border-radius: 24px;
     transition: opacity 0.2s ease !important;
     z-index: 300;
   }
   
 /* Collapsed panel - right aligned, next to hamburger */
-  .flight-input.collapsed {
+  .flight-input-wrapper.collapsed {
     top: 20px;
     left: auto;
     right: 70px;
     transform: none;
     width: auto;
+    max-width: none;
+  }
+
+  .flight-input.collapsed {
+    top: auto;
+    left: auto;
+    right: auto;
+    transform: none;
+    width: auto;
     min-width: 0 !important;
     max-width: 160px;
-    padding: 0px 10px !important;
+    padding: 4px 14px !important;
     border-radius: 48px;
   }
 
   .flight-input.collapsed .panel-header {
-  gap: 12px;
-  justify-content: center;
-  transition: none !important;
+    gap: 10px;
+    justify-content: center;
+    transition: none !important;
+    margin: -4px -14px;
+    padding: 4px 20px;
+    height: auto;
+    border-radius: 48px;
   }
 
   .flight-input.collapsed .collapse-button {
@@ -2645,9 +2659,22 @@ canvas {
     transition: none !important;
   }
 
+ .flight-input-wrapper {
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100vw - 32px);
+    max-width: 380px;
+  }
+
   .panel-header {
     transition: none !important;
     margin-bottom: 16px;
+    margin-left: -20px;
+    margin-right: -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-radius: 24px 24px 0 0;
   }
 
   .flight-input.collapsed .panel-header h3 {
@@ -2658,11 +2685,80 @@ canvas {
     transition: none !important;
     margin-top: 0;
     margin-bottom: 0;
-    }
+  }
+
+ .flight-action-row {
+    width: auto;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .datetime-pill {
+    flex: 3;
+    padding: 10px 14px;
+  }
+
+  .calculate-pill {
+    flex: 1;
+    padding: 10px 14px;
+    white-space: nowrap;
+  }
+
+  .column-label {
+    margin-bottom: 0;
+  }
+
+  .airport-columns .airport-column:first-child .autocomplete-dropdown {
+    left: 0;
+    right: auto;
+    transform: none;
+  }
+
+  .airport-columns .airport-column:last-child .autocomplete-dropdown {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+
+  .airport-columns .input-group input {
+    font-size: 16px;
+  }
+
+  .airport-details {
+    margin-top: 0;
+  }
+
+  .airport-details .airport-city,
+  .airport-details .airport-country {
+    font-size: 12px;
+  }
+
+  .airport-columns.route-mode .input-group input {
+    font-size: 40px;
+  }
+
+  .swap-airports-column {
+    width: 60px;
+    padding-top: 18px;
+  }
+
+  .airport-columns.route-mode .swap-airports-column {
+    padding-top: 34px;
+  }
+
+  .datetime-pill {
+    padding: 10px 16px;
+  }
+
+  .calculate-pill {
+    padding: 10px 16px;
+    text-align: center;
+  }
 
   .panel-subtitle {
     transition: none !important;
-    padding: 0 28px;
+    font-size: 12px;
+    padding: 0 8px;
   }
 
   .subtitle-daylight {
@@ -2987,16 +3083,16 @@ canvas {
   /* No canvas movement - just fade overlays */
   .app.menu-open:not(.menu-closing) .animation-controls,
   .app.menu-open:not(.menu-closing) .bw-toggle-overlay,
-  .app.menu-open:not(.menu-closing) .follow-toggle-overlay {
+  .app.menu-open:not(.menu-closing) .follow-toggle-overlay,
+  .app.menu-open:not(.menu-closing) .flight-input-wrapper {
     opacity: 0;
-    transition: opacity 0.3s ease;
   }
 
   .app.menu-open.menu-closing .animation-controls,
   .app.menu-open.menu-closing .bw-toggle-overlay,
-  .app.menu-open.menu-closing .follow-toggle-overlay {
+  .app.menu-open.menu-closing .follow-toggle-overlay,
+  .app.menu-open.menu-closing .flight-input-wrapper {
     opacity: 1;
-    transition: opacity 0.3s ease;
   }
 
   /* Hamburger line styles */
@@ -3058,9 +3154,12 @@ canvas {
   }
   
   .flight-input {
-    width: calc(100vw - 24px);
+    width: calc(100vw - 32px);
     padding: 14px;
-    border-radius: 18px;
+    border-radius: 24px;
+    transition: opacity 0.2s ease !important;
+    z-index: 300;
+    min-height: 0;
   }
   
   .flight-input.collapsed {

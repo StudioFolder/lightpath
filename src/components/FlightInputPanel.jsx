@@ -44,7 +44,7 @@ export default function FlightInputPanel({
   }
 
   return (
-    <div className="flight-input-wrapper">
+    <div className={`flight-input-wrapper ${isPanelCollapsed ? 'collapsed' : ''}`}>
       <div 
         className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`}
         onClick={isPanelCollapsed ? () => {
@@ -120,7 +120,7 @@ export default function FlightInputPanel({
           } : undefined}
         >
           {isMobile 
-            ? <>Find a route between any airport and explore how your flight moves through <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
+            ? <>Explore how your flight moves through <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
             : <>Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.</>
           }
         </p>
@@ -296,7 +296,7 @@ export default function FlightInputPanel({
                 <img src={isBWMode ? "/date-icon-bw.svg" : "/date-icon.svg"} alt="Date" className="datetime-icon" />
                 <span className="datetime-value">
                   {departureAirport && departureTime
-                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('MMMM d, yyyy')
+                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
                     : ''}
                 </span>
                 <input 
