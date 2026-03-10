@@ -25,7 +25,7 @@ export default function AirportSearchInput({ label, code, airport, searchAirport
           type="text"
           value={airport ? code : search}
           className={airport ? 'has-clear' : ''}
-          placeholder={!hasContent ? `${label} city or airport` : ''}
+          placeholder={!hasContent ? 'city or airport' : ''}
           onChange={(e) => {
             const value = e.target.value
             setSearch(value)

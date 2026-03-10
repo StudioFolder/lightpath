@@ -167,7 +167,11 @@ export default function FlightInputPanel({
                   aria-label="Swap departure and arrival airports"
                   title="Swap airports"
                 >
-                  ⇅
+                  <img 
+                    src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"} 
+                    alt="Swap" 
+                    className="swap-icon"
+                  />
                 </button>
               </div>
 
@@ -242,7 +246,11 @@ export default function FlightInputPanel({
                   aria-label="Swap departure and arrival airports"
                   title="Swap airports"
                 >
-                  ⇅
+                  <img 
+                    src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"} 
+                    alt="Swap" 
+                    className="swap-icon"
+                  />
                 </button>
               </div>
 
@@ -285,10 +293,15 @@ export default function FlightInputPanel({
           <div className="datetime-pill">
             <div className="datetime-display">
               <div className="datetime-field">
-                <span className="datetime-icon calendar-icon">📅</span>
+                <img src={isBWMode ? "/date-icon-bw.svg" : "/date-icon.svg"} alt="Date" className="datetime-icon" />
+                <span className="datetime-value">
+                  {departureAirport && departureTime
+                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('MMMM d, yyyy')
+                    : ''}
+                </span>
                 <input 
                   type="date"
-                  className="datetime-native-input"
+                  className="datetime-hidden-input"
                   value={departureAirport && departureTime 
                     ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
                     : ''}
@@ -304,7 +317,7 @@ export default function FlightInputPanel({
                 />
               </div>
               <div className="datetime-field">
-                <span className="datetime-icon clock-icon">🕐</span>
+                <img src={isBWMode ? "/time-icon-bw.svg" : "/time-icon.svg"} alt="Time" className="datetime-icon" />
                 <input 
                   type="time"
                   className="datetime-native-input"
