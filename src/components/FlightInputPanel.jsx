@@ -286,26 +286,32 @@ export default function FlightInputPanel({
       {hasEnteredRouteMode && !isPanelCollapsed && (
         <div className="flight-action-row">
           <div className="datetime-pill">
-            <div className="datetime-group">
-              <label style={{
-                opacity: departureAirport ? 1 : 0,
-                maxHeight: departureAirport ? '20px' : '0px',
-                marginBottom: departureAirport ? '4px' : '0px',
-                transition: 'opacity 0.15s ease, max-height 0.15s ease, margin-bottom 0.15s ease',
-                pointerEvents: 'none'
-              }}>Departure Time (Local)</label>
-              <input 
-                type="datetime-local"
-                value={departureAirport && departureTime ? getLocalDateTimeString(departureTime, departureAirport) : ''}
-                onChange={(e) => {
-                  if (!departureAirport) return
-                  const timezone = getAirportTimezone(departureAirport)
-                  const localDateTime = DateTime.fromISO(e.target.value, { zone: timezone })
-                  setDepartureTime(localDateTime.toJSDate())
-                }}
-                disabled={!departureAirport}
-              />
+            <div className="datetime-display">
+              <span className="datetime-icon calendar-icon">📅</span>
+              <span className="datetime-value date-value">
+                {departureAirport && departureTime
+                  ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('MMM dd, yyyy').toUpperCase()
+                  : ''}
+              </span>
+              <span className="datetime-icon clock-icon">🕐</span>
+              <span className="datetime-value time-value">
+                {departureAirport && departureTime
+                  ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
+                  : ''}
+              </span>
             </div>
+            <input 
+              type="datetime-local"
+              className="datetime-hidden-input"
+              value={departureAirport && departureTime ? getLocalDateTimeString(departureTime, departureAirport) : ''}
+              onChange={(e) => {
+                if (!departureAirport) return
+                const timezone = getAirportTimezone(departureAirport)
+                const localDateTime = DateTime.fromISO(e.target.value, { zone: timezone })
+                setDepartureTime(localDateTime.toJSDate())
+              }}
+              disabled={!departureAirport}
+            />
           </div>
 
           <button 
