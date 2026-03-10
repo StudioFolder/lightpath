@@ -1,9 +1,10 @@
 # Lightpath — Application Architecture
 
-**Version:** 0.8.0  
+**Version:** 0.7.7 (dev branch — UI redesign in progress)  
 **Last updated:** March 2026  
 **Repository:** StudioFolder/lightpath on GitHub  
-**Deployment:** Vercel (automatic pipeline)
+**Deployment:** Vercel (automatic pipeline)  
+**Active branch:** `dev` (will merge to `master` with version bump once UI redesign is complete)
 
 ---
 
@@ -21,8 +22,8 @@ Lightpath is a 3D flight path visualization that shows how aviation routes inter
 |---|---|---|
 | Framework | React 19.2 | UI rendering, state management |
 | 3D Engine | Three.js 0.182 | Globe, flight paths, labels, shaders |
-| Build | Vite 7.3 | Dev server, production builds |
-| Routing | react-router-dom 7.13 | Shareable flight URLs |
+| Build | Vite 7.2 | Dev server, production builds |
+| Routing | react-router-dom 7.12 | Shareable flight URLs |
 | Astronomy | solar-calculator 0.3 (NOAA) | Solar declination (full Julian century) |
 | Astronomy | suncalc 1.9 (Jean Meeus) | Solar noon, sunrise/sunset events |
 | Timezones | tz-lookup 6.1, Luxon 3.7 | Coordinate-to-timezone, formatting |
@@ -30,23 +31,36 @@ Lightpath is a 3D flight path visualization that shows how aviation routes inter
 
 ---
 
+## Fonts
+
+| Font | File | Usage |
+|---|---|---|
+| ABC Repro | `ABCRepro-Screen.otf` | Primary UI font (replaces Inter) |
+| ABC Repro Mono | `ABCReproMono-Thin.otf` | IATA codes in route mode, time displays (replaces MonoWeb) |
+
+Both loaded via `@font-face` in App.css from `/fonts/`.
+
+---
+
 ## File Structure
 
 ```
 src/
-├── App.jsx                    (main component, ~3,500 lines)
-├── App.css                    (all styles, ~2,700 lines)
+├── App.jsx                    (main component — 3D scene, state, non-panel UI)
+├── App.css                    (all styles — will be split per-component after redesign)
 ├── components/
-│   └── AirportSearchInput.jsx (reusable airport autocomplete input)
+│   ├── AirportSearchInput.jsx (reusable airport autocomplete input)
+│   ├── FlightInputPanel.jsx   (flight search panel — two-column layout with route mode)
+│   └── AnimationControls.jsx  (flight playback controls — slider, times, play/pause)
 ├── utils/
 │   ├── geoUtils.js            (coordinate conversion + flight scaling)
 │   ├── solarUtils.js          (solar position calculations)
 │   ├── sceneUtils.js          (label texture creation)
-│   ├── animationUtils.js      (fade animations)
-│   └── idleAnimation.js       (idle globe animation — fully self-contained)
-├── data/
-│   └── idleAirports.js        (curated ~80 global hub airports for idle animation)
+│   └── animationUtils.js      (fade animations)
 public/
+├── fonts/
+│   ├── ABCRepro-Screen.otf
+│   └── ABCReproMono-Thin.otf
 ├── earth-texture.png          (custom Earth texture, created in QGIS)
 ├── graticule-10.geojson       (10° latitude/longitude grid)
 ├── timezones.geojson          (timezone boundaries)
@@ -55,6 +69,9 @@ public/
 ├── arrival-icon.svg / arrival-icon-bw.svg
 ├── sunrise-icon.svg / sunrise-icon-bw.svg
 ├── sunset-icon.svg / sunset-icon-bw.svg
+├── swap-icon.svg / swap-icon-bw.svg
+├── date-icon.svg / date-icon-bw.svg
+├── time-icon.svg / time-icon-bw.svg
 ├── about.md / data.md         (info panel content)
 ```
 
@@ -62,30 +79,125 @@ public/
 
 ## Components
 
+### `FlightInputPanel.jsx`
+
+The main flight search panel. Extracted from App.jsx. Contains two layout states controlled by an internal `hasEnteredRouteMode` flag.
+
+**Internal state:**
+- `hasEnteredRouteMode` (boolean, via useState) — Set to `true` the first time both airports are selected. Irreversible within a session. Computed during render: `if (departureAirport && arrivalAirport && !hasEnteredRouteMode) setHasEnteredRouteMode(true)`.
+
+**Props:**
+
+| Group | Props |
+|---|---|
+| State | `departureCode`, `arrivalCode`, `departureAirport`, `arrivalAirport`, `departureTime`, `airports`, `isPanelCollapsed`, `isPanelFading`, `isBWMode`, `isMobile`, `isPlaying`, `showMobileMenu` |
+| Callbacks | `setDepartureCode`, `setDepartureAirport`, `setArrivalCode`, `setArrivalAirport`, `setSearchEditing`, `setDepartureTime`, `setIsPanelCollapsed`, `setIsPanelFading`, `setShowFlightStats`, `setIsHamburgerOpen`, `setIsMobileMenuClosing`, `setExpandedSection`, `setShowMobileMenu`, `setIsMobileMenuAnimating` |
+| Functions | `searchAirports`, `calculateFlight`, `getAirportTimezone` |
+
+**Layout states:**
+
+| State | Layout | Elements |
+|---|---|---|
+| Initial (pre-route mode) | Two-column with subtitle | Panel header, subtitle (all-caps with torch effect), FROM/TO column labels, pill-shaped input fields, swap button |
+| Route mode (post both airports selected) | Two-column with large codes | Panel header, FROM/TO labels (repositioned to top), large IATA codes (ABCReproMono, 48px), city name, country, swap button between codes |
+
+**Panel structure:**
+
+```
+<div className="flight-input-wrapper">      ← positioning container
+  <div className="flight-input">             ← main panel (glass morphism)
+    <div className="panel-header">           ← darker background strip
+      <h3>Search Route</h3>
+      <button className="collapse-button">   ← arrow / search lens icon
+    </div>
+    <p className="panel-subtitle">           ← hidden in route mode via .hidden class
+    <div className="panel-content">
+      {!hasEnteredRouteMode ? (
+        <div className="airport-columns">    ← initial state
+      ) : (
+        <div className="airport-columns route-mode">  ← route mode
+      )}
+    </div>
+  </div>
+
+  {departureAirport && !isPanelCollapsed && (
+    <div className="flight-action-row">      ← detached pills, 12px below main panel
+      <div className="datetime-pill">        ← split date + time inputs with custom icons
+      {arrivalAirport && (
+        <button className="calculate-pill">  ← appears when both airports selected
+      )}
+    </div>
+  )}
+</div>
+```
+
+**Datetime pill:** Contains two separate native inputs (`type="date"` and `type="time"`) for independent date and time editing. The date input is hidden behind formatted display text ("March 10, 2026") that triggers the native picker on click. The time input is visible and styled directly. Custom SVG icons (`date-icon.svg`, `time-icon.svg`) replace browser defaults. The native time picker indicator is hidden via `::-webkit-calendar-picker-indicator`.
+
+**Collapsed state:** When the panel collapses (after Calculate or via the collapse button), the `.flight-input-wrapper` approach means the collapsed panel centers itself via `margin: auto`. The collapsed panel design is unchanged from the pre-redesign version. The flight-action-row is hidden when `isPanelCollapsed` is true.
+
+**Panel header:** Has its own darker background (`rgba(20, 20, 20, 0.5)`) using negative margins to stretch to panel edges. Background becomes transparent when collapsed. Height is 56px expanded, auto when collapsed. In BW mode, background changes to `rgba(240, 240, 240, 0.8)`.
+
+**Design principles:**
+- Panel overall dimensions don't change between initial and route mode — only content changes
+- Color mode: no border, deep shadow (`0 12px 48px rgba(0, 0, 0, 0.3)`)
+- BW mode: border (`1px solid var(--bw-border-light)`), shallow shadow (`0 4px 16px rgba(0, 0, 0, 0.08)`)
+- All panel transitions between color/BW modes animate at 0.4s to match the Three.js scene transition
+- The Calculate pill keeps a border stroke in both modes (it's a button, not a panel)
+
+### `AnimationControls.jsx`
+
+Flight playback controls panel. Extracted from App.jsx.
+
+**Props:**
+
+| Group | Props |
+|---|---|
+| State | `flightPath`, `flightResults`, `flightData`, `animationProgress`, `isPlaying`, `showFlightStats`, `departureCode`, `arrivalCode`, `isBWMode` |
+| Callbacks | `onProgressChange`, `setIsPlaying`, `setIsPanelCollapsed`, `setShowFlightStats` |
+| Functions | `getTimezoneAbbreviation`, `getLocalTimeAtAirport`, `getLocalDateAtAirport`, `formatFlightTime` |
+
+**Key design decisions:**
+- `flightData` is passed as a value (from `flightDataRef.current` in App.jsx), not as a ref — keeps the component pure
+- `onProgressChange` is a single callback that updates both `setAnimationProgress` (React state) and `animationProgressRef.current` (for the Three.js animation loop). Defined in App.jsx as `handleProgressChange`.
+- `currentTime` is computed once at the top of the component from `flightData.departureTime + animationProgress * flightDurationMs`, avoiding repeated inline calculations
+
+**Structure:**
+```
+<div className="animation-controls">
+  Flight stats (distance, duration, daylight, darkness)
+  Animation header:
+    Left: timezone abbreviation, local time (large), date
+    Center: route (DEP ✈ ARR), distance counter, elapsed time
+    Right: timezone abbreviation, local time (large), date
+  Curved SVG slider with drag (mouse + touch)
+  Play/Pause button
+</div>
+```
+
+**Redesign status:** The AnimationControls panel will undergo a lighter visual redesign (typography, color, transparencies) compared to FlightInputPanel. It will adopt the same two-column layout language. See Figma reference screenshots for target design.
+
 ### `AirportSearchInput.jsx`
 
-A reusable airport search input with autocomplete dropdown. Manages its own search/suggestions state internally. Used twice in App.jsx (departure and arrival).
+A reusable airport search input with autocomplete dropdown. Manages its own search/suggestions state internally. Used twice within `FlightInputPanel.jsx` (departure and arrival), rendered differently based on the panel's layout state (pill-shaped input in initial state, large code display in route mode) purely through CSS.
 
 **Internal state:** `search`, `results`, `showSuggestions`, `selectedIndex`
 
 **Props:**
+
 | Prop | Type | Purpose |
 |---|---|---|
-| `label` | string | "Departure" or "Arrival" |
+| `label` | string | "From" or "To" |
 | `code` | string | Selected IATA code (controlled by parent) |
 | `airport` | object | Selected airport `{ city, country, ... }` (controlled by parent) |
 | `searchAirports` | function | Search function: `(query) => results[]` |
 | `onSelect` | function | Called when user picks an airport |
 | `onSearchChange` | function | Called when user starts typing (signals parent to clear flight) |
 | `onClear` | function | Called when clear button is clicked |
+| `onFocusChange` | function | Optional. Called with `true`/`false` on input focus/blur |
 
-**Handles internally:** Text input, keyboard navigation (arrow keys, Enter), dropdown visibility, focus/blur, suggestion rendering, clear button.
+**Route mode behavior:** In route mode, the same `AirportSearchInput` component renders but CSS transforms it: the input background becomes transparent, font size becomes 48px in ABCReproMono, placeholder is hidden, and the airport-name-inline is hidden (city/country displayed separately by FlightInputPanel). The clear button (×) appears on hover. Clicking the large code allows inline editing with autocomplete.
 
-**Label visibility:** The field label (`"Departure"` / `"Arrival"`) is hidden until an airport is confirmed (`showLabel = !!airport`). It uses inline `opacity` + `maxHeight` + `marginBottom` transitions (0.15s ease). While hidden, a placeholder `"${label} city or airport"` is shown instead, styled via `::placeholder` to be lowercase, lighter weight, and lower opacity.
-
-**Autocomplete dropdown:** Has `z-index: 1000`. The parent `.panel-content` and `.flight-input` both use `overflow: visible` to prevent the dropdown from being clipped by the panel bounds.
-
-**Future:** When alternative search modes are added (e.g., flight number lookup), this component stays as-is within the airport search mode.
+**Autocomplete dropdown:** Has `z-index: 1000`. The `.flight-input` has `position: relative; z-index: 2` and `.flight-action-row` has `z-index: 1` to ensure the dropdown renders above the detached pills. In the column layout, the dropdown is widened to 300px and centered via `transform: translateX(-50%)`.
 
 ---
 
@@ -93,198 +205,128 @@ A reusable airport search input with autocomplete dropdown. Manages its own sear
 
 ### `geoUtils.js`
 - **`latLonToVector3(lat, lon, radius)`** → `THREE.Vector3`
-  Converts geographic coordinates to 3D position on the globe. Single source of truth for the app's coordinate convention (Y-up, negative X at 0° longitude, +180° theta offset).
+  Converts geographic coordinates to 3D position on the globe.
 - **`getFlightScale(distanceKm)`** → `{ cameraRadius, scaleFactor }`
-  Distance-based scaling for short flights. Flights >2,000 km use default scale (1.0). Below that, camera zooms closer and visual elements shrink proportionally. Three tiers: 1,000–2,000 km, 500–1,000 km, <500 km.
+  Distance-based scaling for short flights.
 - **`getViewportScale(windowWidth, referenceWidth?)`** → number
-  Viewport-based scale factor to prevent 3D elements from growing too large on wide screens. Returns 1.0 at or below 1440px, progressively smaller above.
+  Viewport-based scale factor.
 
 ### `solarUtils.js`
 - **`calculateSolarDeclination(date)`** → degrees
-  Full NOAA equations via solar-calculator. Returns latitude where sun is directly overhead (-23.44° to +23.44°).
 - **`getSubsolarPoint(time)`** → `{ latitude, longitude }`
-  Combines SunCalc (Equation of Time for longitude) with declination (for latitude).
 - **`getSunAngle(lat, lon, time)`** → degrees
-  Spherical law of cosines: angular distance between a surface point and the subsolar point. <90° = daylight, 90° = horizon, >90° = night.
 - **`isPointInDaylight(lat, lon, time)`** → boolean
-  Returns true if sun angle < 95° (between geometric sunset at 90° and civil twilight at 96°).
 
 ### `sceneUtils.js`
 - **`createAirportLabelTexture(code, iconSrc, isBW)`** → `Promise<THREE.CanvasTexture>`
-  Draws a 300×110 canvas with rounded rectangle background, icon, and IATA code text.
 - **`createTransitionLabelTexture(timeText, transitionType, isBW)`** → `Promise<THREE.CanvasTexture>`
-  Draws a 280×100 canvas with time text and sunrise/sunset icon.
 
 ### `animationUtils.js`
 - **`animateValue(from, to, onUpdate, onComplete)`** → `{ cancel() }`
-  Generic eased animation using `requestAnimationFrame`. 300ms duration, ease-out curve `t * (2 - t)`. Used for all layer fade-in/fade-out transitions.
+  Generic eased animation. 300ms duration, ease-out curve.
 
 ---
 
 ## App.jsx Structure
 
-App.jsx is the main React component containing all 3D scene logic, state management, and UI rendering.
+App.jsx is the main React component containing all 3D scene logic, state management, and non-panel UI rendering. The two main UI panels (FlightInputPanel and AnimationControls) have been extracted as separate components.
 
 ### 1. State Variables
 
 | Group | Variables | Purpose |
 |---|---|---|
 | Loading | `isLoading`, `departureTime` | Initial load state, selected departure time |
-| Airport Selection | `departureCode`, `arrivalCode`, `airports`, `departureAirport`, `arrivalAirport`, `searchEditing` | Selected airports and search edit counter (triggers flight cleanup) |
+| Airport Selection | `departureCode`, `arrivalCode`, `airports`, `departureAirport`, `arrivalAirport`, `searchEditing`, `pendingUrlFlight` | Selected airports and search state |
 | Flight | `flightPath`, `flightResults`, `isPlaying`, `animationProgress`, `showFlightStats` | Calculated flight data, animation state |
 | UI Toggles | `showAirports`, `showGraticule`, `showPlaneIcon`, `showTimezones`, `showTwilightLines`, `isBWMode`, `autoRotate`, `followPlaneMode` | Feature toggles |
 | Panel | `isPanelCollapsed`, `isPanelFading`, `expandedSection`, `aboutContent`, `dataContent`, `isClosing` | Control panel and accordion state |
 | Mobile | `isMobile`, `isHamburgerOpen`, `showMobileMenu`, `isMobileMenuClosing`, `isMobileMenuAnimating` | Mobile UI state |
 
-**Important:** `departureTime` is initialized to `new Date()` and is always truthy. Always use `departureAirport` (not `departureTime`) as the condition for showing datetime-related UI.
-
-### 2. Refs
-
-| Group | Refs | Purpose |
-|---|---|---|
-| Three.js Core | `canvasRef`, `sceneRef`, `cameraRef`, `controlsRef` | Scene infrastructure |
-| Scene Objects | `flightLineRef`, `progressTubeRef`, `transitionLabelsRef`, `departureLabelRef`, `arrivalLabelRef`, `planeIconRef`, `twilightSphereRef`, `glowRef`, `twilightLinesRef` | Visual elements in the scene |
-| Materials | `earthMaterialRef`, `ambientLightRef`, `planeTextureRef`, `planeBWTextureRef`, `bwColorsRef` | Materials and textures |
-| Animation | `flightDataRef`, `animationProgressRef`, `hasFlightPathRef` | Flight animation state (non-rendering) |
-| Feature Toggles | `autoRotateRef`, `showPlaneIconRef`, `isBWModeRef`, `followPlaneModeRef`, `isPlayingRef` | Mirror state for use in animation loop |
-
-**Why both state and refs for toggles?** State drives React re-renders (UI updates). Refs are readable inside the Three.js animation loop without triggering re-renders. Kept in sync via `useEffect` hooks.
-
-### 3. Standalone Functions
-
-- **`getCSSColor(varName)`** — Reads CSS custom property RGB values
-- **`calculateTwilightBoundary(sunDirection, baseElevationAngle, currentTime)`** — Computes twilight boundary line positions with latitude-dependent width and solar declination effects.
-- **`updateTwilightLines(sunDirection, currentTime)`** — Updates all 8 twilight boundary line geometries
-
-### 4. useEffects — Initialization & Sync
-
-- **URL parameter loading** — Reads flight route from URL params, auto-calculates flight
-- **Ref sync effects** — `followPlaneMode`, `isPlaying`, `autoRotate` → refs
-- **Mobile detection** — User agent + touch + screen width, runs on resize
-
-### 5. Main Scene Setup useEffect
-
-Runs once on mount (`[]` dependency). Contains airport data fetch, scene/camera/renderer creation, OrbitControls, globe, plane icon, atmospheric glow, user location dot, sun position, twilight shader sphere (custom GLSL), twilight boundary lines (8× Line2), animation loop, and resize handler.
-
-### 6. Flight Cleanup useEffect
-
-Triggers on `searchEditing` change. Removes flight path from scene, resets animation state, reopens panel.
-
-### 7. Flight Path Drawing useEffect
-
-Triggers on `flightPath` change. Builds the full 3D flight visualization with distance-based and viewport-based scaling applied to all elements.
-
-### 8. Layer Toggle useEffects
-
-Airport dots, graticule, timezone boundaries, twilight lines. Pattern: fade-out existing → early return if off → create new → fade-in.
-
-### 9. BW Mode useEffects
-
-400ms animated scene transition: background, ambient light, twilight overlay, glow, graticule/timezone color, flight path vertex colors (pre-calculated BW swap), label texture swap at midpoint, ring/dot colors.
-
-### 10. Animation & Playback
-
-Flight animation using `setInterval` at 16ms. Speed based on distance. Clamps to 1.0, auto-stops, shows flight stats.
-
-### 11. Keyboard Shortcuts
-
-| Key | Action |
-|---|---|
-| Space | Play/pause animation |
-| A | Toggle airports |
-| P | Toggle plane icon |
-| T | Toggle timezones (disables graticule) |
-| G | Toggle graticule (disables timezones) |
-| L | Toggle twilight lines |
-
-### 12. Business Logic Functions
-
-- **`centerCameraOnFlight(departure, arrival, flightDistance)`** — Smooth camera slerp to flight midpoint with 10° south tilt, 1500ms ease-in-out. Distance from `getFlightScale().cameraRadius`.
-- **`calculateFlight()`** — Haversine distance, duration estimate (750 km/h), daylight/darkness sampling, state updates, URL update
-- **`getAirportTimezone()`**, **`getLocalTimeAtAirport()`**, **`getTimezoneAbbreviation()`** — Timezone utilities using tz-lookup + Luxon
-- **`searchAirports(query)`** — Priority: exact IATA → prefix → city name, max 8 results
-
-### 13. JSX Return
+### 2. JSX Return (current)
 
 ```
 <div className="app">
-  Loading overlay (conditional)
+  Info overlay (logo)
   Mobile hamburger button
   Mobile off-canvas menu + background overlay
-  Info overlay (logo + desktop nav accordion + footer)
-  Desktop layer toggles (A, G, T, L, P, BW, Follow)
-  Control panel (.flight-input):
-    Panel header (title + collapse button)
-    Panel subtitle (see Panel Subtitle section)
-    Panel content (.panel-content):
-      <AirportSearchInput> departure
-      Swap airports button (only when both airports selected)
-      <AirportSearchInput> arrival
-      Datetime group (visible only after departure airport selected)
-      Calculate Flight button (visible only after departure airport selected)
+  Nav accordion (About, Data — desktop only)
+  Desktop layer toggles (A, G, T, L, BW, Follow)
+  Footer info
+  <FlightInputPanel ...props />
   <canvas> (Three.js render target)
-  Animation controls (when flight exists):
-    Flight stats (distance, duration, daylight, darkness)
-    Departure/arrival time displays with timezone
-    Curved SVG slider with progress thumb
-    Play/pause button
+  {flightResults && <AnimationControls ...props />}
+  <Analytics />
 </div>
 ```
 
----
+### 3. Key Functions Passed to Components
 
-## Panel Progressive Reveal
-
-The search panel uses progressive disclosure to reduce visual noise at the start:
-
-| State | Visible elements |
-|---|---|
-| Empty | Two airport inputs + subtitle only |
-| Departure airport typed | Airport label fades in above input |
-| Departure airport selected | Datetime group + Calculate button fade in |
-| Both airports selected | Swap airports button appears |
-| Flight calculated | Panel collapses, animation controls appear |
-
-Hidden elements use inline styles with `opacity`, `maxHeight`, `marginBottom`, and `padding` transitions (0.15s ease). On mobile, `transition: none !important` is applied to `.datetime-group` and `.panel-subtitle` to prevent conflicts with the panel collapse animation.
-
-**Mobile touch target fix:** The Calculate Flight button has `min-height: 44px` on touch devices via `@media (hover: none) and (pointer: coarse)`. The selector uses `:not(:disabled)` so the min-height only applies when the button is active, preventing phantom height when the button is hidden.
+| Function | Defined in | Used by | Purpose |
+|---|---|---|---|
+| `searchAirports` | App.jsx | FlightInputPanel | Airport search: exact IATA → prefix → city name |
+| `calculateFlight` | App.jsx | FlightInputPanel | Haversine distance, duration, path calculation |
+| `getAirportTimezone` | App.jsx | FlightInputPanel | tz-lookup wrapper |
+| `handleProgressChange` | App.jsx | AnimationControls | Updates both state and ref for animation progress |
+| `getTimezoneAbbreviation` | App.jsx | AnimationControls | Luxon timezone formatting |
+| `getLocalTimeAtAirport` | App.jsx | AnimationControls | Luxon time formatting |
+| `getLocalDateAtAirport` | App.jsx | AnimationControls | Luxon date formatting |
+| `formatFlightTime` | App.jsx | AnimationControls | Elapsed time formatting |
 
 ---
 
-## Panel Subtitle & Color Styling
+## Panel Progressive Reveal (Redesigned)
 
-The subtitle below the panel header reads:
-- **Desktop:** `"Find a route between any airport."`
-- **Mobile:** `"Find a route between any airport and explore how your flight moves through daylight, twilight, and darkness."`
+The search panel now uses a two-state system instead of the previous multi-step progressive reveal:
 
-On mobile, the three words are wrapped in `<span>` elements styled with CSS classes that reference the same CSS variables as the 3D flight path:
-
-| Class | Color source | Effect |
+| State | Trigger | Visible elements |
 |---|---|---|
-| `.subtitle-daylight` | `--path-day-color` | Solid color, opacity 0.8 |
-| `.subtitle-twilight` | `--path-twilight-warm` → `--path-twilight-cool` | CSS gradient via `-webkit-background-clip: text` |
-| `.subtitle-darkness` | `--path-night-color` | Solid color, `filter: brightness(1.4)`, opacity 0.9 |
+| Initial | Page load | Panel header, subtitle, FROM/TO columns with pill-shaped inputs, swap button |
+| + Departure selected | First airport picked | Datetime pill appears below panel (date + time with icons) |
+| + Both selected | Second airport picked | Route mode activates (irreversible): subtitle fades out, large IATA codes appear, city/country details shown, Calculate pill appears |
+| Flight calculated | Calculate clicked | Datetime + Calculate pills fade out, main panel collapses |
 
-Because these reference CSS variables, they automatically update if path color variables change. In BW mode the variables shift to grayscale, so the subtitle spans follow automatically.
-
-The subtitle collapses smoothly when the panel collapses via `max-height: 80px` in expanded state and `max-height: 0` + `opacity: 0` + `margin: 0` in `.flight-input.collapsed .panel-subtitle`.
+The transition from initial to route mode is one-way — the panel never returns to the initial layout within a session.
 
 ---
 
 ## CSS Architecture
 
-All styles in `App.css`. Key patterns:
+All styles currently in `App.css` (~2,900 lines). **Planned:** Split into per-component CSS files after redesign is complete.
+
+### Key CSS Patterns
 
 - CSS custom properties for theme colors (BW mode toggles `.bw-mode` class on root)
+- **Color mode:** No borders on panels, deep shadows (`0 12px 48px`)
+- **BW mode:** Borders on panels (`var(--bw-border-light)`), shallow shadows (`0 4px 16px`)
+- **Mode transition:** `background`, `border`, `box-shadow` all transition at 0.4s ease to match Three.js scene transition
+- Glass-morphism panels with `backdrop-filter: blur(20px)`
+- Panel header has its own darker background, stretched via negative margins
+- `.flight-input-wrapper` provides positioning context; `.flight-input` centers within it via `margin: auto`
+- `.flight-action-row` sits as a sibling below `.flight-input` inside the wrapper, with `z-index: 1` so autocomplete dropdowns render above
 - Mobile responsive: `@media (max-width: 600px)` and `@media (max-width: 768px)` breakpoints
 - Touch device overrides: `@media (hover: none) and (pointer: coarse)` for tap targets
-- Mobile panel transitions disabled with `transition: none !important` on key elements to prevent conflicts with collapse animation
-- Hamburger menu for mobile with fade + slide animations
-- Accordion sections with expand/collapse transitions
-- Curved SVG slider for flight progress
-- Glass-morphism panel with backdrop blur
-- `.panel-content` and `.flight-input` use `overflow: visible` to allow autocomplete dropdown to escape panel bounds
-- Toggle overlays: three opacity states — dim (default) → medium (hover) → full (checked)
+- `overflow: visible` on `.panel-content` to allow autocomplete dropdown to escape panel bounds
+
+### New CSS Classes (from redesign)
+
+| Class | Purpose |
+|---|---|
+| `.flight-input-wrapper` | Absolute positioning container for panel + pills |
+| `.airport-columns` | Flex row for two-column layout |
+| `.airport-columns.route-mode` | Modifier for large-code display state |
+| `.airport-column` | Flex column for each airport (FROM / TO) |
+| `.column-label` | "FROM" / "TO" uppercase labels |
+| `.swap-airports-column` | Center column holding swap button |
+| `.airport-details` | City + country text below IATA code in route mode |
+| `.flight-action-row` | Flex row for detached datetime + calculate pills |
+| `.datetime-pill` | Rounded container for date/time inputs |
+| `.datetime-display` | Flex row with `justify-content: space-between` for date (left) and time (right) |
+| `.datetime-field` | Wrapper for icon + input pair (date or time) |
+| `.datetime-native-input` | Styled native time input |
+| `.datetime-hidden-input` | Invisible native date input (behind formatted text) |
+| `.datetime-value` | Formatted date display text |
+| `.calculate-pill` | Rounded Calculate button (keeps border in both modes) |
+| `.panel-subtitle.hidden` | Fades out subtitle when entering route mode |
 
 ---
 
@@ -329,11 +371,15 @@ Scene
 ## Data Flow
 
 ```
-User selects airports (via AirportSearchInput) →
+User selects airports (via AirportSearchInput inside FlightInputPanel) →
   onSelect → sets departureCode/Airport, arrivalCode/Airport in App.jsx
   onSearchChange → increments searchEditing → clears any existing flight
+  hasEnteredRouteMode flag set when both airports first selected (irreversible)
 
-User clicks Calculate → calculateFlight() →
+Departure airport selected → datetime pill appears below panel
+Both airports selected → route mode activates, Calculate pill appears
+
+User clicks Calculate → calculateFlight() in App.jsx →
   ├── Haversine distance
   ├── Duration estimate (750 km/h)
   ├── getFlightScale(distance) → cameraRadius + scaleFactor
@@ -346,10 +392,11 @@ User clicks Calculate → calculateFlight() →
         ↓
 Flight path useEffect draws everything to scene (scaled)
         ↓
+AnimationControls renders with flightResults
 Play button → setInterval updates animationProgress
         ↓
-Animation loop reads animationProgressRef:
-  ├── Builds progress tube up to current point (scaled)
+Animation loop reads animationProgressRef (via handleProgressChange):
+  ├── Reveals progress tube via drawRange
   ├── Updates plane position + orientation
   ├── Fades transition labels at crossing points
   ├── Updates sun position for current flight time
@@ -360,6 +407,12 @@ Animation loop reads animationProgressRef:
 
 ## Version History Conventions
 
+Development work uses descriptive commit messages on `dev` branch without version bumps:
+```bash
+git add . && git commit -m "Description of changes" && git push
+```
+
+Version bumps and tags happen on merge to `master`:
 ```bash
 git add .
 git commit -m "vX.X.X: Description of changes"
@@ -375,90 +428,37 @@ git push && git push --tags
 
 ## Known Architectural Notes
 
-- **Single main component with extracted utilities:** App.jsx contains all 3D scene logic and state. UI components are being progressively extracted (`AirportSearchInput` is the first).
+- **Component extraction complete for panels:** `FlightInputPanel` and `AnimationControls` are extracted. `AirportSearchInput` was extracted previously. App.jsx retains all 3D scene logic, state management, and non-panel UI (info overlay, mobile menu, layer toggles, footer).
 - **State/ref duality:** Feature toggles exist as both `useState` (for React UI) and `useRef` (for animation loop access). Synced via `useEffect`.
-- **No state management library:** All state is local `useState`. Works because there's effectively one main component.
-- **GeoJSON loaded at runtime:** Graticule and timezone boundaries fetched on toggle, not bundled.
-- **Airport data from OpenFlights:** Fetched from GitHub raw URL on mount.
-- **Custom Earth texture:** Created in QGIS, stored in `/public`.
-- **Two color modes:** Every visual element has both color and BW variants. BW transition is animated over 400ms.
-- **Dual pre-calculation:** Color and BW gradient arrays are pre-calculated at flight creation time to avoid terminator flash when toggling modes during animation.
-- **Distance-based + viewport-based scaling:** Camera distance and all flight path element sizes scale via `getFlightScale()` (distance) combined with `getViewportScale()` (window width) into a single `elementScale` multiplier.
-- **CSS specificity discipline:** Conflicts with large grouped selectors are a recurring source of bugs. Fixes often require removing old rule blocks entirely rather than adding overrides.
-- **Progressive panel reveal:** Datetime group and Calculate button hidden until departure airport is selected, using inline style transitions. Mobile disables transitions on these elements to prevent conflicts with panel collapse animation.
-- **`departureTime` is always truthy:** Initialized to `new Date()`. Always use `departureAirport` as the condition for showing datetime-related UI, never `departureTime`.
-- **State/animation decoupling on mobile menu:** `isHamburgerOpen` drives the button visual state; `showMobileMenu` drives the menu render/animation. Keeping these separate prevents transition bugs.
+- **No state management library:** All state is local `useState` in App.jsx. Props are passed down to extracted components.
+- **`hasEnteredRouteMode` pattern:** Computed during render via `useState` (not `useEffect`, to avoid cascading render warnings). Once true, never reverts. Controls the two-column layout switch in FlightInputPanel.
+- **`departureTime` is always truthy:** Initialized to `new Date()`. Always use `departureAirport` as the condition for showing datetime-related UI.
+- **Swap button opacity quirk:** The hover opacity must be set to 0.95 (not 1.0) to avoid a flicker caused by specificity conflicts with generic `.flight-input button:hover` rules. The `!important` on `transition: opacity 0.2s ease !important` is required to override inherited transitions.
+- **CSS specificity debt:** Many `!important` declarations exist on swap button and clear button styles to override the generic `.flight-input button` rule. Planned cleanup: make `.flight-input button` more specific or split CSS per component.
+- **CSS split planned:** After redesign is complete, App.css will be split into per-component files (FlightInputPanel.css, AnimationControls.css, AirportSearchInput.css) to eliminate specificity conflicts and improve maintainability.
 
 ---
 
-## Roadmap
+## UI Redesign Status (dev branch)
 
-### Pre-launch (before v1.0.0)
+### Completed
+- FlightInputPanel extracted and restructured with two-column layout
+- AnimationControls extracted with clean prop interface
+- Two layout states (initial / route mode) implemented
+- New fonts integrated (ABCRepro, ABCReproMono)
+- Custom SVG icons for swap, date, time
+- Split date/time inputs with native pickers
+- BW mode styles for all new elements
+- Panel shadow/border differentiation (color vs BW mode)
+- Autocomplete dropdown z-index fixed above pills
+- Collapsed panel centering and header styling
 
-- **Shareable flight URLs — auto-load on visit:** Infrastructure already in place (react-router-dom, URL params). Each flight generates its own URL. Remaining work: auto-load the flight when visiting a URL directly. Also requires `vercel.json` with a rewrite rule (`source: "/(.*)"` → `destination: "/index.html"`) to prevent 404s when navigating directly to a flight URL.
-- **More precise terminator visualization:** Anchor visual gradients more tightly to actual astronomical boundaries (terminator at 90°, civil at 96°, nautical at 102°, astronomical at 108°). Key for credibility with scientifically-minded users.
-- **Phase 3 UI component extraction:** Remaining work from the ongoing refactoring plan. Extract additional UI components from App.jsx following the pattern established by `AirportSearchInput`.
-- **Final mobile polish pass:** Real-device testing on iPhone for any remaining edge cases.
-- **Idle globe animation:** Animate random flight arcs on the globe when the app is in its initial state (no flight calculated). Disappears when the user clicks Calculate. See implementation plan below.
-
----
-
-### Idle Animation — Implementation Plan
-
-**Concept:** While the app is idle (no flight calculated), random great circle arcs draw themselves progressively across the globe as thin white lines, hold briefly, then fade out. Multiple routes overlap at different phases creating a live radar aesthetic. Triggered on mount, stopped and cleaned up when the user clicks Calculate.
-
-**Data source:** Curated hardcoded list of ~80 major global airport hubs with lat/lon. Routes are randomly paired at runtime. No extra fetch, no external file — airports are already in memory and the great circle math is already implemented in `geoUtils.js`.
-
-**Key design decisions (validated via preview):**
-- Line style: thin white, additive blending, opacity ~0.18–0.25
-- Route lifecycle: draw → hold 1.5s → fade out → remove from scene
-- Default density: 8 routes simultaneously on desktop, 4 on mobile
-- Draw speed: ~0.002 progress/frame (~8–10s per long-haul route)
-- Airport dots: same curated hub list rendered as a `Points` layer (opacity ~0.4), visible during idle only
-
-**Architecture — critical notes:**
-- **Completely self-contained** — no shared state, refs, or logic with the main flight system
-- `idleAnimation.js` manages all its own internal state (active flag, routes array, spawn timing, dots mesh)
-- Only receives `scene` (Three.js Scene) and `isMobile` (boolean) as inputs
-- Exposes two functions only: `startIdleAnimation(scene, isMobile)` and `stopIdleAnimation()`
-- `idleAirports.js` exports a single constant `IDLE_AIRPORTS` — a plain array of `{ code, lat, lon }` objects
-- Idle update is called once per frame from inside the existing App.jsx animation loop — a single function call, no other coupling
-- **Do not restart** after a flight is cleared — idle is only for the first landing experience
-
-**Files:**
-
-`src/data/idleAirports.js`
-- Exports `IDLE_AIRPORTS`: ~80 curated major global hubs with IATA code, lat, lon
-- Plain data, no logic, no imports
-
-`src/utils/idleAnimation.js`
-- Imports `IDLE_AIRPORTS` from `../data/idleAirports`
-- Imports `THREE` for geometry/material creation
-- Internal state: `active` (bool), `routes` (array), `lastSpawnTime` (number), `dotsMesh` (Points)
-- Each route object: `{ line, geo, pts, progress, opacity, state: 'drawing'|'holding'|'fading', holdFrames }`
-- `startIdleAnimation(scene, isMobile)` — sets active, builds airport dots Points, begins spawning
-- `stopIdleAnimation()` — sets active false, removes and disposes all routes and dots from scene
-- `tickIdleAnimation(time)` — called each frame from App.jsx animation loop; handles spawning + per-route lifecycle updates
-- Uses haversine distance filter: only pairs airports >3000km apart for dramatic arcs
-
-**App.jsx — only 3 changes, nothing modified:**
-1. Import: `import { startIdleAnimation, stopIdleAnimation, tickIdleAnimation } from './utils/idleAnimation'`
-2. After scene setup: `startIdleAnimation(scene, isMobile)`
-3. Inside animation loop: `tickIdleAnimation(time)` (one line, gated internally by active flag)
-4. At top of `calculateFlight()`: `stopIdleAnimation()`
-
-**Implementation steps:**
-1. Create `src/data/idleAirports.js` with the ~80 hub airport list
-2. Create `src/utils/idleAnimation.js` with `startIdleAnimation`, `stopIdleAnimation`, `tickIdleAnimation`
-3. Add the 3 import + call lines to App.jsx
-4. Test idle animation in isolation (before wiring Calculate cleanup)
-5. Test cleanup: confirm all geometry disposed, no memory leaks, scene clean after Calculate
-6. Mobile: verify 4-route cap, check frame rate alongside twilight shader on real device
-
-### Post-launch (after v1.0.0)
-
-- **Flight video export:** Record the Three.js canvas during animation playback and export as MP4/WebM for social sharing. Approach: `MediaRecorder` API + `canvas.captureStream()` (no extra libraries needed). Key challenges: controlling animation framerate during recording (must decouple from screen refresh rate), UI visibility decisions, and file size management. CCapture.js is an alternative if frame-by-frame control is needed.
-- **Flight number search / historical flight paths:** Look up a real flight by number and visualize its actual route and schedule. API approach undecided — OpenSky has CORS issues; options include a backend proxy, AviationStack API, or a pre-downloaded dataset.
-- **Flight-path solar profile spiral visualization:** A secondary view showing sun angle over the duration of the flight as a spiral or timeline chart.
-- **Flight query analytics / heatmaps:** Aggregate visualization of popular routes or most-searched airports.
-- **Three.js upgrade:** Currently on 0.182, intentionally deferred. Upgrade to latest when time allows; check migration guide for Line2/LineMaterial and shader changes.
+### Remaining (next chat session)
+- **Mobile responsive styles** for the redesigned FlightInputPanel
+- **Transition animations:** subtitle fade-out, FROM/TO label repositioning, IATA code fade-in on entering route mode
+- **Rotating placeholder animation** (cycling "City", "Airport", "IATA code", "ICAO code") — parked
+- **AnimationControls visual refinements** (typography, spacing, transparency adjustments to match new design language)
+- **CSS cleanup pass:** Remove dead rules, split into per-component files
+- **Native datetime input font:** `font-family: inherit` doesn't work on native date/time inputs — needs investigation
+- **Final testing** across all states, both modes, desktop and mobile
+- **Version bump and merge** to master
