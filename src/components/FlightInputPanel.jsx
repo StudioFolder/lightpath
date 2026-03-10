@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { DateTime } from 'luxon'
 import AirportSearchInput from './AirportSearchInput'
 
@@ -40,11 +40,9 @@ export default function FlightInputPanel({
 
   const [hasEnteredRouteMode, setHasEnteredRouteMode] = useState(false)
 
-  useEffect(() => {
-    if (departureAirport && arrivalAirport && !hasEnteredRouteMode) {
-      setHasEnteredRouteMode(true)
-    }
-  }, [departureAirport, arrivalAirport, hasEnteredRouteMode])
+  if (departureAirport && arrivalAirport && !hasEnteredRouteMode) {
+    setHasEnteredRouteMode(true)
+  }
 
   return (
     <div className="flight-input-wrapper">
