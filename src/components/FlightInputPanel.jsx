@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { DateTime } from 'luxon'
 import AirportSearchInput from './AirportSearchInput'
 
@@ -39,6 +39,7 @@ export default function FlightInputPanel({
 
   const [hasEnteredRouteMode, setHasEnteredRouteMode] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const dateInputRef = useRef(null)
 
   if (departureAirport && arrivalAirport && !hasEnteredRouteMode && !isTransitioning) {
     setIsTransitioning(true)
@@ -221,7 +222,7 @@ export default function FlightInputPanel({
         <div className="flight-action-row">
           <div className="datetime-pill">
             <div className="datetime-display">
-              <div className="datetime-field">
+              <div className="datetime-field" onClick={() => dateInputRef.current?.showPicker()}>
                 <img src={isBWMode ? "/date-icon-bw.svg" : "/date-icon.svg"} alt="Date" className="datetime-icon" />
                 <span className="datetime-value">
                   {departureAirport && departureTime
@@ -229,6 +230,7 @@ export default function FlightInputPanel({
                     : ''}
                 </span>
                 <input 
+                  ref={dateInputRef}
                   type="date"
                   className="datetime-hidden-input"
                   value={departureAirport && departureTime 
