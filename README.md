@@ -83,6 +83,6 @@ Designed and developed by [Studio Folder](https:www.studiofolder.it)
 
 This work is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/).
 
-You are free to share and adapt this work with attribution, but not for commercial purposes. For commercial licensing inquiries, contact hello@studiofolder.it.
+You are free to share and adapt this work with attribution, but not for commercial purposes. For any inquiries, contact folder@studiofolder.it.
 
 © 2026 Studio Folder
