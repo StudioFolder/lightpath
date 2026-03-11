@@ -730,6 +730,7 @@ canvas {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .datetime-hidden-input {
@@ -1391,7 +1392,6 @@ canvas {
   border-radius: 32px;
   padding: 12px 20px;
   position: relative;
-  overflow: hidden;
 }
 
 .datetime-display {
@@ -1408,6 +1408,13 @@ canvas {
   height: 18px;
   opacity: 0.6;
   flex-shrink: 0;
+  pointer-events: none;
+}
+
+.datetime-value,
+.datetime-native-input {
+  position: relative;
+  top: 1px;
 }
 
 .calculate-pill {
@@ -1422,7 +1429,7 @@ canvas {
   color: white;
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.75px;
   text-transform: uppercase;
   cursor: pointer;
   transition: border-color 0.2s ease;
