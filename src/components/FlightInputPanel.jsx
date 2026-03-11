@@ -38,15 +38,19 @@ export default function FlightInputPanel({
 }) {
 
   const [hasEnteredRouteMode, setHasEnteredRouteMode] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
-  if (departureAirport && arrivalAirport && !hasEnteredRouteMode) {
-    setHasEnteredRouteMode(true)
+  if (departureAirport && arrivalAirport && !hasEnteredRouteMode && !isTransitioning) {
+    setIsTransitioning(true)
+    setTimeout(() => {
+      setHasEnteredRouteMode(true)
+    }, 400)
   }
 
   return (
     <div className={`flight-input-wrapper ${isPanelCollapsed ? 'collapsed' : ''}`}>
       <div 
-        className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''}`}
+        className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''} ${hasEnteredRouteMode ? 'route-mode' : ''}`}
         onClick={isPanelCollapsed ? () => {
           if (!isMobile) {
             setIsPanelCollapsed(false)
@@ -102,7 +106,7 @@ export default function FlightInputPanel({
         </div>
 
         <p 
-          className={`panel-subtitle ${hasEnteredRouteMode ? 'hidden' : ''}`}
+          className={`panel-subtitle ${hasEnteredRouteMode || isTransitioning ? 'hidden' : ''}`}
           onMouseMove={!isMobile ? (e) => {
             const spans = e.currentTarget.querySelectorAll('.tagline-word')
             spans.forEach(span => {
@@ -120,171 +124,96 @@ export default function FlightInputPanel({
           } : undefined}
         >
           {isMobile 
-            ? <>Explore how your flight moves through <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
-            : <>Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.</>
+            ? <>Explore how your flight traverses<br /> <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
+            : <>Explore how your flight traverses<br /> <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.</>
           }
         </p>
 
         <div className="panel-content">
-          {!hasEnteredRouteMode ? (
-            <div className="airport-columns">
-              <div className="airport-column">
-                <span className="column-label">FROM</span>
-                <AirportSearchInput
-                  label="From"
-                  code={departureCode}
-                  airport={departureAirport}
-                  searchAirports={searchAirports}
-                  onSelect={(selected) => {
-                    setDepartureCode(selected.code)
-                    setDepartureAirport(selected)
-                  }}
-                  onSearchChange={() => {
-                    setDepartureCode('')
-                    setDepartureAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                  onClear={() => {
-                    setDepartureCode('')
-                    setDepartureAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                />
-              </div>
-
-              <div className="swap-airports-column">
-                <button
-                  className="swap-airports-btn"
-                  onClick={() => {
-                    const tempCode = departureCode
-                    const tempAirport = departureAirport
-                    setDepartureCode(arrivalCode)
-                    setDepartureAirport(arrivalAirport)
-                    setArrivalCode(tempCode)
-                    setArrivalAirport(tempAirport)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                  aria-label="Swap departure and arrival airports"
-                  title="Swap airports"
-                >
-                  <img 
-                    src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"} 
-                    alt="Swap" 
-                    className="swap-icon"
-                  />
-                </button>
-              </div>
-
-              <div className="airport-column">
-                <span className="column-label">TO</span>
-                <AirportSearchInput
-                  label="To"
-                  code={arrivalCode}
-                  airport={arrivalAirport}
-                  searchAirports={searchAirports}
-                  onSelect={(selected) => {
-                    setArrivalCode(selected.code)
-                    setArrivalAirport(selected)
-                  }}
-                  onSearchChange={() => {
-                    setArrivalCode('')
-                    setArrivalAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                  onClear={() => {
-                    setArrivalCode('')
-                    setArrivalAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                />
-              </div>
+          <div className={`airport-columns ${hasEnteredRouteMode ? 'route-mode' : ''} ${isTransitioning && !hasEnteredRouteMode ? 'fading-out' : ''}`}>
+            <div className="airport-column">
+              <span className="column-label">FROM</span>
+              <AirportSearchInput
+                label="From"
+                code={departureCode}
+                airport={departureAirport}
+                searchAirports={searchAirports}
+                onSelect={(selected) => {
+                  setDepartureCode(selected.code)
+                  setDepartureAirport(selected)
+                }}
+                onSearchChange={() => {
+                  setDepartureCode('')
+                  setDepartureAirport(null)
+                  setSearchEditing(prev => prev + 1)
+                }}
+                onClear={() => {
+                  setDepartureCode('')
+                  setDepartureAirport(null)
+                  setSearchEditing(prev => prev + 1)
+                }}
+              />
+              {departureAirport && (
+                <div className="airport-details">
+                  <span className="airport-city">{departureAirport.city}</span>
+                  <span className="airport-country">{departureAirport.country}</span>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="airport-columns route-mode">
-              <div className="airport-column">
-                <span className="column-label">FROM</span>
-                <AirportSearchInput
-                  label="From"
-                  code={departureCode}
-                  airport={departureAirport}
-                  searchAirports={searchAirports}
-                  onSelect={(selected) => {
-                    setDepartureCode(selected.code)
-                    setDepartureAirport(selected)
-                  }}
-                  onSearchChange={() => {
-                    setDepartureCode('')
-                    setDepartureAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                  onClear={() => {
-                    setDepartureCode('')
-                    setDepartureAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                />
-                {departureAirport && (
-                  <div className="airport-details">
-                    <span className="airport-city">{departureAirport.city}</span>
-                    <span className="airport-country">{departureAirport.country}</span>
-                  </div>
-                )}
-              </div>
 
-              <div className="swap-airports-column">
-                <button
-                  className="swap-airports-btn"
-                  onClick={() => {
-                    const tempCode = departureCode
-                    const tempAirport = departureAirport
-                    setDepartureCode(arrivalCode)
-                    setDepartureAirport(arrivalAirport)
-                    setArrivalCode(tempCode)
-                    setArrivalAirport(tempAirport)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                  aria-label="Swap departure and arrival airports"
-                  title="Swap airports"
-                >
-                  <img 
-                    src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"} 
-                    alt="Swap" 
-                    className="swap-icon"
-                  />
-                </button>
-              </div>
-
-              <div className="airport-column">
-                <span className="column-label">TO</span>
-                <AirportSearchInput
-                  label="To"
-                  code={arrivalCode}
-                  airport={arrivalAirport}
-                  searchAirports={searchAirports}
-                  onSelect={(selected) => {
-                    setArrivalCode(selected.code)
-                    setArrivalAirport(selected)
-                  }}
-                  onSearchChange={() => {
-                    setArrivalCode('')
-                    setArrivalAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
-                  onClear={() => {
-                    setArrivalCode('')
-                    setArrivalAirport(null)
-                    setSearchEditing(prev => prev + 1)
-                  }}
+            <div className="swap-airports-column">
+              <button
+                className="swap-airports-btn"
+                onClick={() => {
+                  const tempCode = departureCode
+                  const tempAirport = departureAirport
+                  setDepartureCode(arrivalCode)
+                  setDepartureAirport(arrivalAirport)
+                  setArrivalCode(tempCode)
+                  setArrivalAirport(tempAirport)
+                  setSearchEditing(prev => prev + 1)
+                }}
+                aria-label="Swap departure and arrival airports"
+                title="Swap airports"
+              >
+                <img 
+                  src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"} 
+                  alt="Swap" 
+                  className="swap-icon"
                 />
-                {arrivalAirport && (
-                  <div className="airport-details">
-                    <span className="airport-city">{arrivalAirport.city}</span>
-                    <span className="airport-country">{arrivalAirport.country}</span>
-                  </div>
-                )}
-              </div>
+              </button>
             </div>
-          )}
+
+            <div className="airport-column">
+              <span className="column-label">TO</span>
+              <AirportSearchInput
+                label="To"
+                code={arrivalCode}
+                airport={arrivalAirport}
+                searchAirports={searchAirports}
+                onSelect={(selected) => {
+                  setArrivalCode(selected.code)
+                  setArrivalAirport(selected)
+                }}
+                onSearchChange={() => {
+                  setArrivalCode('')
+                  setArrivalAirport(null)
+                  setSearchEditing(prev => prev + 1)
+                }}
+                onClear={() => {
+                  setArrivalCode('')
+                  setArrivalAirport(null)
+                  setSearchEditing(prev => prev + 1)
+                }}
+              />
+              {arrivalAirport && (
+                <div className="airport-details">
+                  <span className="airport-city">{arrivalAirport.city}</span>
+                  <span className="airport-country">{arrivalAirport.country}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

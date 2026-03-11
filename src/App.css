@@ -1,3 +1,7 @@
+/* ========================================
+   1. RESET & GLOBALS
+   ======================================== */
+
 html, body {
   width: 100%;
   height: 100%;
@@ -21,6 +25,10 @@ body:has(.bw-mode) {
   height: 100%;
 }
 
+/* ========================================
+   2. FONTS
+   ======================================== */
+
 @font-face {
   font-family: "ABCRepro";
   src: url("/fonts/ABCRepro-Screen.otf") format("opentype");
@@ -43,6 +51,10 @@ body:has(.bw-mode) {
   font-family: 'ABCRepro', system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ========================================
+   3. BW MODE OVERRIDES
+   ======================================== */
 
 .bw-mode {
   /* Background colors */
@@ -75,10 +87,7 @@ body:has(.bw-mode) {
 .bw-mode .input-group input,
 .bw-mode .animation-controls,
 .bw-mode .animation-route,
-.bw-mode .time-value,
-.bw-mode .result-label,
-.bw-mode .result-value,
-.bw-mode .datetime-group input[type="datetime-local"] {
+.bw-mode .time-value {
   color: var(--bw-text-primary);
 }
 
@@ -86,8 +95,7 @@ body:has(.bw-mode) {
 .bw-mode .animation-distance,
 .bw-mode .airport-code,
 .bw-mode .airport-date,
-.bw-mode .input-group label,
-.bw-mode .datetime-group label {
+.bw-mode .input-group label {
   color: var(--bw-text-secondary);
 }
 
@@ -242,14 +250,12 @@ body:has(.bw-mode) {
 }
 
 /* Inputs */
-.bw-mode .input-group input,
-.bw-mode .datetime-group input[type="datetime-local"] {
+.bw-mode .input-group input {
   background: rgba(0, 0, 0, 0.08);
   border: none;
 }
 
-.bw-mode .input-group input:focus,
-.bw-mode .datetime-group input[type="datetime-local"]:focus {
+.bw-mode .input-group input:focus {
   background: rgba(0, 0, 0, 0.2);
   border: none;
 }
@@ -275,18 +281,6 @@ body:has(.bw-mode) {
   background-color: rgba(40, 40, 40, 0.3);
 }
 
-.bw-mode .time-slider {
-  background: rgba(40, 40, 40, 0.3);
-}
-
-.bw-mode .time-slider::-webkit-slider-thumb {
-  background: rgba(40, 40, 40, 0.8);
-}
-
-.bw-mode .time-slider::-moz-range-thumb {
-  background: rgba(40, 40, 40, 0.8);
-}
-
 .bw-mode .follow-toggle-overlay input[type="checkbox"]:disabled + .toggle-slider {
   background-color: rgba(40, 40, 40, 0.2);
   opacity: 0.5;
@@ -294,6 +288,17 @@ body:has(.bw-mode) {
 
 .bw-mode .follow-toggle-overlay input[type="checkbox"]:disabled + .toggle-slider:before {
   background-color: rgba(40, 40, 40, 0.5);
+}
+
+.bw-mode .swap-airports-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(40, 40, 40, 0.5);
+}
+.bw-mode .swap-airports-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(40, 40, 40, 0.85);
 }
 
 .bw-mode .footer-info,
@@ -337,8 +342,17 @@ body:has(.bw-mode) {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
+.bw-mode .input-clear-btn {
+  color: rgba(40, 40, 40, 0.35);
+}
+.bw-mode .input-clear-btn:hover {
+  color: rgba(40, 40, 40, 0.8);
+}
 
-/* Shared toggle overlay styles */
+/* ========================================
+   4. SHARED UI COMPONENTS
+   ======================================== */
+
 .toggle-overlay {
   position: absolute;
   left: 28px;
@@ -361,6 +375,10 @@ body:has(.bw-mode) {
   accent-color: #2d2e2f;
 }
 
+/* ========================================
+   5. APP LAYOUT & CANVAS
+   ======================================== */
+
 .app {
   width: 100vw;
   height: 100vh;
@@ -378,6 +396,17 @@ body:has(.bw-mode) {
   opacity: 1;
   transition: opacity 1s ease-in;
 }
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  
+}
+
+/* ========================================
+   6. AUTOCOMPLETE
+   ======================================== */
 
 .autocomplete-container {
   position: relative;
@@ -475,51 +504,9 @@ body:has(.bw-mode) {
   padding-right: 32px;
 }
 
-/* ── Swap airports ── */
-.swap-airports-column .swap-airports-btn {
-  background: none !important;
-  border: none !important;
-  width: 28px !important;
-  height: 28px !important;
-  cursor: pointer;
-  padding: 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 !important;
-}
-
-/* BW mode */
-.bw-mode .input-clear-btn {
-  color: rgba(40, 40, 40, 0.35);
-}
-.bw-mode .input-clear-btn:hover {
-  color: rgba(40, 40, 40, 0.8);
-}
-.bw-mode .swap-airports-btn {
-  background: rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.15);
-  color: rgba(40, 40, 40, 0.5);
-}
-.bw-mode .swap-airports-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  border-color: rgba(0, 0, 0, 0.25);
-  color: rgba(40, 40, 40, 0.85);
-}
-
-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  
-}
-
-.flight-info-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
+/* ========================================
+   7. LOGO & NAVIGATION
+   ======================================== */
 
 .info-overlay {
   position: absolute;
@@ -550,6 +537,10 @@ canvas {
   opacity: 1;
 }
 
+/* ========================================
+   8. FLIGHT INPUT PANEL
+   ======================================== */
+
 .flight-input-wrapper {
   position: absolute;
   top: 20px;
@@ -569,12 +560,17 @@ canvas {
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   width: 440px;
-  min-height: 216px;
+  min-height: 260px;
   position: relative;
   z-index: 2;
   transition: padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), 
             width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s, 
-            border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s;
+            border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
+            min-height 0.5s cubic-bezier(0.4, 0.0, 0.2, 1) 0.25s;
+}
+
+.flight-input.route-mode {
+  min-height: 216px;
 }
 
 .flight-input h3 {
@@ -668,7 +664,7 @@ canvas {
   height: 18px;
   margin: 0 !important;
   padding: 0 !important;
-  background: rgba(255, 255, 255, 0.4) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
   border: none !important;
   border-radius: 50%;
   color: rgba(30, 30, 30, 0.85) !important;
@@ -691,40 +687,6 @@ canvas {
 
 .collapse-arrow {
   display: inline;
-}
-
-.datetime-group {
-  margin-bottom: 12px;
-}
-
-.datetime-group label {
-  display: block;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.datetime-group input[type="datetime-local"] {
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
-  color-scheme: dark;
-  height: 40px;
-  box-sizing: border-box;
-  border-radius: 6px;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.datetime-group input[type="datetime-local"]:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .datetime-field {
@@ -781,28 +743,9 @@ canvas {
   z-index: 2;
 }
 
-.results-panel {
-  margin-top: 16px;
-  padding: 12px;
-  background: transparent;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.result-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.result-label {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.result-value {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-}
+/* ========================================
+   9. ANIMATION CONTROLS
+   ======================================== */
 
 .animation-controls {
   position: absolute;
@@ -827,9 +770,9 @@ canvas {
 .flight-stats {
   display: flex;
   justify-content: space-between;
-  padding: 0 0 14px;
+  padding: 0 0 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 30px;
+  margin-bottom: 10px;
   max-height: 100px;
   opacity: 1;
   overflow: hidden;
@@ -856,7 +799,7 @@ canvas {
 }
 
 .flight-stat-label {
-  font-size: 12px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -869,6 +812,13 @@ canvas {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   margin-bottom: 6px;
+}
+
+.flight-info-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
 }
 
 .animation-header {
@@ -956,27 +906,6 @@ canvas {
   cursor: grabbing;
 }
 
-.time-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #2d2e2f;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.time-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #2d2e2f;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
 .slider-icon {
   width: 16px;
   height: 16px;
@@ -1021,7 +950,7 @@ canvas {
 }
 
 .flight-input.collapsed {
-  padding-bottom: 6px;  /* Original desktop padding */
+  padding-bottom: 6px;  
   width: 260px;
   border-radius: 36px;
   min-height: 0;
@@ -1050,13 +979,9 @@ canvas {
   transition: margin-bottom 0.25s ease-in;
 }
 
-.search-icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 12px;
-  vertical-align: middle;
-  opacity: 0.9;
-}
+/* ========================================
+   10. FLIGHT INPUT PANEL — PANEL HEADER
+   ======================================== */
 
 .panel-header {
   display: flex;
@@ -1064,18 +989,10 @@ canvas {
   align-items: center;
   height: 56px;
   background: rgba(20, 20, 20, 0.5);
-  margin: -16px -24px 16px -24px;
+  margin: -16px -24px 12px -24px;
   padding: 16px 24px;
   border-radius: 24px 24px 0 0;
   transition: margin-bottom 0.35s ease-out;
-}
-
-/* Only remove margin on mobile collapsed state */
-@media (max-width: 600px) {
-  .flight-input.collapsed .panel-header {
-    margin-bottom: 0;
-    height: auto;
-  }
 }
 
 /* Collapsed: show lens, hide arrow */
@@ -1105,9 +1022,9 @@ canvas {
 }
 
 .panel-subtitle {
-  margin: 0 0 16px 0;
+  margin: 0 0 36px 0;
   font-size: 12px;
-  padding: 0 12px;
+  padding: 12px 0 0 0;
   color: rgba(255, 255, 255, 0.5);
   text-align: center;
   text-transform: uppercase;
@@ -1123,6 +1040,7 @@ canvas {
   max-height: 0;
   margin: 0;
   overflow: hidden;
+  transition: opacity 0.25s ease, max-height 0.3s ease 0.1s, margin 0.3s ease 0.1s;
 }
 
 .bw-mode .panel-subtitle {
@@ -1159,25 +1077,13 @@ canvas {
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-.flight-stat-value {
-  font-size: 12px;
-}
-
-.flight-stat-label {
-  font-size: 10px;
-}
-
-.flight-stats {
-  padding: 0 0 10px;
-  margin-bottom: 10px;
-}
-
 .swap-icon {
   width: 16px;
   height: 16px;
   pointer-events: none;
 }
 
+/* ── Swap airports ── */
 .swap-airports-column .swap-airports-btn {
   background: none !important;
   border: none !important;
@@ -1203,15 +1109,6 @@ canvas {
   transform: rotate(180deg);
 }
 
-/* BW mode */
-.bw-mode .flight-input .collapse-button {
-  color: rgba(40, 40, 40, 0.6) !important;
-}
-
-.bw-mode .flight-input .collapse-button:hover {
-  color: var(--bw-text-primary) !important;
-}
-
 .panel-content {
   overflow: visible;
   max-height: 380px;
@@ -1220,7 +1117,9 @@ canvas {
               opacity 0.35s ease-out;
 }
 
-/* ===== FLIGHT INPUT PANEL — TWO-COLUMN LAYOUT ===== */
+/* ========================================
+   11. FLIGHT INPUT PANEL — TWO-COLUMN LAYOUT
+   ======================================== */
 
 .airport-columns {
   display: flex;
@@ -1243,7 +1142,7 @@ canvas {
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
 
 .swap-airports-column {
@@ -1253,6 +1152,12 @@ canvas {
   padding-top: 24px;
   width: 80px;
   flex-shrink: 0;
+}
+
+.airport-columns .input-group {
+  position: relative;
+  margin-bottom: 0;
+  width: 100%;
 }
 
 .airport-columns .input-group label {
@@ -1266,15 +1171,16 @@ canvas {
 
 .airport-columns .input-group input {
   border-radius: 24px;
-  background: rgba(20, 20, 20, 0.5);
+  background: transparent;
   padding: 10px 16px;
-  font-size: 14px;
+  font-family: 'ABCReproMono', monospace;
+  font-size: 24px;
   text-align: center;
   font-weight: 400;
 }
 
 .airport-columns .input-group input:focus {
-  background: rgba(20, 20, 20, 0.7);
+  background: rgba(20, 20, 20, 0.5);
 }
 
 .airport-columns .input-group input::placeholder {
@@ -1285,7 +1191,91 @@ canvas {
   display: none;
 }
 
-/* ===== ROUTE MODE (post-selection) ===== */
+.airport-columns.fading-out .column-label,
+.airport-columns.fading-out .input-group,
+.airport-columns.fading-out .airport-details,
+.airport-columns.fading-out .swap-airports-btn {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.input-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.3);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.autocomplete-container:hover .input-search-icon,
+.autocomplete-container:focus-within .input-search-icon {
+  opacity: 1;
+}
+
+.bw-mode .input-search-icon {
+  color: rgba(40, 40, 40, 0.3);
+}
+
+.airport-columns.route-mode .input-search-icon {
+  display: none;
+}
+
+/* Animated placeholder carousel */
+.placeholder-carousel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.carousel-words {
+  position: relative;
+  height: 20px;
+  width: 80px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+}
+
+.carousel-word {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  text-align: center;
+  line-height: 20px;
+  font-size: 14px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.25);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.carousel-word.active {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.bw-mode .carousel-word {
+  color: rgba(40, 40, 40, 0.3);
+}
+
+/* ========================================
+   12. FLIGHT INPUT PANEL — ROUTE MODE
+   ======================================== */
 
 .airport-columns.route-mode .airport-column {
   align-items: center;
@@ -1308,11 +1298,12 @@ canvas {
   outline: none;
 }
 
+
 .airport-details {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .airport-details .airport-city {
@@ -1347,7 +1338,36 @@ canvas {
   position: relative;
 }
 
-/* ===== FLIGHT ACTION ROW (datetime + calculate pills) ===== */
+.airport-columns.route-mode .column-label {
+  animation: cascadeIn 0.4s ease 0.1s both;
+}
+
+.airport-columns.route-mode .input-group {
+  animation: cascadeIn 0.4s ease 0.25s both;
+}
+
+.airport-columns.route-mode .airport-details {
+  animation: cascadeIn 0.4s ease 0.4s both;
+}
+
+.airport-columns.route-mode .swap-airports-btn {
+  animation: cascadeIn 0.4s ease 0.3s both;
+}
+
+@keyframes cascadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   13. FLIGHT ACTION ROW
+   ======================================== */
 
 .flight-action-row {
   display: flex;
@@ -1367,6 +1387,8 @@ canvas {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   border-radius: 24px;
   padding: 12px 20px;
+  position: relative;
+  overflow: hidden;
 }
 
 .datetime-display {
@@ -1383,18 +1405,6 @@ canvas {
   height: 18px;
   opacity: 0.6;
   flex-shrink: 0;
-}
-
-.datetime-pill {
-  flex: 3;
-  background: rgba(30, 30, 30, 0.3);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: none;
-  border-radius: 24px;
-  padding: 12px 20px;
-  position: relative;
-  overflow: hidden;
 }
 
 .calculate-pill {
@@ -1424,16 +1434,6 @@ canvas {
   cursor: not-allowed;
 }
 
-.input-with-name {
-  position: relative;
-  width: 100%;
-}
-
-.input-with-name input {
-  width: 100%;
-  padding-right: 220px;
-}
-
 .airport-name-inline {
   position: absolute;
   right: 12px;
@@ -1447,6 +1447,10 @@ canvas {
   text-overflow: ellipsis;
   max-width: 200px; 
 }
+
+/* ========================================
+   14. TOGGLE OVERLAYS
+   ======================================== */
 
 .airport-toggle-overlay {
   bottom: 170px;
@@ -1545,6 +1549,10 @@ canvas {
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* ========================================
+   15. FOOTER
+   ======================================== */
+
 .footer-info {
   position: absolute;
   bottom: 20px;
@@ -1587,61 +1595,10 @@ canvas {
   transform: rotate(90deg);
 }
 
-/* Navigation links */
-.nav-link {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px 0;
-  text-align: left;
-  transition: color 0.2s;
-  display: inline-flex;
-  align-items: center;
-}
+/* ========================================
+   16. TORCH EFFECT
+   ======================================== */
 
-.nav-link:hover {
-  color: rgba(255, 255, 255, 1);
-}
-
-/* Accordion chevron */
-.nav-chevron {
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: transform 0.2s ease, opacity 0.2s;
-  transform: rotate(0deg);
-  margin-left: 5px;
-  vertical-align: middle;
-}
-
-.nav-chevron.open {
-  transform: rotate(180deg);
-  opacity: 1;
-}
-
-.nav-link:hover .nav-chevron {
-  opacity: 1;
-}
-
-.bw-mode .nav-chevron {
-  color: var(--bw-text-secondary);
-}
-
-/* Tagline below logo */
-.nav-tagline {
-  margin: 12px 0 18px 0;
-  padding: 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.bw-mode .nav-tagline {
-  color: var(--bw-text-secondary);
-}
-
-/* Torch reveal effect on tagline words */
 .tagline-word {
   --torch-x: -240px;
   --torch-y: -240px;
@@ -1694,73 +1651,44 @@ canvas {
   filter: none;
 }
 
-/* Side panel overlay */
-.side-panel-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  display: flex;
-  justify-content: flex-end;
+/* ========================================
+   17. NAVIGATION ACCORDION (desktop)
+   ======================================== */
+
+.nav-chevron {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s;
+  transform: rotate(0deg);
+  margin-left: 5px;
+  vertical-align: middle;
 }
 
-/* Side panel */
-.side-panel {
-  width: 500px;
-  max-width: 90vw;
-  height: 100vh;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
-  overflow-y: auto;
-  animation: slideIn 0.3s ease-out;
+.nav-chevron.open {
+  transform: rotate(180deg);
+  opacity: 1;
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+.nav-link:hover .nav-chevron {
+  opacity: 1;
 }
 
-/* Side panel header */
-.side-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 30px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.bw-mode .nav-chevron {
+  color: var(--bw-text-secondary);
 }
 
-.side-panel-header h2 {
-  margin: 0;
-  color: #fff;
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 32px;
-  cursor: pointer;
+.nav-tagline {
+  margin: 12px 0 18px 0;
   padding: 0;
-  line-height: 1;
-  transition: color 0.2s;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.close-button:hover {
-  color: #fff;
+.bw-mode .nav-tagline {
+  color: var(--bw-text-secondary);
 }
 
-/* Navigation accordion */
 .nav-accordion {
   position: absolute;
   top: 92px;
@@ -1857,28 +1785,6 @@ canvas {
   margin-top: 0;
 }
 
-@keyframes expandDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes collapseUp {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
 .accordion-content h1 {
   font-size: 16px;
   margin: 0 0 12px 0;
@@ -1920,18 +1826,6 @@ canvas {
 
 .accordion-less {
   margin-bottom: 0;
-}
-
-.result-row-double {
-  display: flex;
-  gap: 60px;
-  margin-bottom: 6px;
-}
-
-.result-item {
-  display: flex;
-  justify-content: space-between;
-  flex: 1;
 }
 
 .bw-toggle-overlay {
@@ -2046,7 +1940,7 @@ canvas {
 }
 
 /* ========================================
-   MOBILE RESPONSIVE STYLES
+   18. MOBILE MENU & HAMBURGER
    ======================================== */
 
 /* Hamburger menu button */
@@ -2475,7 +2369,10 @@ canvas {
   margin: 0 6px;
 }
 
-/* Tablet and below - 768px */
+/* ========================================
+   19. MEDIA: TABLET (max-width: 768px)
+   ======================================== */
+
 @media (max-width: 768px) {
   /* Logo - smaller on tablet */
   .info-overlay {
@@ -2497,8 +2394,19 @@ canvas {
   /* Flight input panel - narrower */
   .flight-input {
     width: 340px;
+    min-height: 216px;
     top: 16px;
     padding: 18px;
+  }
+
+  .panel-header {
+    margin: -18px -18px 16px -18px;
+    padding: 16px 18px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .flight-input.collapsed .panel-header {
+    margin: -8px -18px -6px -18px;
   }
 
   .flight-input.fading {
@@ -2546,7 +2454,10 @@ canvas {
   }
 }
 
-/* Mobile landscape and portrait - 600px */
+/* ========================================
+   20. MEDIA: MOBILE (max-width: 600px)
+   ======================================== */
+
 @media (max-width: 600px) {
 
   /* Fix Safari mobile viewport - full screen */
@@ -2564,19 +2475,19 @@ canvas {
   bottom: 0;
 }
 
-
 /* ===== MOBILE HEADER LAYOUT ===== */
   
   /* Logo - left aligned */
   .info-overlay {
-    top: 26px;
+    top: 30px;
     left: 16px;
     transform: none;
+    z-index: 300;
   }
   
   .info-overlay .logo {
     height: 26px;
-    margin-top: 2px;  /* Fine-tune vertical alignment */
+    margin-top: 2px; 
   }
   
   /* Nav accordion - hide on mobile */
@@ -2600,17 +2511,15 @@ canvas {
   }
   
   /* Flight input panel - centered between logo and hamburger */
-  .flight-input {
-    width: 100%;
+ .flight-input-wrapper {
+    top: 70px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: auto;
     max-width: none;
-    top: auto;
-    padding: 16px 20px !important;
-    border-radius: 24px;
-    transition: opacity 0.2s ease !important;
-    z-index: 300;
   }
-  
-/* Collapsed panel - right aligned, next to hamburger */
+
   .flight-input-wrapper.collapsed {
     top: 20px;
     left: auto;
@@ -2618,6 +2527,17 @@ canvas {
     transform: none;
     width: auto;
     max-width: none;
+  }
+
+  .flight-input {
+    width: calc(100vw - 36px);
+    max-width: 356px;
+    min-height: 208px;
+    top: auto;
+    padding: 16px 20px 8px !important;
+    border-radius: 24px;
+    transition: opacity 0.2s ease !important;
+    z-index: 300;
   }
 
   .flight-input.collapsed {
@@ -2643,8 +2563,8 @@ canvas {
   }
 
   .flight-input.collapsed .collapse-button {
-  width: 16px !important;
-  height: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
   } 
 
   .flight-input.collapsed .panel-content {
@@ -2659,32 +2579,19 @@ canvas {
     transition: none !important;
   }
 
- .flight-input-wrapper {
-    top: 70px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100vw - 32px);
-    max-width: 380px;
+  .flight-input.route-mode {
+    min-height: 0;
   }
 
   .panel-header {
     transition: none !important;
-    margin-bottom: 16px;
-    margin-left: -20px;
-    margin-right: -20px;
-    padding-left: 20px;
-    padding-right: 20px;
+    margin: -16px -20px 16px -20px;
+    padding: 16px 20px;
     border-radius: 24px 24px 0 0;
   }
 
   .flight-input.collapsed .panel-header h3 {
     transition: none !important;
-  }
-
-  .flight-input h3 {
-    transition: none !important;
-    margin-top: 0;
-    margin-bottom: 0;
   }
 
  .flight-action-row {
@@ -2695,17 +2602,18 @@ canvas {
 
   .datetime-pill {
     flex: 3;
-    padding: 10px 14px;
+    padding: 10px 16px;
   }
 
   .calculate-pill {
     flex: 1;
-    padding: 10px 14px;
+    padding: 10px 16px;
     white-space: nowrap;
+    text-align: center;
   }
 
   .column-label {
-    margin-bottom: 0;
+    margin-bottom: 6px;
   }
 
   .airport-columns .airport-column:first-child .autocomplete-dropdown {
@@ -2721,11 +2629,17 @@ canvas {
   }
 
   .airport-columns .input-group input {
-    font-size: 16px;
+    font-size: 18px;
+    padding: 6px 12px;
+  }
+
+  .airport-columns.route-mode .input-clear-btn {
+    right: -2px;
   }
 
   .airport-details {
     margin-top: 0;
+    margin-bottom: 10px;
   }
 
   .airport-details .airport-city,
@@ -2743,22 +2657,14 @@ canvas {
   }
 
   .airport-columns.route-mode .swap-airports-column {
-    padding-top: 34px;
-  }
-
-  .datetime-pill {
-    padding: 10px 16px;
-  }
-
-  .calculate-pill {
-    padding: 10px 16px;
-    text-align: center;
+    padding-top: 38px;
   }
 
   .panel-subtitle {
     transition: none !important;
     font-size: 12px;
-    padding: 0 8px;
+    margin: 0 0 24px 0;
+    padding: 0;
   }
 
   .subtitle-daylight {
@@ -2804,24 +2710,17 @@ canvas {
     opacity: 0.9;
   }
 
-  .datetime-group {
-    transition: none !important;
-  }
-  
-  /* Header elements - visually centered */
-  .info-overlay {
-    top: 30px;
-    z-index: 300;
-  }
-  
+  /* Header elements - visually centered */  
+
   .hamburger-button {
     top: 22px;
   }
   
   .flight-input h3 {
+    transition: none !important;
     font-size: 16px;
-    margin-bottom: 14px;
     margin-top: 12px;
+    margin-bottom: 10px;
   }
   
   .flight-input.collapsed h3 {
@@ -2846,22 +2745,11 @@ canvas {
     max-height: 180px;
   }
   
-  /* Results panel - more compact */
-  .results-panel {
-    margin-top: 16px;
-    padding: 12px;
-    font-size: 11px;
-  }
-  
-  .result-row-double {
-    gap: 40px;
-  }
-  
   /* Animation controls - keep horizontal layout like desktop but smaller */
   .animation-controls {
     min-width: 0 !important;
-    width: calc(100vw - 48px);
-    max-width: 420px;
+    width: calc(100vw - 36px);
+    max-width: 356px;
     bottom: 12px;
     padding: 10px 13px 10px !important;
   }
@@ -2947,59 +2835,16 @@ canvas {
     padding: 9px 20px;
   }
   
-  /* Toggle overlays - keep all visible, move higher to avoid footer */
-  .toggle-overlay {
-    left: 16px;
-  }
-  
-  .bw-toggle-overlay {
-    bottom: 280px;
-  }
-  
-  .follow-toggle-overlay {
-    bottom: 250px;
-  }
-  
-  .airport-toggle-overlay {
-    bottom: 200px;
-  }
-  
-  .graticule-toggle-overlay {
-    bottom: 170px;
-  }
-  
-  .timezone-toggle-overlay {
-    bottom: 140px;
-  }
-  
-  .twilight-toggle-overlay {
-    bottom: 110px;
-  }
-  
-  .toggle-overlay label {
-    font-size: 12px;
-  }
-  
-  /* Footer - keep visible but smaller, move to left to avoid animation controls */
-  .footer-info {
-    left: 16px;
-    right: auto;
-    bottom: 12px;
-    font-size: 9px;
-  }
-  
-  .footer-info .github-icon {
-    width: 10px;
-    height: 10px;
-    margin-right: 4px;
-  }
-
   /* Hide toggles on mobile - now in hamburger menu */
   .airport-toggle-overlay,
   .graticule-toggle-overlay,
   .timezone-toggle-overlay,
   .twilight-toggle-overlay {
     display: none;
+  }
+
+  .toggle-overlay label {
+    font-size: 12px;
   }
 
   /* Dynamic toggle positions - bottom by default */
@@ -3017,14 +2862,6 @@ canvas {
     left: auto;
     right: 16px;
     transition: opacity 0.3s ease;
-  }
-
-  .app.has-flight .bw-toggle-overlay {
-    bottom: auto;
-  }
-
-  .app.has-flight .follow-toggle-overlay {
-    bottom: auto;
   }
 
   .bw-toggle-overlay label,
@@ -3142,7 +2979,10 @@ canvas {
   
 }
 
-/* Very small mobile - 400px and below */
+/* ========================================
+   21. MEDIA: SMALL MOBILE (max-width: 400px)
+   ======================================== */
+
 @media (max-width: 400px) {
 
   .info-overlay {
@@ -3159,7 +2999,18 @@ canvas {
     border-radius: 24px;
     transition: opacity 0.2s ease !important;
     z-index: 300;
-    min-height: 0;
+    min-height: 208px;
+  }
+
+  .panel-header {
+    transition: none !important;
+    margin: -16px -20px 16px -20px;
+    padding: 16px 20px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .flight-input.collapsed .panel-header {
+    margin: -8px -14px -6px -14px;
   }
   
   .flight-input.collapsed {
@@ -3229,7 +3080,10 @@ canvas {
   }
 }
 
-/* Landscape orientation adjustments */
+/* ========================================
+   22. MEDIA: LANDSCAPE
+   ======================================== */
+
 @media (max-height: 600px) and (orientation: landscape) {
   .flight-input {
     top: 12px;
@@ -3284,7 +3138,10 @@ canvas {
   }
 }
 
-/* Touch interaction improvements */
+/* ========================================
+   23. MEDIA: TOUCH DEVICES
+   ======================================== */
+
 @media (hover: none) and (pointer: coarse) {
   /* Larger touch targets */
   .flight-input button:not(:disabled),
