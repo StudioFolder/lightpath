@@ -124,8 +124,8 @@ export default function FlightInputPanel({
           } : undefined}
         >
           {isMobile 
-            ? <>Explore how your flight traverses<br /> <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span>.</>
-            : <>Explore how your flight traverses<br /> <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.</>
+            ? <>Trace your flight through<br /> <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span></>
+            : <>Trace your flight through<br /> <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span></>
           }
         </p>
 
