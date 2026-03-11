@@ -550,9 +550,9 @@ canvas {
 }
 
 .flight-input {
-  background: rgba(30, 30, 30, 0.3);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(30, 30, 30, 0.25);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border: none;
   padding: 16px 24px;
   margin-left: auto;
@@ -752,9 +752,9 @@ canvas {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.3);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(30, 30, 30, 0.25);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border: none;
   padding: 20px 20px 14px;
   border-radius: 24px;
@@ -950,8 +950,8 @@ canvas {
 }
 
 .flight-input.collapsed {
-  padding-bottom: 6px;  
-  width: 260px;
+  padding: 10px 24px 6px;
+  width: 216px;
   border-radius: 36px;
   min-height: 0;
 }
@@ -969,13 +969,15 @@ canvas {
 
 .flight-input.collapsed .panel-header {
   background: transparent;
-  margin: -16px -24px -6px -24px;
+  margin: -6px -24px;
+  padding: 12px 24px 16px;
   height: auto;
   transition: margin-bottom 0.25s ease-in;
 }
 
 .flight-input.collapsed .panel-header h3 {
-  margin-bottom: 0;
+  margin: 0;
+  line-height: 1;
   transition: margin-bottom 0.25s ease-in;
 }
 
@@ -1051,6 +1053,7 @@ canvas {
   opacity: 0;
   max-height: 0;
   margin: 0;
+  padding: 0;
   overflow: hidden;
   transition: max-height 0.25s ease-in, opacity 0.2s ease-in, margin 0.25s ease-in;
 }
@@ -1180,7 +1183,7 @@ canvas {
 }
 
 .airport-columns .input-group input:focus {
-  background: rgba(20, 20, 20, 0.5);
+  background: transparent;
 }
 
 .airport-columns .input-group input::placeholder {
@@ -1385,7 +1388,7 @@ canvas {
   -webkit-backdrop-filter: blur(20px);
   border: none;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  border-radius: 24px;
+  border-radius: 32px;
   padding: 12px 20px;
   position: relative;
   overflow: hidden;
@@ -1414,7 +1417,7 @@ canvas {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  border-radius: 24px;
+  border-radius: 32px;
   padding: 12px 20px;
   color: white;
   font-size: 13px;
@@ -2429,7 +2432,7 @@ canvas {
   }
   
   .time-value {
-    font-size: 24px;
+    font-size: 28px;
   }
   
   /* Footer - smaller text */
@@ -2783,7 +2786,7 @@ canvas {
   }
   
   .time-value {
-    font-size: 20px;
+    font-size: 22px;
     order: 2;
     align-self: center;
   }
@@ -3052,7 +3055,7 @@ canvas {
   }
   
   .time-value {
-    font-size: 18px;
+    font-size: 22px;
   }
   
   .animation-distance {
