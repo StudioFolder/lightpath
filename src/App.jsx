@@ -2917,7 +2917,7 @@ function App() {
                 </a>
                 <span className="separator">·</span>
                 <span>Made by</span>
-                <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>
+                <a href="https://studiofolder.it" target="_blank" rel="noopener noreferrer">Studio Folder</a>(2026)
                 <span className="separator">·</span>
                 <a href="mailto:lightpath@studiofolder.it">Get in touch</a>
               </div>
