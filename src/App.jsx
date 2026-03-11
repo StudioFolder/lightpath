@@ -2756,7 +2756,7 @@ function App() {
     }, [isBWMode])
 
     return (
-      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
+      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showFlightStats ? 'stats-visible' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
         <div className="info-overlay">
           <img 
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
