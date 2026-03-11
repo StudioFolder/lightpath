@@ -1500,7 +1500,7 @@ function App() {
             depthTest: true
           })
           const sprite = new THREE.Sprite(material)
-          sprite.scale.set((isMobile ? 0.28 : 0.20) * elementScale, (isMobile ? 0.10 : 0.07) * elementScale, 1)
+          sprite.scale.set((isMobile ? 0.22 : 0.20) * elementScale, (isMobile ? 0.08 : 0.07) * elementScale, 1)
           sprite.visible = false
           
           sprite.userData.transitionT = trans.t
@@ -1533,7 +1533,7 @@ function App() {
           sizeAttenuation: true,
         })
         const sprite = new THREE.Sprite(material)
-        sprite.scale.set((isMobile ? 0.16 : 0.16) * elementScale, (isMobile ? 0.06 : 0.06) * elementScale, 1)
+        sprite.scale.set((isMobile ? 0.22 : 0.16) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
         return sprite
       }
 
