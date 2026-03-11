@@ -2849,19 +2849,27 @@ canvas {
 
   /* Dynamic toggle positions - bottom by default */
   .bw-toggle-overlay {
-    top: 90px;
-    bottom: auto;
-    left: auto;
-    right: 16px;
-    transition: opacity 0.3s ease;
+    top: auto !important;
+    bottom: 28px !important;
+    left: auto !important;
+    right: 16px !important;
+    transition: opacity 0.3s ease, bottom 0.3s ease;
   }
 
   .follow-toggle-overlay {
-    top: 124px;
-    bottom: auto;
-    left: auto;
-    right: 16px;
-    transition: opacity 0.3s ease;
+    top: auto !important;
+    bottom: 62px !important;
+    left: auto !important;
+    right: 16px !important;
+    transition: opacity 0.3s ease, bottom 0.3s ease;
+  }
+
+  .app.has-flight .bw-toggle-overlay {
+    bottom: 230px !important;
+  }
+
+  .app.has-flight .follow-toggle-overlay {
+    bottom: 264px !important;
   }
 
   .bw-toggle-overlay label,
