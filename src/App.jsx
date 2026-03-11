@@ -58,7 +58,7 @@ function App() {
   const [isPanelFading, setIsPanelFading] = useState(false)
   const [autoRotate, setAutoRotate] = useState(true)
   const [isBWMode, setIsBWMode] = useState(false)
-  const [followPlaneMode, setFollowPlaneMode] = useState(false)
+  const [followPlaneMode, setFollowPlaneMode] = useState(true)
   const [showTwilightLines, setShowTwilightLines] = useState(false) 
   
   // Accordion/Info State
@@ -1533,20 +1533,45 @@ function App() {
           sizeAttenuation: true,
         })
         const sprite = new THREE.Sprite(material)
-        sprite.scale.set((isMobile ? 0.22 : 0.16) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
+        sprite.scale.set((isMobile ? 0.22 : 0.20) * elementScale, (isMobile ? 0.08 : 0.07) * elementScale, 1)
         return sprite
       }
 
       // Determine label placement direction based on flight path orientation
       // Labels go on the opposite side of the dot from the path direction
-      const latDiff = arrival.lat - departure.lat
-      // East-west threshold: at 0.3, flights need <30% lat-vs-lon ratio to count as east-west
-      const isEastWest = Math.abs(latDiff) < Math.abs(arrival.lon - departure.lon) * 0.3
+      // Sample actual path direction at each endpoint using great circle interpolation
+      // This handles polar routes correctly (where straight lat diff is misleading)
+      const sampleFraction = 0.02  // Sample 2% along the path
+      const angDist = Math.acos(
+        Math.sin(departure.lat * Math.PI / 180) * Math.sin(arrival.lat * Math.PI / 180) +
+        Math.cos(departure.lat * Math.PI / 180) * Math.cos(arrival.lat * Math.PI / 180) *
+        Math.cos((arrival.lon - departure.lon) * Math.PI / 180)
+      )
 
-      // For departure: path heads toward arrival
-      // For arrival: path arrives from departure
-      const departureLabelSouth = isEastWest || latDiff > 0  // path goes north → label south
-      const arrivalLabelSouth = isEastWest || latDiff < 0    // path comes from north → label south
+      // Point near departure (path direction leaving departure)
+      const aStart = Math.sin((1 - sampleFraction) * angDist) / Math.sin(angDist)
+      const bStart = Math.sin(sampleFraction * angDist) / Math.sin(angDist)
+      const lat1r = departure.lat * Math.PI / 180
+      const lon1r = departure.lon * Math.PI / 180
+      const lat2r = arrival.lat * Math.PI / 180
+      const lon2r = arrival.lon * Math.PI / 180
+      const xS = aStart * Math.cos(lat1r) * Math.cos(lon1r) + bStart * Math.cos(lat2r) * Math.cos(lon2r)
+      const yS = aStart * Math.cos(lat1r) * Math.sin(lon1r) + bStart * Math.cos(lat2r) * Math.sin(lon2r)
+      const zS = aStart * Math.sin(lat1r) + bStart * Math.sin(lat2r)
+      const nearDepLat = Math.atan2(zS, Math.sqrt(xS * xS + yS * yS)) * 180 / Math.PI
+
+      // Point near arrival (path direction arriving at arrival)
+      const aEnd = Math.sin(sampleFraction * angDist) / Math.sin(angDist)
+      const bEnd = Math.sin((1 - sampleFraction) * angDist) / Math.sin(angDist)
+      const xE = aEnd * Math.cos(lat1r) * Math.cos(lon1r) + bEnd * Math.cos(lat2r) * Math.cos(lon2r)
+      const yE = aEnd * Math.cos(lat1r) * Math.sin(lon1r) + bEnd * Math.cos(lat2r) * Math.sin(lon2r)
+      const zE = aEnd * Math.sin(lat1r) + bEnd * Math.sin(lat2r)
+      const nearArrLat = Math.atan2(zE, Math.sqrt(xE * xE + yE * yE)) * 180 / Math.PI
+
+      // Path heads north from departure → label goes south (and vice versa)
+      const departureLabelSouth = nearDepLat > departure.lat
+      // Path arrives from north to arrival → label goes south (and vice versa)
+      const arrivalLabelSouth = nearArrLat > arrival.lat
 
       // Create labels with offset — positioned away from the flight path
       const createLabelWithOffset = async (code, lat, lon, iconSrc, placeSouth) => {
@@ -1554,7 +1579,7 @@ function App() {
         const basePos = latLonToVector3(lat, lon, 2.05)
         const offsetLat = placeSouth ? lat - 0.5 : lat + 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offsetDistance = placeSouth ? 0.075 : 0.025
+        const offsetDistance = placeSouth ? 0.075 : 0.055
         const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(offsetDistance * elementScale)
         label.position.copy(basePos.add(offset))
         return label
@@ -2380,7 +2405,7 @@ function App() {
 
       // Scale plane icon for flight distance
       const { scaleFactor } = getFlightScale(distance)
-      const planeScale = scaleFactor * viewportScaleRef.current
+      const planeScale = scaleFactor * viewportScaleRef.current * (isMobile ? 1 : 1.2)
       if (planeIconRef.current) {
         planeIconRef.current.scale.set(planeScale, 1, planeScale)
       }
