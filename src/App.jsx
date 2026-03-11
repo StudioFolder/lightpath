@@ -2990,7 +2990,7 @@ function App() {
               checked={showAirports}
               onChange={(e) => setShowAirports(e.target.checked)}
             />
-            <span>(A) Airports</span>
+            <span><span className="key-circle">Ⓐ</span> <span className="toggle-label-text">Airports</span></span>
           </label>
         </div>
 
@@ -3004,7 +3004,7 @@ function App() {
                 if (e.target.checked) setShowTimezones(false)
               }}
             />
-            <span>(G) Graticule</span>
+            <span><span className="key-circle">Ⓖ</span> <span className="toggle-label-text">Graticule</span></span>
           </label>
         </div>
 
@@ -3015,7 +3015,7 @@ function App() {
               checked={showTwilightLines}
               onChange={(e) => setShowTwilightLines(e.target.checked)}
             />
-            <span>(L) Twilight</span>
+            <span><span className="key-circle">Ⓛ</span> <span className="toggle-label-text">Twilight</span></span>
           </label>
         </div>
 
@@ -3029,7 +3029,7 @@ function App() {
                 if (e.target.checked) setShowGraticule(false)
               }}
             />
-            <span>(T) Timezones</span>
+            <span><span className="key-circle">Ⓣ</span> <span className="toggle-label-text">Timezones</span></span>
           </label>
         </div>
 

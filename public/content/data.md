@@ -6,3 +6,6 @@
 
 ## Libraries
 [Three.js](https://github.com/mrdoob/three.js/), [React](https://react.dev/), [Luxon](https://github.com/moment/luxon/), [SunCalc](https://cran.r-project.org/web/packages/SunCalcMeeus/index.html)
+
+## Typography
+[ABC Repro](https://abcdinamo.com/typefaces/repro), [LL Rephlex](https://lineto.com/typefaces/rephlex)

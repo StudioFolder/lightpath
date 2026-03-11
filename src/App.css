@@ -1559,6 +1559,17 @@ canvas {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.key-circle {
+  font-feature-settings: "ss16";
+  font-size: 20px;
+  font-weight: 240;
+}
+
+.toggle-label-text {
+  position: relative;
+  top: -2px;
+}
+
 /* ========================================
    15. FOOTER
    ======================================== */
