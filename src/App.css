@@ -2866,10 +2866,20 @@ canvas {
 
   .app.has-flight .bw-toggle-overlay {
     bottom: 230px !important;
+    transition: bottom 0.3s ease !important;
   }
 
   .app.has-flight .follow-toggle-overlay {
     bottom: 264px !important;
+    transition: bottom 0.3s ease !important;
+  }
+
+  .app.has-flight.stats-visible .bw-toggle-overlay {
+    bottom: 280px !important;
+  }
+
+  .app.has-flight.stats-visible .follow-toggle-overlay {
+    bottom: 314px !important;
   }
 
   .bw-toggle-overlay label,
