@@ -24,5 +24,8 @@ dist-ssr
 *.sw?
 data/
 
+# Private documentation (kept locally)
+docs/
+
 # Environment variables
 .env.local
