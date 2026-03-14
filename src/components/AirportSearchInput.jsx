@@ -130,8 +130,13 @@ export default function AirportSearchInput({ label, code, airport, searchAirport
                   setShowSuggestions(false)
                 }}
               >
-                <span className="autocomplete-code">{result.code}</span>
-                <span className="autocomplete-city">{result.city}, {result.country}</span>
+                <div className="autocomplete-line-1">
+                  <span className="autocomplete-code">{result.code}</span>
+                  <span className="autocomplete-name">{result.name}</span>
+                </div>
+                <div className="autocomplete-line-2">
+                  <span className="autocomplete-city">{result.city}, {result.country}</span>
+                </div>
               </div>
             ))}
           </div>

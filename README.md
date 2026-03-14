@@ -39,15 +39,23 @@ Lightpath calculates the flight trajectory between any two airports and visualiz
 ## Project structure
 ```
 src/
-├── App.jsx              # Main component 
+├── App.jsx              # Main component
 ├── App.css              # All styles
+├── components/
+│   ├── AirportSearchInput.jsx
+│   ├── FlightInputPanel.jsx
+│   └── AnimationControls.jsx
 └── utils/
     ├── geoUtils.js      # Coordinate conversion
     ├── solarUtils.js    # Solar position calculations
     ├── sceneUtils.js    # Label texture generation
     └── animationUtils.js # Fade animations
 
+scripts/
+└── build-airports.js    # OurAirports CSV → airports.json
+
 public/
+├── airports.json        # Pre-built airport database (~8,400 airports)
 ├── earth-texture.png    # Custom Earth texture
 ├── graticule-10.geojson # Latitude/longitude grid
 ├── timezones.geojson    # Timezone boundaries
@@ -71,7 +79,7 @@ npm run build
 
 ## Credits
 
-Airport data: [OpenFlights](https://openflights.org/data.html)  
+Airport data: [OurAirports](https://ourairports.com/data/)
 Astronomical calculations: [solar-calculator](https://www.npmjs.com/package/solar-calculator) (NOAA) and [suncalc](https://github.com/mourner/suncalc) (Jean Meeus)   
 
 Designed and developed by [Studio Folder](https:www.studiofolder.it)

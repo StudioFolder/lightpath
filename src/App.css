@@ -337,6 +337,36 @@ body:has(.bw-mode) {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
+.bw-mode .autocomplete-dropdown {
+  background: rgba(245, 245, 245, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--bw-border-light);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.bw-mode .autocomplete-item {
+  color: var(--bw-text-primary);
+  border-bottom: 1px solid rgba(40, 40, 40, 0.1);
+}
+
+.bw-mode .autocomplete-item:hover,
+.bw-mode .autocomplete-item.selected {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.bw-mode .autocomplete-code {
+  color: var(--bw-text-dark);
+}
+
+.bw-mode .autocomplete-name {
+  opacity: 0.9;
+}
+
+.bw-mode .autocomplete-city {
+  opacity: 0.5;
+}
+
 .bw-mode .animation-controls {
   border: 1px solid var(--bw-border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
@@ -436,11 +466,14 @@ canvas {
   -webkit-backdrop-filter: blur(20px);
   border-radius: 24px;
   margin-top: 4px;
-  max-height: 200px;
+  max-height: 320px;
   overflow-y: auto;
   z-index: 1000;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.05);
+  scrollbar-width: none;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar {
+  display: none;
 }
 
 .airport-columns .autocomplete-dropdown {
@@ -449,32 +482,15 @@ canvas {
   transform: translateX(-50%);
 }
 
-/* Custom scrollbar for autocomplete dropdown */
-.autocomplete-dropdown::-webkit-scrollbar {
-  width: 8px;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
 .autocomplete-item {
   padding: 10px 12px;
+  padding-left: 24px;
   cursor: pointer;
   color: #fff;
-  font-size: 13px;
   text-align: left;
-  padding-left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   transition: background 0.15s;
 }
@@ -488,15 +504,33 @@ canvas {
   background: rgba(255, 255, 255, 0.15);
 }
 
+.autocomplete-line-1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .autocomplete-code {
+  font-family: 'ABCReproMono', monospace;
   font-weight: 600;
-  font-size: 14px;
-  margin-right: 8px;
+  font-size: 13px;
+}
+
+.autocomplete-name {
+  font-size: 12px;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.autocomplete-line-2 {
+  padding-left: 32px;
 }
 
 .autocomplete-city {
   font-size: 12px;
-  opacity: 0.8;
+  opacity: 0.4;
 }
 
 /* ── Clear button inside selected input ── */
@@ -1953,7 +1987,7 @@ canvas {
 
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #2d2e2f;
+  background-color: #111111;
 }
 
 .toggle-switch input:checked + .toggle-slider:before {

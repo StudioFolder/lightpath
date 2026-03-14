@@ -1,5 +1,5 @@
 ## Layers
-- Airports: [OpenFlights](https://openflights.org)
+- Airports: [OurAirports](https://github.com/davidmegginson/ourairports-data)
 - Timezones: [tz-lookup](https://github.com/darkskyapp/tz-lookup-oss)
 - Coastline: [GSHHG/NOAA](https://www.ngdc.noaa.gov/mgg/shorelines/shorelines.html)
 - Graticule: [Natural Earth](https://www.naturalearthdata.com/)
