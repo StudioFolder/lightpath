@@ -357,31 +357,24 @@ function App() {
         }
       }
 
-    // Load airport data from OpenFlights
-    fetch('https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat')
-    .then(res => res.text())
+    // Load airport data from local JSON (built from OurAirports)
+    fetch('/airports.json')
+    .then(res => res.json())
     .then(data => {
-      // Parse CSV format
-      const lines = data.split('\n')
       const airportMap = {}
-      
-      lines.forEach(line => {
-        const parts = line.split(',').map(s => s.replace(/"/g, ''))
-        if (parts.length >= 8) {
-          const iata = parts[4]  // IATA code
-          const name = parts[1]
-          const city = parts[2]
-          const country = parts[3]  // Country code
-          const lat = parseFloat(parts[6])
-          const lon = parseFloat(parts[7])
-          
-          // Only include airports with valid IATA codes
-          if (iata && iata !== '\\N' && iata.length === 3) {
-            airportMap[iata] = { name, city, country, lat, lon }
-          }
+      data.forEach(a => {
+        airportMap[a.iata] = {
+          name: a.name,
+          city: a.municipality,
+          country: a.country,
+          iso: a.iso,
+          icao: a.icao,
+          lat: a.lat,
+          lon: a.lon,
+          type: a.type,
+          score: a.score,
         }
       })
-      
       setAirports(airportMap)
     })
     .catch(err => console.error('Error loading airports:', err))
@@ -1614,15 +1607,20 @@ function App() {
       
       // Create points for all airports
       const positions = []
+      const colors = []
       const airportList = Object.values(airports)
-      
+
       airportList.forEach(airport => {
         const pos = latLonToVector3(airport.lat, airport.lon, 2.005)
         positions.push(pos.x, pos.y, pos.z)
+        const bright = airport.type === 'large'
+        const c = isBWMode ? 0 : (bright ? 1 : 0.55)
+        colors.push(c, c, c)
       })
-      
+
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
       
       // Create circular texture for round dots
       const canvas = document.createElement('canvas')
@@ -1636,13 +1634,14 @@ function App() {
       const circleTexture = new THREE.CanvasTexture(canvas)
 
       const material = new THREE.PointsMaterial({
-        color: isBWMode ? 0x000000 : 0xffffff,
-        size: isBWMode ? 2.0 : 1.8,
+        vertexColors: true,
+        size: isBWMode ? 2.5 : 2.3,
         sizeAttenuation: false,
         transparent: true,
         opacity: 0,  // Start invisible
         map: circleTexture,
-        alphaMap: circleTexture
+        alphaMap: circleTexture,
+        alphaTest: 0.5
       })
 
       const points = new THREE.Points(geometry, material)
@@ -2446,8 +2445,9 @@ function App() {
       const upperQuery = query.toUpperCase()
       const exactCodeMatches = []
       const codeStartMatches = []
-      const nameStartMatches = []
-      
+      const cityMatches = []
+      const airportNameMatches = []
+
       // Search through all airports
       for (const [code, airport] of Object.entries(airports)) {
         // Exact IATA code match (e.g., "CAT" matches "CAT")
@@ -2458,20 +2458,24 @@ function App() {
         else if (code.startsWith(upperQuery)) {
           codeStartMatches.push({ code, ...airport })
         }
-        // City name starts with query (e.g., "CAT" matches "Catania")
-        else if (airport.city.toUpperCase().startsWith(upperQuery)) {
-          nameStartMatches.push({ code, ...airport })
+        // City name contains query (e.g., "York" matches "New York")
+        else if (airport.city.toUpperCase().includes(upperQuery)) {
+          cityMatches.push({ code, ...airport })
         }
-        
-        // Stop if we have enough results
-        if (exactCodeMatches.length + codeStartMatches.length + nameStartMatches.length >= 8) break
+        // Airport name contains query (e.g., "Milan" matches "Milan Malpensa Airport")
+        else if (airport.name.toUpperCase().includes(upperQuery)) {
+          airportNameMatches.push({ code, ...airport })
+        }
       }
-      
-      // Sort city name matches alphabetically by city name
-      nameStartMatches.sort((a, b) => a.city.localeCompare(b.city))
-      
-      // Return results in priority order: exact codes, then code prefixes, then name prefixes
-      return [...exactCodeMatches, ...codeStartMatches, ...nameStartMatches].slice(0, 8)
+
+      // Sort each category by score descending (highest score first)
+      exactCodeMatches.sort((a, b) => b.score - a.score)
+      codeStartMatches.sort((a, b) => b.score - a.score)
+      cityMatches.sort((a, b) => b.score - a.score)
+      airportNameMatches.sort((a, b) => b.score - a.score)
+
+      // Return results in priority order: exact codes, code prefixes, city matches, airport name matches
+      return [...exactCodeMatches, ...codeStartMatches, ...cityMatches, ...airportNameMatches].slice(0, 8)
     }
 
     const loadMarkdownContent = async (filename, section) => {
@@ -2826,7 +2830,7 @@ function App() {
 
               {aboutContent && (
                 <div className="mobile-menu-about">
-                  <ReactMarkdown>
+                  <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
                     {aboutContent.replace('{version}', packageJson.version)}
                   </ReactMarkdown>
                 </div>
@@ -2844,7 +2848,7 @@ function App() {
               
               {expandedSection === 'data' && dataContent && (
                 <div className="mobile-menu-accordion">
-                  <ReactMarkdown>{dataContent}</ReactMarkdown>
+                  <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
                 </div>
               )}
               
@@ -2959,7 +2963,7 @@ function App() {
 
           {expandedSection === 'about' && aboutContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
-              <ReactMarkdown>
+              <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
                 {aboutContent.replace('{version}', packageJson.version)}
               </ReactMarkdown>
             </div>
@@ -2977,7 +2981,7 @@ function App() {
             
           {expandedSection === 'data' && dataContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
-              <ReactMarkdown>{dataContent}</ReactMarkdown>
+              <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
             </div>
           )}
 
