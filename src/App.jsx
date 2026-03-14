@@ -435,6 +435,7 @@ function App() {
     const earthTexture = new THREE.TextureLoader().load(
       '/earth-texture.png',
       () => {
+        earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
         checkAllLoaded()
       },
       undefined,
@@ -1390,7 +1391,7 @@ function App() {
           new THREE.CatmullRomCurve3(points),
           points.length,
           0.002 * elementScale,
-          8,
+          12,
           false
         )
         const thinTubeMaterial = new THREE.MeshBasicMaterial({ 
@@ -1420,7 +1421,7 @@ function App() {
           new THREE.CatmullRomCurve3(fullProgressPoints),
           fullTubeSegments,
           0.006 * elementScale,
-          8,
+          12,
           false
         )
 
@@ -3139,6 +3140,12 @@ function App() {
           flightResults={flightResults}
           isPanelCollapsed={isPanelCollapsed}
           isBWMode={isBWMode}
+          isPlaying={isPlaying}
+          isMobile={isMobile}
+          getLocalTimeAtAirport={getLocalTimeAtAirport}
+          getLocalDateAtAirport={getLocalDateAtAirport}
+          getTimezoneAbbreviation={getTimezoneAbbreviation}
+          getAirportTimezone={getAirportTimezone}
         />
 
         <canvas ref={canvasRef} />   

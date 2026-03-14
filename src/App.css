@@ -1020,11 +1020,18 @@ canvas {
    9B. SHARE BUTTON
    ======================================== */
 
-.share-button {
+.share-actions {
   position: absolute;
   top: 28px;
   left: calc(50% + 120px);
   z-index: 10;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0px;
+}
+
+.share-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1043,8 +1050,10 @@ canvas {
   transition: opacity 0.2s ease;
 }
 
-.share-button:hover .share-icon {
-  opacity: 0.9;
+@media (hover: hover) {
+  .share-button:hover .share-icon {
+    opacity: 0.9;
+  }
 }
 
 .share-button:disabled {
@@ -1076,8 +1085,108 @@ canvas {
   opacity: 0.6;
 }
 
-.bw-mode .share-button:hover .share-icon {
+@media (hover: hover) {
+  .bw-mode .share-button:hover .share-icon {
+    opacity: 1;
+  }
+}
+
+.copy-url-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 8px;
+  background: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.copy-url-icon-wrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.copy-url-button .copy-url-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+}
+
+/* Copy icon: default state */
+.copy-url-button .copy-url-icon--copy {
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+@media (hover: hover) {
+  .copy-url-button:hover .copy-url-icon--copy {
+    opacity: 0.9;
+  }
+}
+
+/* Tick icon: hidden by default, stroke-dash for draw effect */
+.copy-url-button .copy-url-icon--tick {
+  opacity: 0;
+}
+
+.copy-url-button .copy-url-icon--tick path {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+}
+
+/* Phase 1: fade out copy icon */
+.copy-url-button.phase-1 .copy-url-icon--copy {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Phase 2: draw tick stroke left-to-right */
+.copy-url-button.phase-2 .copy-url-icon--copy {
+  opacity: 0;
+}
+
+.copy-url-button.phase-2 .copy-url-icon--tick {
   opacity: 1;
+}
+
+.copy-url-button.phase-2 .copy-url-icon--tick path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.35s ease-out;
+}
+
+/* Phase 3: fade out tick */
+.copy-url-button.phase-3 .copy-url-icon--copy {
+  opacity: 0;
+}
+
+.copy-url-button.phase-3 .copy-url-icon--tick {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.copy-url-button.phase-3 .copy-url-icon--tick path {
+  stroke-dashoffset: 0;
+}
+
+/* Phase 4: fade copy icon back in */
+.copy-url-button.phase-4 .copy-url-icon--copy {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+/* BW mode */
+.bw-mode .copy-url-button .copy-url-icon--copy {
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .bw-mode .copy-url-button:hover .copy-url-icon--copy {
+    opacity: 1;
+  }
 }
 
 /* ========================================
@@ -2648,10 +2757,15 @@ canvas {
     max-width: none;
   }
 
-  .share-button {
+  .share-actions {
     top: 72px;
     left: auto;
     right: 16px;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .share-actions .share-button {
     width: 44px;
     height: 44px;
     background: none;
@@ -2659,7 +2773,22 @@ canvas {
     -webkit-backdrop-filter: none;
   }
 
-  .share-button .share-icon {
+  .share-actions .copy-url-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .share-actions .share-button .share-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .share-actions .copy-url-icon-wrapper {
+    width: 20px;
+    height: 20px;
+  }
+
+  .share-actions .copy-url-button .copy-url-icon {
     width: 20px;
     height: 20px;
   }
