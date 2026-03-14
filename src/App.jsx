@@ -15,6 +15,7 @@ import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDayl
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
 import FlightInputPanel from './components/FlightInputPanel'
+import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
 import { Analytics } from '@vercel/analytics/react'
 
@@ -79,6 +80,7 @@ function App() {
   const canvasRef = useRef(null)
   const sceneRef = useRef(null)
   const cameraRef = useRef(null)
+  const rendererRef = useRef(null)
   const controlsRef = useRef(null)
   
   // Three.js Scene Objects - Visualization
@@ -400,6 +402,7 @@ function App() {
       canvas: canvasRef.current,
       antialias: true  // smooth edges
     })
+    rendererRef.current = renderer
     const width = window.innerWidth;
     const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     renderer.setSize(width, height);
@@ -1068,6 +1071,7 @@ function App() {
         window.visualViewport.removeEventListener('resize', handleResize)
       }
       renderer.dispose()
+      rendererRef.current = null
     }
   }, [])
 
@@ -3119,6 +3123,22 @@ function App() {
           calculateFlight={calculateFlight}
           getLocalDateTimeString={getLocalDateTimeString}
           getAirportTimezone={getAirportTimezone}
+        />
+
+        <ShareButton
+          rendererRef={rendererRef}
+          sceneRef={sceneRef}
+          progressTubeRef={progressTubeRef}
+          transitionLabelsRef={transitionLabelsRef}
+          flightLineRef={flightLineRef}
+          departureAirport={departureAirport}
+          arrivalAirport={arrivalAirport}
+          departureCode={departureCode}
+          arrivalCode={arrivalCode}
+          departureTime={departureTime}
+          flightResults={flightResults}
+          isPanelCollapsed={isPanelCollapsed}
+          isBWMode={isBWMode}
         />
 
         <canvas ref={canvasRef} />   
