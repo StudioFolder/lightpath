@@ -1183,16 +1183,16 @@ canvas {
   opacity: 0.6;
 }
 
-.bw-mode .copy-url-button.phase-1 .copy-url-icon--copy { opacity: 0; }
-.bw-mode .copy-url-button.phase-2 .copy-url-icon--copy { opacity: 0; }
-.bw-mode .copy-url-button.phase-3 .copy-url-icon--copy { opacity: 0; }
-.bw-mode .copy-url-button.phase-4 .copy-url-icon--copy { opacity: 0.6; }
-
 @media (hover: hover) {
   .bw-mode .copy-url-button:hover .copy-url-icon--copy {
     opacity: 1;
   }
 }
+
+.bw-mode .copy-url-button.phase-1 .copy-url-icon--copy { opacity: 0; }
+.bw-mode .copy-url-button.phase-2 .copy-url-icon--copy { opacity: 0; }
+.bw-mode .copy-url-button.phase-3 .copy-url-icon--copy { opacity: 0; }
+.bw-mode .copy-url-button.phase-4 .copy-url-icon--copy { opacity: 0.6; }
 
 /* ========================================
    10. FLIGHT INPUT PANEL — PANEL HEADER
