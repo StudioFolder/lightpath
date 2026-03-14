@@ -17,27 +17,26 @@ export default function ShareButton({
   isPanelCollapsed,
   isBWMode,
 }) {
-  const [readyBlob, setReadyBlob] = useState(null)
-  const [readyFilename, setReadyFilename] = useState(null)
+  const [isCapturing, setIsCapturing] = useState(false)
 
   useEffect(() => {
     preloadLogo(true)
     preloadLogo(false)
   }, [])
 
-  useEffect(() => {
-    if (!isPanelCollapsed) {
-      setReadyBlob(null)
-      setReadyFilename(null)
-      return
-    }
+  if (!isPanelCollapsed) return null
+
+  const handleClick = async () => {
+    if (isCapturing) return
     if (!rendererRef.current || !sceneRef.current || !flightResults) return
 
-    let cancelled = false
+    setIsCapturing(true)
 
-    async function preCapture() {
-      try {
-        const blob = await captureFlightImage(
+    try {
+      // Run capture and a minimum 300ms delay in parallel
+      // so the pulse animation always plays fully
+      const [blob] = await Promise.all([
+        captureFlightImage(
           rendererRef.current,
           sceneRef.current,
           progressTubeRef.current,
@@ -49,49 +48,28 @@ export default function ShareButton({
             distance: flightResults.distance,
           },
           isBWMode
-        )
-        if (!cancelled) {
-          const dateStr = departureTime
-            ? departureTime.toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0]
-          setReadyBlob(blob)
-          setReadyFilename(`lightpath-${departureCode}-${arrivalCode}-${dateStr}.png`)
-        }
-      } catch (err) {
-        console.error('Pre-capture failed:', err)
-      }
-    }
+        ),
+        new Promise(r => setTimeout(r, 300)),
+      ])
 
-    preCapture()
+      const dateStr = departureTime
+        ? departureTime.toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0]
+      const filename = `lightpath-${departureCode}-${arrivalCode}-${dateStr}.png`
 
-    return () => { cancelled = true }
-  }, [isPanelCollapsed, isBWMode, flightResults, departureAirport, arrivalAirport, departureCode, arrivalCode, departureTime])
-
-  if (!isPanelCollapsed) return null
-
-  const handleClick = async () => {
-    if (!readyBlob) return
-
-    console.log('[ShareButton] readyBlob size:', readyBlob.size, 'type:', readyBlob.type)
-    console.log('[ShareButton] navigator.share exists:', !!navigator.share)
-    console.log('[ShareButton] navigator.canShare exists:', !!navigator.canShare)
-
-    const testFile = new File([readyBlob], readyFilename, { type: 'image/png', lastModified: Date.now() })
-    console.log('[ShareButton] canShare files:', navigator.canShare ? navigator.canShare({ files: [testFile] }) : 'N/A')
-
-    try {
-      await shareImage(readyBlob, readyFilename)
-      console.log('[ShareButton] shareImage completed')
+      await shareImage(blob, filename)
     } catch (err) {
-      console.error('[ShareButton] Share failed:', err.name, err.message)
+      console.error('Capture/share failed:', err)
+    } finally {
+      setIsCapturing(false)
     }
   }
 
   return (
     <button
-      className="share-button"
+      className={`share-button ${isCapturing ? 'capturing' : ''}`}
       onClick={handleClick}
-      disabled={!readyBlob}
+      disabled={isCapturing}
       aria-label="Share flight image"
     >
       <img
