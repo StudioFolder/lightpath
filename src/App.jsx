@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import './App.css'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import tzlookup from 'tz-lookup'
+import pointInPolygon from 'point-in-polygon-hao'
 import { DateTime } from 'luxon'
 import packageJson from '../package.json'
 import ReactMarkdown from 'react-markdown'
@@ -82,7 +83,12 @@ function App() {
   const cameraRef = useRef(null)
   const rendererRef = useRef(null)
   const controlsRef = useRef(null)
-  
+  const tooltipRef = useRef(null)
+  const raycasterRef = useRef(new THREE.Raycaster())
+  const mouseRef = useRef(new THREE.Vector2())
+  const highlightedTimezoneRef = useRef(null)
+  const lastMousePos = useRef(null)
+
   // Three.js Scene Objects - Visualization
   const flightLineRef = useRef(null)
   const progressTubeRef = useRef(null)
@@ -140,6 +146,14 @@ function App() {
       g: parseInt(rgb[1]) / 255,
       b: parseInt(rgb[2]) / 255
     }
+  }
+
+  // Inverse of latLonToVector3: convert a point on the sphere back to lat/lon
+  const vector3ToLatLon = (v) => {
+    const radius = v.length()
+    const lat = 90 - Math.acos(v.y / radius) * (180 / Math.PI)
+    const lon = Math.atan2(v.z, -v.x) * (180 / Math.PI) - 180
+    return { lat, lon: ((lon + 540) % 360) - 180 }
   }
 
   // Calculate points along a twilight boundary with latitude-dependent width
@@ -449,6 +463,7 @@ function App() {
     })
 
     const sphere = new THREE.Mesh(geometry, material)
+    sphere.name = 'earth-sphere'
     scene.add(sphere)
 
     earthMaterialRef.current = material  // Store reference
@@ -1782,6 +1797,7 @@ function App() {
 
     // Effect to show/hide timezone boundaries
     useEffect(() => {
+      if (tooltipRef.current) tooltipRef.current.style.display = 'none'
       if (!sceneRef.current) return
       
       // Remove existing timezones if exists
@@ -1813,41 +1829,39 @@ function App() {
           
           // Process each feature (timezone boundary)
           data.features.forEach((feature, featureIndex) => {
-            const timezoneName = feature.properties.tzid || feature.properties.name || `timezone-${featureIndex}`
-            
             if (feature.geometry.type === 'Polygon') {
               feature.geometry.coordinates.forEach(ring => {
-                const points = ring.map(coord => 
+                const points = ring.map(coord =>
                   latLonToVector3(coord[1], coord[0], 2.005)
                 )
-                
+
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                 const lineMaterial = new THREE.LineBasicMaterial({
                   color: isBWMode ? 0x0f0f0f : 0xffffff,  // Check current BW mode state
                   transparent: true,
                   opacity: 0
                 })
-                
+
                 const line = new THREE.Line(lineGeometry, lineMaterial)
-                line.userData.timezone = timezoneName  // Store timezone identifier
+                line.userData.featureIndex = featureIndex
                 timezoneGroup.add(line)
               })
             } else if (feature.geometry.type === 'MultiPolygon') {
               feature.geometry.coordinates.forEach(polygon => {
                 polygon.forEach(ring => {
-                  const points = ring.map(coord => 
+                  const points = ring.map(coord =>
                     latLonToVector3(coord[1], coord[0], 2.005)
                   )
-                  
+
                   const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                   const lineMaterial = new THREE.LineBasicMaterial({
                     color: isBWMode ? 0x0f0f0f : 0xffffff,  // Check current BW mode state
                     transparent: true,
                     opacity: 0
                   })
-                  
+
                   const line = new THREE.Line(lineGeometry, lineMaterial)
-                  line.userData.timezone = timezoneName  // Store timezone identifier
+                  line.userData.featureIndex = featureIndex
                   timezoneGroup.add(line)
                 })
               })
@@ -1966,6 +1980,139 @@ function App() {
         .catch(err => console.error('Error loading timezone boundaries:', err))
       
     }, [showTimezones])
+
+    // Tooltip: show IANA timezone on hover when timezone boundaries are visible
+    useEffect(() => {
+      const canvas = canvasRef.current
+      if (!canvas || isMobile) return
+
+      const resetHighlight = () => {
+        highlightedTimezoneRef.current = null
+        const tzGroup = sceneRef.current?.getObjectByName('timezone-boundaries')
+        if (tzGroup) {
+          tzGroup.traverse((child) => {
+            if (child.material && child.userData.featureIndex !== undefined) {
+              child.material.opacity = 0.3
+              child.material.color.setHex(isBWMode ? 0x0f0f0f : 0xffffff)
+            }
+          })
+        }
+      }
+
+      const handleMouseMove = (e) => {
+        if (!showTimezones || !tooltipRef.current || !cameraRef.current || !sceneRef.current) {
+          if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+          return
+        }
+
+        const rect = canvas.getBoundingClientRect()
+        mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+        mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+
+        raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
+
+        const earthMesh = sceneRef.current.getObjectByName('earth-sphere')
+        if (!earthMesh) {
+          tooltipRef.current.style.display = 'none'
+          return
+        }
+
+        const intersects = raycasterRef.current.intersectObject(earthMesh)
+
+        if (intersects.length > 0) {
+          const point = intersects[0].point
+          const { lat, lon } = vector3ToLatLon(point)
+
+          try {
+            const tz = tzlookup(lat, lon)
+            const now = new Date()
+            const formatter = new Intl.DateTimeFormat('en-US', {
+              timeZone: tz,
+              timeZoneName: 'shortOffset'
+            })
+            const parts = formatter.formatToParts(now)
+            const offsetPart = parts.find(p => p.type === 'timeZoneName')
+            const offset = offsetPart ? offsetPart.value : ''
+
+            tooltipRef.current.textContent = `${tz} · ${offset}`
+            tooltipRef.current.style.display = 'block'
+            tooltipRef.current.style.left = `${e.clientX + 16}px`
+            tooltipRef.current.style.top = `${e.clientY + 16}px`
+
+            // Throttle point-in-polygon search to when mouse moves > 3px
+            const dx = e.clientX - (lastMousePos.current?.x || 0)
+            const dy = e.clientY - (lastMousePos.current?.y || 0)
+            if (dx * dx + dy * dy >= 9) {
+              lastMousePos.current = { x: e.clientX, y: e.clientY }
+
+              // Find which GeoJSON feature contains this point
+              let matchedFeatureIndex = null
+              const tzData = timezoneDataRef.current
+              if (tzData) {
+                for (let i = 0; i < tzData.features.length; i++) {
+                  const feature = tzData.features[i]
+                  const geom = feature.geometry
+                  let polygons = []
+
+                  if (geom.type === 'Polygon') {
+                    polygons = [geom.coordinates]
+                  } else if (geom.type === 'MultiPolygon') {
+                    polygons = geom.coordinates
+                  }
+
+                  for (const polygon of polygons) {
+                    if (pointInPolygon([lon, lat], polygon)) {
+                      matchedFeatureIndex = i
+                      break
+                    }
+                  }
+                  if (matchedFeatureIndex !== null) break
+                }
+              }
+
+              if (matchedFeatureIndex !== null && matchedFeatureIndex !== highlightedTimezoneRef.current) {
+                highlightedTimezoneRef.current = matchedFeatureIndex
+                const tzGroup = sceneRef.current.getObjectByName('timezone-boundaries')
+                if (tzGroup) {
+                  tzGroup.traverse((child) => {
+                    if (child.material && child.userData.featureIndex !== undefined) {
+                      if (child.userData.featureIndex === matchedFeatureIndex) {
+                        child.material.opacity = 1.0
+                        child.material.color.setHex(isBWMode ? 0x000000 : 0xffffff)
+                      } else {
+                        child.material.opacity = 0.1
+                        child.material.color.setHex(isBWMode ? 0x0f0f0f : 0xffffff)
+                      }
+                    }
+                  })
+                }
+              } else if (matchedFeatureIndex === null && highlightedTimezoneRef.current !== null) {
+                resetHighlight()
+              }
+            }
+          } catch {
+            tooltipRef.current.style.display = 'none'
+            resetHighlight()
+          }
+        } else {
+          tooltipRef.current.style.display = 'none'
+          resetHighlight()
+        }
+      }
+
+      const handleMouseLeave = () => {
+        if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+        resetHighlight()
+      }
+
+      canvas.addEventListener('mousemove', handleMouseMove)
+      canvas.addEventListener('mouseleave', handleMouseLeave)
+
+      return () => {
+        canvas.removeEventListener('mousemove', handleMouseMove)
+        canvas.removeEventListener('mouseleave', handleMouseLeave)
+      }
+    }, [showTimezones, isMobile, isBWMode])
 
     useEffect(() => {
       if (!twilightLinesRef.current.terminatorDay) return
@@ -2154,18 +2301,23 @@ function App() {
 
         // T for timezones toggle
         if (e.key === 't' || e.key === 'T') {
-          setShowTimezones(prev => {
-            if (!prev) setShowGraticule(false)
-            return !prev
-          })
+          if (!showTimezones) {
+            setShowGraticule(false)
+            setTimeout(() => setShowTimezones(true), 50)
+          } else {
+            setShowTimezones(false)
+            setTimeout(() => setShowGraticule(true), 50)
+          }
         }
 
         // G for graticule toggle
         if (e.key === 'g' || e.key === 'G') {
-          setShowGraticule(prev => {
-            if (!prev) setShowTimezones(false)
-            return !prev
-          })
+          if (!showGraticule) {
+            setShowTimezones(false)
+            setTimeout(() => setShowGraticule(true), 50)
+          } else {
+            setShowGraticule(false)
+          }
         }
 
         // L for twilight lines toggle
@@ -2181,7 +2333,7 @@ function App() {
         window.removeEventListener('keydown', handleKeyPress)
       }
 
-    }, [])
+    }, [showTimezones, showGraticule])
 
     const centerCameraOnFlight = (departure, arrival, flightDistance) => {
       const camera = cameraRef.current
@@ -3037,8 +3189,13 @@ function App() {
               type="checkbox"
               checked={showGraticule}
               onChange={(e) => {
-                setShowGraticule(e.target.checked)
-                if (e.target.checked) setShowTimezones(false)
+                const checked = e.target.checked
+                if (checked) {
+                  setShowTimezones(false)
+                  setTimeout(() => setShowGraticule(true), 50)
+                } else {
+                  setShowGraticule(false)
+                }
               }}
             />
             <span><span className="key-circle">Ⓖ</span> <span className="toggle-label-text">Graticule</span></span>
@@ -3062,8 +3219,14 @@ function App() {
               type="checkbox"
               checked={showTimezones}
               onChange={(e) => {
-                setShowTimezones(e.target.checked)
-                if (e.target.checked) setShowGraticule(false)
+                const checked = e.target.checked
+                if (checked) {
+                  setShowGraticule(false)
+                  setTimeout(() => setShowTimezones(true), 50)
+                } else {
+                  setShowTimezones(false)
+                  setTimeout(() => setShowGraticule(true), 50)
+                }
               }}
             />
             <span><span className="key-circle">Ⓣ</span> <span className="toggle-label-text">Timezones</span></span>
@@ -3200,6 +3363,24 @@ function App() {
           />
         )}
         
+        <div
+          ref={tooltipRef}
+          style={{
+            display: 'none',
+            position: 'fixed',
+            pointerEvents: 'none',
+            zIndex: 1000,
+            background: isBWMode ? BG_COLOR_BW : BG_COLOR_DARK,
+            color: isBWMode ? '#1a1a1a' : '#ffffff',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontFamily: 'inherit',
+            whiteSpace: 'nowrap',
+            letterSpacing: '0.02em'
+          }}
+        />
+
         <Analytics />
       </div>
     )
