@@ -13,13 +13,13 @@ export function createAirportLabelTexture(code, iconSrc, isBW = false) {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
-    canvas.width = 300
-    canvas.height = 110
+    canvas.width = 600
+    canvas.height = 220
 
     const icon = new Image()
     icon.onload = () => {
       // Draw rounded rectangle background
-      const radius = 64
+      const radius = 128
       context.fillStyle = isBW ? '#f0f0f0' : '#0c0c0c'
       context.beginPath()
       context.moveTo(radius, 0)
@@ -35,10 +35,10 @@ export function createAirportLabelTexture(code, iconSrc, isBW = false) {
       context.fill()
 
       // Layout: icon + gap + text, centered
-      context.font = 'bold 56px system-ui, -apple-system, sans-serif'
+      context.font = 'bold 112px system-ui, -apple-system, sans-serif'
       const textWidth = context.measureText(code).width
-      const iconSize = 48
-      const gap = 28
+      const iconSize = 96
+      const gap = 56
       const totalWidth = iconSize + gap + textWidth
       const startX = (canvas.width - totalWidth) / 2
 
@@ -71,8 +71,8 @@ export function createTransitionLabelTexture(timeText, transitionType, isBW) {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
-    canvas.width = 240
-    canvas.height = 80
+    canvas.width = 480
+    canvas.height = 160
 
     const iconSrc = transitionType === 'sunrise'
       ? (isBW ? '/sunrise-icon-bw.svg' : '/sunrise-icon.svg')
@@ -81,10 +81,10 @@ export function createTransitionLabelTexture(timeText, transitionType, isBW) {
     const icon = new Image()
     icon.onload = () => {
       context.fillStyle = isBW ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.9)'
-      context.font = '42px system-ui'
+      context.font = '84px system-ui'
 
-      const iconSize = 42
-      const gap = 12
+      const iconSize = 84
+      const gap = 24
       const textWidth = context.measureText(timeText).width
       const totalWidth = iconSize + gap + textWidth
       const startX = (canvas.width - totalWidth) / 2
@@ -95,7 +95,7 @@ export function createTransitionLabelTexture(timeText, transitionType, isBW) {
       context.fillText(timeText, startX, canvas.height / 2)
 
       // Draw icon after text
-      const iconY = (canvas.height - iconSize) / 2 - 5
+      const iconY = (canvas.height - iconSize) / 2 - 10
       const iconX = startX + textWidth + gap
       context.drawImage(icon, iconX, iconY, iconSize, iconSize)
 

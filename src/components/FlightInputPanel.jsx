@@ -98,11 +98,16 @@ export default function FlightInputPanel({
             }}
             aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
           >
-            <span className="collapse-arrow">▼</span>
-            <svg className="collapse-lens" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="16.5" y1="16.5" x2="21" y2="21" />
+            <svg className="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
             </svg>
+            <img
+              className="collapse-lens"
+              src={isBWMode ? '/search-icon-bw.svg' : '/search-icon.svg'}
+              alt="Search"
+              width="20"
+              height="20"
+            />
           </button>
         </div>
 

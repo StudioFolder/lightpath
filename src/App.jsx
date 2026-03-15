@@ -15,6 +15,7 @@ import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDayl
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
 import FlightInputPanel from './components/FlightInputPanel'
+import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
 import { Analytics } from '@vercel/analytics/react'
 
@@ -79,6 +80,7 @@ function App() {
   const canvasRef = useRef(null)
   const sceneRef = useRef(null)
   const cameraRef = useRef(null)
+  const rendererRef = useRef(null)
   const controlsRef = useRef(null)
   
   // Three.js Scene Objects - Visualization
@@ -400,6 +402,7 @@ function App() {
       canvas: canvasRef.current,
       antialias: true  // smooth edges
     })
+    rendererRef.current = renderer
     const width = window.innerWidth;
     const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     renderer.setSize(width, height);
@@ -432,6 +435,7 @@ function App() {
     const earthTexture = new THREE.TextureLoader().load(
       '/earth-texture.png',
       () => {
+        earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
         checkAllLoaded()
       },
       undefined,
@@ -872,8 +876,11 @@ function App() {
             label.visible = true
             const point = curve.getPoint(transitionT)
             const eScale = flightLineRef.current?.userData.elementScale || 1.0
-            const offset = point.clone().normalize().multiplyScalar(0.06 * eScale)
-            label.position.copy(point).add(offset)
+            const N = point.clone().normalize()
+            const radialLift = N.multiplyScalar(0.03 * eScale)
+            const B = label.userData.binormalDirection
+            const lateralShift = B ? B.clone().multiplyScalar(0.06 * eScale) : new THREE.Vector3()
+            label.position.copy(point).add(radialLift).add(lateralShift)
 
             const fadeProgress = (progress - transitionT) / 0.02
             label.material.opacity = Math.min(fadeProgress, 1)
@@ -1068,6 +1075,7 @@ function App() {
         window.visualViewport.removeEventListener('resize', handleResize)
       }
       renderer.dispose()
+      rendererRef.current = null
     }
   }, [])
 
@@ -1386,7 +1394,7 @@ function App() {
           new THREE.CatmullRomCurve3(points),
           points.length,
           0.002 * elementScale,
-          8,
+          12,
           false
         )
         const thinTubeMaterial = new THREE.MeshBasicMaterial({ 
@@ -1416,7 +1424,7 @@ function App() {
           new THREE.CatmullRomCurve3(fullProgressPoints),
           fullTubeSegments,
           0.006 * elementScale,
-          8,
+          12,
           false
         )
 
@@ -1467,7 +1475,31 @@ function App() {
         flightGroup.userData.fullColorArrayBW = fullColorArrBW
 
         // Pre-create transition labels and rings
-        preCalculatedTransitions.forEach(trans => {
+        const transitionCurve = flightGroup.userData.routeCurve
+        preCalculatedTransitions.forEach((trans, idx) => {
+          // Compute right-hand side vector relative to direction of travel
+          const tPoint = transitionCurve.getPoint(trans.t)
+          const tNormal = tPoint.clone().normalize()
+          const tTangent = transitionCurve.getTangent(trans.t).normalize()
+          const tBinormal = new THREE.Vector3().crossVectors(tTangent, tNormal).normalize()
+
+          // Geographic heuristic: choose side based on path orientation
+          const horizontalMag = Math.sqrt(tTangent.x * tTangent.x + tTangent.z * tTangent.z)
+          const isNorthSouth = Math.abs(tTangent.y) > horizontalMag * 0.7
+
+          if (isNorthSouth) {
+            // Path runs mostly north-south: place label to the east side
+            if (tBinormal.x < 0) tBinormal.negate()
+          } else {
+            // Path runs mostly east-west: place label to the north side
+            if (tBinormal.y < 0) tBinormal.negate()
+          }
+
+          // If a previous transition is very close (<5% of curve), alternate sides
+          if (idx > 0 && Math.abs(trans.t - preCalculatedTransitions[idx - 1].t) < 0.05) {
+            tBinormal.negate()
+          }
+
           // Create the ring (torus) at transition point
           const ringGeometry = new THREE.TorusGeometry(0.008 * elementScale, 0.002 * elementScale, 8, 32)
           const ringMaterial = new THREE.MeshBasicMaterial({
@@ -1479,15 +1511,15 @@ function App() {
           ring.visible = false
           ring.userData.transitionT = trans.t
           flightGroup.add(ring)
-          
+
           // Create the label with icon
           createTransitionLabelTexture(trans.time, trans.type, isBWMode).then(texture => {
             sprite.material.map = texture
             sprite.material.needsUpdate = true
           })
-          
+
           const texture = new THREE.CanvasTexture(document.createElement('canvas'))
-          const material = new THREE.SpriteMaterial({ 
+          const material = new THREE.SpriteMaterial({
             map: texture,
             sizeAttenuation: true,
             depthTest: true
@@ -1495,13 +1527,14 @@ function App() {
           const sprite = new THREE.Sprite(material)
           sprite.scale.set((isMobile ? 0.22 : 0.20) * elementScale, (isMobile ? 0.08 : 0.07) * elementScale, 1)
           sprite.visible = false
-          
+
           sprite.userData.transitionT = trans.t
           sprite.userData.transitionIndex = trans.index
           sprite.userData.timeText = trans.time
           sprite.userData.transitionType = trans.type  // 'sunrise' or 'sunset'
           sprite.userData.ring = ring  // Link ring to label
-          
+          sprite.userData.binormalDirection = tBinormal.clone()
+
           flightGroup.add(sprite)
           transitionLabelsRef.current.push(sprite)
         })    
@@ -3143,6 +3176,28 @@ function App() {
           searchAirports={searchAirports}
           calculateFlight={calculateFlight}
           getLocalDateTimeString={getLocalDateTimeString}
+          getAirportTimezone={getAirportTimezone}
+        />
+
+        <ShareButton
+          rendererRef={rendererRef}
+          sceneRef={sceneRef}
+          progressTubeRef={progressTubeRef}
+          transitionLabelsRef={transitionLabelsRef}
+          flightLineRef={flightLineRef}
+          departureAirport={departureAirport}
+          arrivalAirport={arrivalAirport}
+          departureCode={departureCode}
+          arrivalCode={arrivalCode}
+          departureTime={departureTime}
+          flightResults={flightResults}
+          isPanelCollapsed={isPanelCollapsed}
+          isBWMode={isBWMode}
+          isPlaying={isPlaying}
+          isMobile={isMobile}
+          getLocalTimeAtAirport={getLocalTimeAtAirport}
+          getLocalDateAtAirport={getLocalDateAtAirport}
+          getTimezoneAbbreviation={getTimezoneAbbreviation}
           getAirportTimezone={getAirportTimezone}
         />
 

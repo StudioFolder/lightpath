@@ -721,6 +721,8 @@ canvas {
 
 .collapse-arrow {
   display: inline;
+  opacity: 1;
+  transition: opacity 0.25s ease;
 }
 
 .datetime-field {
@@ -1005,16 +1007,221 @@ canvas {
 .flight-input.collapsed .panel-header {
   background: transparent;
   margin: -6px -24px;
-  padding: 12px 24px 16px;
+  padding: 12px 16px 16px;
   height: auto;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+  position: static;
   transition: margin-bottom 0.25s ease-in;
 }
 
 .flight-input.collapsed .panel-header h3 {
   margin: 0;
   line-height: 1;
-  transition: margin-bottom 0.25s ease-in;
+  flex-grow: 0;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: margin-bottom 0.25s ease-in, opacity 0.2s ease;
 }
+
+.flight-input.collapsed:hover .panel-header h3 {
+  opacity: 1;
+}
+
+.flight-input.collapsed .collapse-button {
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.flight-input.collapsed .collapse-lens {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.flight-input.collapsed:hover .collapse-lens {
+  opacity: 1;
+}
+
+/* ========================================
+   9B. SHARE BUTTON
+   ======================================== */
+
+.share-actions {
+  position: absolute;
+  top: 28px;
+  left: calc(50% + 120px);
+  z-index: 10;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0px;
+}
+
+.share-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.share-button .share-icon {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+@media (hover: hover) {
+  .share-button:hover .share-icon {
+    opacity: 0.9;
+  }
+}
+
+.share-button:disabled {
+  pointer-events: none;
+}
+
+.share-button.capturing {
+  animation: capture-pulse 300ms ease;
+}
+
+@keyframes capture-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+
+.share-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* BW mode */
+.bw-mode .share-button {
+  background: none;
+}
+
+.bw-mode .share-button .share-icon {
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .bw-mode .share-button:hover .share-icon {
+    opacity: 1;
+  }
+}
+
+.copy-url-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 8px;
+  background: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.copy-url-icon-wrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.copy-url-button .copy-url-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+}
+
+/* Copy icon: default state */
+.copy-url-button .copy-url-icon--copy {
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+@media (hover: hover) {
+  .copy-url-button:hover .copy-url-icon--copy {
+    opacity: 0.9;
+  }
+}
+
+/* Tick icon: hidden by default, stroke-dash for draw effect */
+.copy-url-button .copy-url-icon--tick {
+  opacity: 0;
+}
+
+.copy-url-button .copy-url-icon--tick path {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+}
+
+/* Phase 1: fade out copy icon */
+.copy-url-button.phase-1 .copy-url-icon--copy {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Phase 2: draw tick stroke left-to-right */
+.copy-url-button.phase-2 .copy-url-icon--copy {
+  opacity: 0;
+}
+
+.copy-url-button.phase-2 .copy-url-icon--tick {
+  opacity: 1;
+}
+
+.copy-url-button.phase-2 .copy-url-icon--tick path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.35s ease-out;
+}
+
+/* Phase 3: fade out tick */
+.copy-url-button.phase-3 .copy-url-icon--copy {
+  opacity: 0;
+}
+
+.copy-url-button.phase-3 .copy-url-icon--tick {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.copy-url-button.phase-3 .copy-url-icon--tick path {
+  stroke-dashoffset: 0;
+}
+
+/* Phase 4: fade copy icon back in */
+.copy-url-button.phase-4 .copy-url-icon--copy {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+/* BW mode */
+.bw-mode .copy-url-button .copy-url-icon--copy {
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .bw-mode .copy-url-button:hover .copy-url-icon--copy {
+    opacity: 1;
+  }
+}
+
+.bw-mode .copy-url-button.phase-1 .copy-url-icon--copy { opacity: 0; }
+.bw-mode .copy-url-button.phase-2 .copy-url-icon--copy { opacity: 0; }
+.bw-mode .copy-url-button.phase-3 .copy-url-icon--copy { opacity: 0; }
+.bw-mode .copy-url-button.phase-4 .copy-url-icon--copy { opacity: 0.6; }
 
 /* ========================================
    10. FLIGHT INPUT PANEL — PANEL HEADER
@@ -1032,9 +1239,13 @@ canvas {
   transition: margin-bottom 0.35s ease-out;
 }
 
-/* Collapsed: show lens, hide arrow */
+/* Collapsed: show lens, fade out arrow */
 .flight-input.collapsed .collapse-arrow {
-  display: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .flight-input.collapsed .collapse-lens {
@@ -1044,6 +1255,7 @@ canvas {
 /* Expanded: show arrow, hide lens */
 .flight-input .collapse-arrow {
   display: block;
+  opacity: 1;
 }
 
 .flight-input .collapse-lens {
@@ -2582,6 +2794,48 @@ canvas {
     transform: none;
     width: auto;
     max-width: none;
+  }
+
+  .share-actions {
+    top: 72px;
+    left: auto;
+    right: 16px;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .share-actions .share-button {
+    width: 44px;
+    height: 44px;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .share-actions .copy-url-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .share-actions .share-button .share-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .share-actions .copy-url-icon-wrapper {
+    width: 20px;
+    height: 20px;
+  }
+
+  .share-actions .copy-url-button .copy-url-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .bw-mode .share-button {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .flight-input {
