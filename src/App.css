@@ -721,6 +721,8 @@ canvas {
 
 .collapse-arrow {
   display: inline;
+  opacity: 1;
+  transition: opacity 0.25s ease;
 }
 
 .datetime-field {
@@ -1005,15 +1007,42 @@ canvas {
 .flight-input.collapsed .panel-header {
   background: transparent;
   margin: -6px -24px;
-  padding: 12px 24px 16px;
+  padding: 12px 16px 16px;
   height: auto;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+  position: static;
   transition: margin-bottom 0.25s ease-in;
 }
 
 .flight-input.collapsed .panel-header h3 {
   margin: 0;
   line-height: 1;
-  transition: margin-bottom 0.25s ease-in;
+  flex-grow: 0;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: margin-bottom 0.25s ease-in, opacity 0.2s ease;
+}
+
+.flight-input.collapsed:hover .panel-header h3 {
+  opacity: 1;
+}
+
+.flight-input.collapsed .collapse-button {
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.flight-input.collapsed .collapse-lens {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.flight-input.collapsed:hover .collapse-lens {
+  opacity: 1;
 }
 
 /* ========================================
@@ -1032,7 +1061,7 @@ canvas {
 }
 
 .share-button {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 36px;
@@ -1210,9 +1239,13 @@ canvas {
   transition: margin-bottom 0.35s ease-out;
 }
 
-/* Collapsed: show lens, hide arrow */
+/* Collapsed: show lens, fade out arrow */
 .flight-input.collapsed .collapse-arrow {
-  display: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .flight-input.collapsed .collapse-lens {
@@ -1222,6 +1255,7 @@ canvas {
 /* Expanded: show arrow, hide lens */
 .flight-input .collapse-arrow {
   display: block;
+  opacity: 1;
 }
 
 .flight-input .collapse-lens {

@@ -55,20 +55,23 @@ export async function captureFlightImage(renderer, scene, progressTubeMesh, tran
   // Globe radius = 1.0
   let radius
 
-  if (distance >= 7500) {
+  if (distance >= 10000) {
     // Very long flights: full earth in frame
     radius = 4.4
+  } else if (distance >= 7500) {
+    // Long flights: show the full globe with padding
+    radius = 4.1
   } else if (distance >= 5000) {
     // Long flights: show the full globe with padding
-    radius = 4.2
+    radius = 3.8
   } else if (distance >= 2000) {
     // Medium flights: interpolate between zoomed and full globe
     const t = (distance - 2000) / 3000
-    radius = 3.0 + t * 0.6  // 3.4 at 2000km → 4.0 at 5000km
+    radius = 3.2 + t * 0.6  // 3.2 at 2000km → 3.8 at 5000km
   } else if (distance >= 500) {
     // Short flights
     const t = (distance - 500) / 1500
-    radius = 2.6 + t * 0.6  // 2.8 at 500km → 3.4 at 2000km
+    radius = 2.6 + t * 0.6  // 2.6 at 500km → 3.2 at 2000km
   } else {
     // Very short flights
     radius = 2.4
@@ -220,7 +223,39 @@ export async function captureFlightImage(renderer, scene, progressTubeMesh, tran
     airportDots.material.needsUpdate = true
   }
 
+  // Disable depth test on airport labels so they render on top of the sphere in capture
+  const savedSpriteDepthTest = []
+  scene.traverse((child) => {
+    if (child.isSprite && (child.userData.type === 'departure' || child.userData.type === 'arrival')) {
+      savedSpriteDepthTest.push({ sprite: child, depthTest: child.material.depthTest })
+      child.material.depthTest = false
+      child.material.needsUpdate = true
+    }
+  })
+
+  // Nudge airport labels further from their dots so the scaled-up sprites don't cover them
+  const savedSpritePositions = []
+  scene.traverse((child) => {
+    if (child.isSprite && (child.userData.type === 'departure' || child.userData.type === 'arrival')) {
+      savedSpritePositions.push({ sprite: child, position: child.position.clone() })
+      // Push label outward from sphere center (radially) by a small amount
+      const radialDir = child.position.clone().normalize()
+      child.position.add(radialDir.multiplyScalar(0.06 * captureScaleRatio))
+    }
+  })
+
   renderer.render(scene, captureCamera)
+
+  // Restore depth test on airport labels
+  savedSpriteDepthTest.forEach(({ sprite, depthTest }) => {
+    sprite.material.depthTest = depthTest
+    sprite.material.needsUpdate = true
+  })
+
+  // Restore airport label positions
+  savedSpritePositions.forEach(({ sprite, position }) => {
+    sprite.position.copy(position)
+  })
 
   // Restore airport dots size
   if (airportDots && savedPointSize !== null) {
