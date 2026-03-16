@@ -111,6 +111,8 @@ function App() {
  
   // Three.js Materials & Textures
   const earthMaterialRef = useRef(null)
+  const oceanShaderUniformsRef = useRef(null)
+  const oceanMaskTextureRef = useRef(null)
   const ambientLightRef = useRef(null)
   const planeTextureRef = useRef(null)
   const planeBWTextureRef = useRef(null)
@@ -456,11 +458,56 @@ function App() {
       (error) => console.error('Error loading texture:', error)
     )
 
+    const oceanMaskTexture = new THREE.TextureLoader().load('/ocean-mask.png', () => {
+      oceanMaskTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
+      oceanMaskTextureRef.current = oceanMaskTexture
+    })
+
+    const bumpTexture = new THREE.TextureLoader().load('/earth-bump.png', () => {
+      bumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
+    })
+
     const material = new THREE.MeshStandardMaterial({
       map: earthTexture,
       roughness: 0.9,
-      metalness: 0.0
+      metalness: 0.0,
+      bumpMap: bumpTexture,
+      bumpScale: 5,
     })
+
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.oceanMask = { value: oceanMaskTexture }
+      shader.uniforms.elevationMap = { value: bumpTexture }
+
+      oceanShaderUniformsRef.current = shader.uniforms
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'void main() {',
+        `uniform sampler2D oceanMask;
+uniform sampler2D elevationMap;
+void main() {`
+      )
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+float oceanFactor = texture2D(oceanMask, vMapUv).r;
+float elevation = texture2D(elevationMap, vMapUv).r;
+
+// Ocean tint
+vec3 tinted = diffuseColor.rgb;
+tinted.r -= 0.07;
+tinted.g -= 0.04;
+tinted.b += 0.02;
+diffuseColor.rgb = mix(diffuseColor.rgb, tinted, oceanFactor);
+
+// Land elevation color ramp: light green (low) to dark brown (high)
+float landFactor = 1.0 - oceanFactor;
+float elevGrey = mix(0.55, 1.0, elevation);
+vec3 elevColor = vec3(elevGrey);
+diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFactor * 0.2);`
+      )
+    }
 
     const sphere = new THREE.Mesh(geometry, material)
     sphere.name = 'earth-sphere'
@@ -1773,15 +1820,15 @@ function App() {
                 depthTest: true,
                 depthWrite: false
               })
-              
+
               const line = new THREE.Line(lineGeometry, lineMaterial)
               graticuleGroup.add(line)
             } else if (feature.geometry.type === 'MultiLineString') {
               feature.geometry.coordinates.forEach(lineCoords => {
-                const points = lineCoords.map(coord => 
+                const points = lineCoords.map(coord =>
                   latLonToVector3(coord[1], coord[0], 2.004)
                 )
-                
+
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                 const lineMaterial = new THREE.LineBasicMaterial({
                   color: 0xffffff,
@@ -1814,7 +1861,7 @@ function App() {
               }
             })
           }
-          
+
         })
         .catch(err => console.error('Error loading graticule:', err))
       
@@ -2819,6 +2866,14 @@ function App() {
             startOverlay + (targets.overlayIntensity - startOverlay) * easeT
         }
         
+        // Interpolate bump scale
+        const earthSphere = sceneRef.current.getObjectByName('earth-sphere')
+        if (earthSphere) {
+          const startBump = isBWMode ? 5 : 0
+          const endBump = isBWMode ? 0 : 5
+          earthSphere.material.bumpScale = startBump + (endBump - startBump) * easeT
+        }
+
         // Interpolate glow
         if (glowRef.current) {
           const startGlowColor = isBWMode ? new THREE.Vector3(1.5, 1.5, 1.5) : new THREE.Vector3(0.5, 0.5, 0.5)
@@ -2835,7 +2890,7 @@ function App() {
             glowRef.current.material.blending = isBWMode ? THREE.NormalBlending : THREE.AdditiveBlending
           }
         }
-        
+
         // Interpolate graticule color
         const graticule = sceneRef.current.getObjectByName('graticule')
         if (graticule) {
@@ -2929,6 +2984,11 @@ function App() {
             arrivalLabelRef.current.material.needsUpdate = true
           }
           
+          // Toggle ocean mask for BW mode
+          if (oceanShaderUniformsRef.current && oceanShaderUniformsRef.current.oceanMask) {
+            oceanShaderUniformsRef.current.oceanMask.value = isBWMode ? new THREE.Texture() : oceanMaskTextureRef.current
+          }
+
           // Update transition labels and rings
           transitionLabelsRef.current.forEach(label => {
             const timeText = label.userData.timeText
