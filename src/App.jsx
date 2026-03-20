@@ -2851,6 +2851,29 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const arcLengthFractions = lengths.map(l => l / totalLen)
         callsignArcLengthFractionsRef.current = arcLengthFractions
 
+        // Compute real route distance by summing haversine segments along the CatmullRom curve
+        const routeSamples = 500
+        let realDistanceKm = 0
+        let prevLat = null, prevLon = null
+        for (let i = 0; i <= routeSamples; i++) {
+          const fraction = i / routeSamples
+          const pt = catmullCurve.getPointAt(fraction)
+          pt.normalize().multiplyScalar(2.01)
+          const sLat = Math.asin(pt.y / 2.01) * 180 / Math.PI
+          const sLon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
+          if (prevLat !== null) {
+            const dLat = (sLat - prevLat) * Math.PI / 180
+            const dLon = (sLon - prevLon) * Math.PI / 180
+            const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(prevLat * Math.PI / 180) * Math.cos(sLat * Math.PI / 180) *
+              Math.sin(dLon / 2) ** 2
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            realDistanceKm += 6371 * c
+          }
+          prevLat = sLat
+          prevLon = sLon
+        }
+
         for (let i = 0; i < numSamples; i++) {
           const fraction = (i + 0.5) / numSamples
           const pt = catmullCurve.getPointAt(fraction)
@@ -2865,7 +2888,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const darknessTotalMins = totalFlightMins - daylightTotalMins
 
         const results = {
-          distance: Math.round(distance),
+          distance: Math.round(realDistanceKm),
           duration: durationHours.toFixed(1),
           durationHours: Math.floor(totalFlightMins / 60),
           durationMins: totalFlightMins % 60,
