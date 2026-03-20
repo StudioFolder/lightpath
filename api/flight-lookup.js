@@ -1,4 +1,13 @@
+import { Redis } from '@upstash/redis';
+
 const FR24_BASE = 'https://fr24api.flightradar24.com/api';
+
+const redis = process.env.UPSTASH_REDIS_REST_URL
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
 
 const FR24_HEADERS = {
   Authorization:    `Bearer ${process.env.FR24_API_TOKEN}`,
@@ -27,6 +36,19 @@ export default async function handler(req, res) {
   const { flight } = req.query;
   if (!flight) {
     return res.status(400).json({ error: 'Missing required query parameter: flight' });
+  }
+
+  const key = `flight:${flight.trim().toUpperCase()}`;
+
+  if (redis) {
+    try {
+      const cached = await redis.get(key);
+      if (cached) {
+        return res.status(200).json({ data: cached, cached: true });
+      }
+    } catch (_) {
+      // Cache read failed — fall through to FR24
+    }
   }
 
   // Step 1: Flight Summary Light
@@ -110,20 +132,28 @@ export default async function handler(req, res) {
     typicalDepartureTimeUtc = `${hh}:${mm}`;
   }
 
-  return res.status(200).json({
-    data: {
-      summary: {
-        flight:          completed.flight,
-        orig_icao:       completed.orig_icao,
-        dest_icao:       completed.dest_icao,
-        dest_icao_actual: completed.dest_icao_actual,
-        type:            completed.type,
-        reg:             completed.reg,
-        callsign:        completed.callsign,
-      },
-      events,
-      totalDurationMs,
-      typicalDepartureTimeUtc,
+  const payload = {
+    summary: {
+      flight:           completed.flight,
+      orig_icao:        completed.orig_icao,
+      dest_icao:        completed.dest_icao,
+      dest_icao_actual: completed.dest_icao_actual,
+      type:             completed.type,
+      reg:              completed.reg,
+      callsign:         completed.callsign,
     },
-  });
+    events,
+    totalDurationMs,
+    typicalDepartureTimeUtc,
+  };
+
+  if (redis) {
+    try {
+      await redis.set(key, payload, { ex: 30 * 24 * 60 * 60 }); // 30 days TTL
+    } catch (_) {
+      // Cache write failed — non-critical, continue
+    }
+  }
+
+  return res.status(200).json({ data: payload, cached: false });
 }
