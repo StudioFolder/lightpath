@@ -82,15 +82,10 @@ export default function FlightInputPanel({
 
   // Resolve airports from ICAO codes when a callsign result is available
   const resolvedOrig = callsignSearchResult && airportsIcao
-    ? airportsIcao[callsignSearchResult.orig_icao] ?? null
+    ? airportsIcao[callsignSearchResult.summary.orig_icao] ?? null
     : null
   const resolvedDest = callsignSearchResult && airportsIcao
-    ? airportsIcao[callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao] ?? null
-    : null
-
-  // Parse takeoff time for the disabled datetime pill in callsign mode
-  const callsignTakeoff = callsignSearchResult?.datetime_takeoff
-    ? DateTime.fromISO(callsignSearchResult.datetime_takeoff, { zone: 'utc' })
+    ? airportsIcao[callsignSearchResult.summary.dest_icao_actual ?? callsignSearchResult.summary.dest_icao] ?? null
     : null
 
   // Determine whether to show the action row
@@ -302,7 +297,7 @@ export default function FlightInputPanel({
                   <span className="column-label">FROM</span>
                   <div className="input-group">
                     <span style={{ fontFamily: 'monospace', fontSize: '1.5em', letterSpacing: '0.05em' }}>
-                      {resolvedOrig?.iata ?? callsignSearchResult.orig_icao}
+                      {resolvedOrig?.iata ?? callsignSearchResult.summary.orig_icao}
                     </span>
                   </div>
                   {resolvedOrig && (
@@ -319,7 +314,7 @@ export default function FlightInputPanel({
                   <span className="column-label">TO</span>
                   <div className="input-group">
                     <span style={{ fontFamily: 'monospace', fontSize: '1.5em', letterSpacing: '0.05em' }}>
-                      {resolvedDest?.iata ?? (callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao)}
+                      {resolvedDest?.iata ?? (callsignSearchResult.summary.dest_icao_actual ?? callsignSearchResult.summary.dest_icao)}
                     </span>
                   </div>
                   {resolvedDest && (
@@ -369,60 +364,79 @@ export default function FlightInputPanel({
 
       {(showRouteActionRow || showCallsignActionRow) && (
         <div className="flight-action-row">
-          <div className="datetime-pill" style={showCallsignActionRow ? { opacity: 0.45, pointerEvents: 'none' } : {}}>
+          <div className="datetime-pill">
             <div className="datetime-display">
-              <div className="datetime-field" onClick={showRouteActionRow ? () => dateInputRef.current?.showPicker() : undefined}>
+              <div className="datetime-field" onClick={() => dateInputRef.current?.showPicker()}>
                 <img src={isBWMode ? "/date-icon-bw.svg" : "/date-icon.svg"} alt="Date" className="datetime-icon" />
                 <span className="datetime-value">
-                  {showCallsignActionRow && callsignTakeoff
-                    ? callsignTakeoff.toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
+                  {showCallsignActionRow && departureTime
+                    ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
                     : (departureAirport && departureTime
                         ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
                         : '')
                   }
                 </span>
-                {showRouteActionRow && (
+                {(showRouteActionRow || showCallsignActionRow) && (
                   <input
                     ref={dateInputRef}
                     type="date"
                     className="datetime-hidden-input"
-                    value={departureAirport && departureTime
-                      ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
+                    value={departureTime
+                      ? (showCallsignActionRow
+                          ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat('yyyy-MM-dd')
+                          : (departureAirport
+                              ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
+                              : ''))
                       : ''}
                     onChange={(e) => {
-                      if (!departureAirport || !departureTime) return
-                      const timezone = getAirportTimezone(departureAirport)
-                      const currentTime = DateTime.fromJSDate(departureTime, { zone: timezone })
-                      const [year, month, day] = e.target.value.split('-').map(Number)
-                      const updated = currentTime.set({ year, month, day })
-                      setDepartureTime(updated.toJSDate())
+                      if (!departureTime) return
+                      if (showCallsignActionRow) {
+                        const current = DateTime.fromJSDate(departureTime, { zone: 'utc' })
+                        const [year, month, day] = e.target.value.split('-').map(Number)
+                        const updated = current.set({ year, month, day })
+                        setDepartureTime(updated.toJSDate())
+                      } else {
+                        if (!departureAirport) return
+                        const timezone = getAirportTimezone(departureAirport)
+                        const currentTime = DateTime.fromJSDate(departureTime, { zone: timezone })
+                        const [year, month, day] = e.target.value.split('-').map(Number)
+                        const updated = currentTime.set({ year, month, day })
+                        setDepartureTime(updated.toJSDate())
+                      }
                     }}
-                    disabled={!departureAirport}
+                    disabled={!departureAirport && !callsignSearchResult}
                   />
                 )}
               </div>
               <div className="datetime-field">
                 <img src={isBWMode ? "/time-icon-bw.svg" : "/time-icon.svg"} alt="Time" className="datetime-icon" />
-                {showCallsignActionRow && callsignTakeoff ? (
-                  <span className="datetime-value">{callsignTakeoff.toFormat('HH:mm')}</span>
-                ) : (
-                  <input
-                    type="time"
-                    className="datetime-native-input"
-                    value={departureAirport && departureTime
-                      ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
-                      : ''}
-                    onChange={(e) => {
-                      if (!departureAirport || !departureTime) return
+                <input
+                  type="time"
+                  className="datetime-native-input"
+                  value={departureTime
+                    ? (showCallsignActionRow
+                        ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat('HH:mm')
+                        : (departureAirport
+                            ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
+                            : ''))
+                    : ''}
+                  onChange={(e) => {
+                    if (!departureTime) return
+                    const [hour, minute] = e.target.value.split(':').map(Number)
+                    if (showCallsignActionRow) {
+                      const current = DateTime.fromJSDate(departureTime, { zone: 'utc' })
+                      const updated = current.set({ hour, minute })
+                      setDepartureTime(updated.toJSDate())
+                    } else {
+                      if (!departureAirport) return
                       const timezone = getAirportTimezone(departureAirport)
                       const currentDateTime = DateTime.fromJSDate(departureTime, { zone: timezone })
-                      const [hour, minute] = e.target.value.split(':').map(Number)
                       const updated = currentDateTime.set({ hour, minute })
                       setDepartureTime(updated.toJSDate())
-                    }}
-                    disabled={!departureAirport}
-                  />
-                )}
+                    }
+                  }}
+                  disabled={!departureAirport && !callsignSearchResult}
+                />
               </div>
             </div>
           </div>

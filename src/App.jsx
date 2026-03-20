@@ -15,8 +15,8 @@ import { latLonToVector3, getFlightScale, getViewportScale } from './utils/geoUt
 import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
-import { searchFlight, getFlightEvents } from './services/fr24'
-import { buildControlPoints, interpolateTimestamp } from './utils/routeInterpolation'
+import { lookupFlight } from './services/fr24'
+import { interpolateTimestamp } from './utils/routeInterpolation'
 import FlightInputPanel from './components/FlightInputPanel'
 import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
@@ -46,6 +46,7 @@ function App() {
   const [arrivalAirport, setArrivalAirport] = useState(null)
   const [searchEditing, setSearchEditing] = useState(0)
   const [pendingUrlFlight, setPendingUrlFlight] = useState(false)
+  const [pendingCallsignStart, setPendingCallsignStart] = useState(false)
   
   // Flight Calculation & Animation
   const [flightPath, setFlightPath] = useState(null)
@@ -58,7 +59,6 @@ function App() {
   const [searchMode, setSearchMode] = useState('route')  // 'route' | 'callsign'
   const [callsignInput, setCallsignInput] = useState('')
   const [callsignSearchResult, setCallsignSearchResult] = useState(null)
-  const [callsignEvents, setCallsignEvents] = useState(null)
   const [callsignError, setCallsignError] = useState(null)
   const [isCallsignSearching, setIsCallsignSearching] = useState(false)
 
@@ -306,23 +306,62 @@ function App() {
 
   // Read URL parameters and set up flight data
   useEffect(() => {
-    if (!params.route || !params.date || !params.time) return
-    if (!airports) return
+    const segment = params.segment1 || params.callsign
+    if (!segment) return
+    if (!airports || !airportsIcao) return
 
-    const [from, to] = params.route.split('-')
+    // Disambiguate: if segment contains a hyphen and both parts are 3-letter codes, it's route mode
+    const isRouteMode = segment.includes('-') && segment.split('-').length === 2
+      && segment.split('-').every(part => part.length === 3)
 
-    if (!airports[from] || !airports[to]) return
+    if (isRouteMode) {
+      const [from, to] = segment.split('-')
+      if (!airports[from] || !airports[to]) return
+      if (!params.date || !params.time) return
+      const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00`
+      const flightDateTime = new Date(dateTime)
+      setDepartureCode(from)
+      setDepartureAirport(airports[from])
+      setArrivalCode(to)
+      setArrivalAirport(airports[to])
+      setDepartureTime(flightDateTime)
+      setPendingUrlFlight(true)
+    } else {
+      // Callsign mode: segment is a flight number
+      const flightNumber = segment.toUpperCase()
+      setSearchMode('callsign')
+      setCallsignInput(flightNumber)
 
-    const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00`
-    const flightDateTime = new Date(dateTime)
+      // If date/time provided, parse them
+      if (params.date && params.time) {
+        const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00Z`
+        setDepartureTime(new Date(dateTime))
+      }
 
-    setDepartureCode(from)
-    setDepartureAirport(airports[from])
-    setArrivalCode(to)
-    setArrivalAirport(airports[to])
-    setDepartureTime(flightDateTime)
-    setPendingUrlFlight(true)
-  }, [airports])
+      // Auto-trigger lookup
+      lookupFlight(flightNumber).then(result => {
+        if (!result) {
+          setCallsignError('Flight not found in the last 14 days')
+          return
+        }
+        setCallsignSearchResult(result)
+
+        // If no date/time in URL, use typical departure time
+        if (!params.date || !params.time) {
+          if (result.typicalDepartureTimeUtc) {
+            const [hh, mm] = result.typicalDepartureTimeUtc.split(':').map(Number)
+            const now = new Date()
+            now.setUTCHours(hh, mm, 0, 0)
+            setDepartureTime(now)
+          }
+        }
+
+        setPendingCallsignStart(true)
+      }).catch(() => {
+        setCallsignError('Unable to search flights. Please try again.')
+      })
+    }
+  }, [airports, airportsIcao])
 
   // Auto-calculate flight once URL state is ready
   useEffect(() => {
@@ -332,6 +371,15 @@ function App() {
     setPendingUrlFlight(false)
     calculateFlight()
   }, [pendingUrlFlight, departureCode, arrivalCode, departureAirport, arrivalAirport])
+
+  // Auto-start callsign flight from URL deep-link
+  useEffect(() => {
+    if (!pendingCallsignStart) return
+    if (!callsignSearchResult) return
+    if (!airportsIcao) return
+    setPendingCallsignStart(false)
+    handleCallsignStart()
+  }, [pendingCallsignStart, callsignSearchResult, airportsIcao])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -2707,11 +2755,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       setIsCallsignSearching(true)
       setCallsignError(null)
       try {
-        const result = await searchFlight(callsignInput.trim())
+        const result = await lookupFlight(callsignInput.trim())
         if (!result) {
           setCallsignError('Flight not found in the last 14 days')
         } else {
           setCallsignSearchResult(result)
+          // Set default departure time from typicalDepartureTimeUtc
+          if (result.typicalDepartureTimeUtc) {
+            const [hh, mm] = result.typicalDepartureTimeUtc.split(':').map(Number)
+            const now = new Date()
+            now.setUTCHours(hh, mm, 0, 0)
+            setDepartureTime(now)
+          }
         }
       } catch {
         setCallsignError('Unable to search flights. Please try again.')
@@ -2722,17 +2777,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
     const handleCallsignStart = async () => {
       if (!callsignSearchResult) return
+
       try {
-        const record = await getFlightEvents(callsignSearchResult.fr24_id)
-        if (!record || !record.events?.length) {
+        const { summary, events, totalDurationMs } = callsignSearchResult
+
+        if (!events?.length) {
           setCallsignError('No flight events found for this flight.')
           return
         }
-        setCallsignEvents(record.events)
 
         // Look up airports by ICAO
-        const departureAirportObj = airportsIcao?.[callsignSearchResult.orig_icao] ?? null
-        const destIcao = callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao
+        const departureAirportObj = airportsIcao?.[summary.orig_icao] ?? null
+        const destIcao = summary.dest_icao_actual ?? summary.dest_icao
         const arrivalAirportObj = airportsIcao?.[destIcao] ?? null
 
         if (!departureAirportObj || !arrivalAirportObj) {
@@ -2740,13 +2796,31 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           return
         }
 
-        setDepartureCode(departureAirportObj.iata || callsignSearchResult.orig_icao)
-        setArrivalCode(arrivalAirportObj.iata || (callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao))
+        setDepartureCode(departureAirportObj.iata || summary.orig_icao)
+        setArrivalCode(arrivalAirportObj.iata || destIcao)
         setDepartureAirport(departureAirportObj)
         setArrivalAirport(arrivalAirportObj)
 
-        // Build control points from events
-        const controlPoints = buildControlPoints(record.events, departureAirportObj, arrivalAirportObj)
+        // Build control points with absolute timestamps derived from
+        // user-chosen departureTime + relative offsets
+        const baseTime = departureTime.getTime()
+        const controlPointsWithTime = events
+          .filter(e => e.lat != null && e.lon != null)
+          .map(e => ({
+            lat: e.lat,
+            lon: e.lon,
+            timestamp: new Date(baseTime + e.offsetMs).toISOString(),
+          }))
+
+        // Add airport endpoints
+        const firstOffset = events[0]?.offsetMs ?? 0
+        const lastOffset = events[events.length - 1]?.offsetMs ?? totalDurationMs
+        const controlPoints = [
+          { lat: departureAirportObj.lat, lon: departureAirportObj.lon, timestamp: new Date(baseTime + firstOffset).toISOString() },
+          ...controlPointsWithTime,
+          { lat: arrivalAirportObj.lat, lon: arrivalAirportObj.lon, timestamp: new Date(baseTime + lastOffset).toISOString() },
+        ]
+
         callsignControlPointsRef.current = controlPoints
 
         // Great circle distance for camera/scale
@@ -2761,20 +2835,17 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         )
         const distance = earthRadius * angularDistance
 
-        // Real duration from first to last event timestamp
-        const t0 = new Date(controlPoints[0].timestamp).getTime()
-        const t1 = new Date(controlPoints[controlPoints.length - 1].timestamp).getTime()
-        const durationMs = t1 - t0
+        // Duration from relative offsets
+        const durationMs = totalDurationMs
         const durationHours = durationMs / 3_600_000
         const totalFlightMins = Math.round(durationHours * 60)
 
-        // Sample daylight along the route using real timestamps
+        // Sample daylight along the route using user-chosen date + offsets
         const numSamples = 2000
         let daylightSegments = 0
         const cpVecs = controlPoints.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
         const catmullCurve = new THREE.CatmullRomCurve3(cpVecs)
 
-        // Arc-length fractions for accurate time interpolation
         const lengths = catmullCurve.getLengths(controlPoints.length - 1)
         const totalLen = lengths[lengths.length - 1]
         const arcLengthFractions = lengths.map(l => l / totalLen)
@@ -2811,7 +2882,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         flightDataRef.current = {
           departure: departureAirportObj,
           arrival: arrivalAirportObj,
-          departureTime: new Date(controlPoints[0].timestamp),
+          departureTime: departureTime,
           flightDurationMs: durationMs,
         }
 
@@ -2829,9 +2900,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         setAutoRotate(false)
         autoRotateRef.current = false
 
-        navigate(`/flight/${callsignInput.trim()}`, { replace: true })
+        const dt = DateTime.fromJSDate(departureTime, { zone: 'utc' })
+        navigate(`/flight/${callsignInput.trim()}/${dt.toFormat('yyyy-MM-dd')}/${dt.toFormat('HHmm')}`, { replace: true })
       } catch {
-        setCallsignError('Unable to load flight events. Please try again.')
+        setCallsignError('Unable to load flight route. Please try again.')
       }
     }
 

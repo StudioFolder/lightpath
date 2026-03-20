@@ -1,13 +1,19 @@
-export async function searchFlight(flightNumber) {
-  const res = await fetch(`/api/flight-search?flight=${encodeURIComponent(flightNumber)}`);
-  if (!res.ok) throw new Error(`flight-search failed: ${res.status}`);
-  const json = await res.json();
-  return json.data?.[0] ?? null;
-}
+const flightCache = new Map();
 
-export async function getFlightEvents(fr24Id) {
-  const res = await fetch(`/api/flight-events?fr24_id=${encodeURIComponent(fr24Id)}`);
-  if (!res.ok) throw new Error(`flight-events failed: ${res.status}`);
+export async function lookupFlight(flightNumber) {
+  const key = flightNumber.trim().toUpperCase();
+
+  // Check in-memory session cache
+  const cached = flightCache.get(key);
+  if (cached) return cached;
+
+  const res = await fetch(`/api/flight-lookup?flight=${encodeURIComponent(key)}`);
+  if (!res.ok) throw new Error(`flight-lookup failed: ${res.status}`);
   const json = await res.json();
-  return json.data?.[0] ?? null;
+  const data = json.data ?? null;
+
+  // Cache the result (even null, to avoid repeated lookups for nonexistent flights)
+  if (data) flightCache.set(key, data);
+
+  return data;
 }
