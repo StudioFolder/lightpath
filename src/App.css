@@ -99,6 +99,10 @@ body:has(.bw-mode) {
   color: var(--bw-text-secondary);
 }
 
+.bw-mode .callsign-airport-code {
+  color: var(--bw-text-primary);
+}
+
 .bw-mode .airport-toggle-overlay label,
 .bw-mode .graticule-toggle-overlay label,
 .bw-mode .timezone-toggle-overlay label,
@@ -1582,6 +1586,12 @@ canvas {
 .airport-columns.route-mode .input-group input:focus {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
+}
+
+.callsign-airport-code {
+  font-family: 'ABCReproMono', monospace;
+  font-size: 1.5em;
+  letter-spacing: 0.05em;
 }
 
 .airport-columns.route-mode .autocomplete-container {

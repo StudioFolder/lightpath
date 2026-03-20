@@ -296,7 +296,7 @@ export default function FlightInputPanel({
                 <div className="airport-column">
                   <span className="column-label">FROM</span>
                   <div className="input-group">
-                    <span style={{ fontFamily: 'monospace', fontSize: '1.5em', letterSpacing: '0.05em' }}>
+                    <span className="callsign-airport-code">
                       {resolvedOrig?.iata ?? callsignSearchResult.summary.orig_icao}
                     </span>
                   </div>
@@ -313,7 +313,7 @@ export default function FlightInputPanel({
                 <div className="airport-column">
                   <span className="column-label">TO</span>
                   <div className="input-group">
-                    <span style={{ fontFamily: 'monospace', fontSize: '1.5em', letterSpacing: '0.05em' }}>
+                    <span className="callsign-airport-code">
                       {resolvedDest?.iata ?? (callsignSearchResult.summary.dest_icao_actual ?? callsignSearchResult.summary.dest_icao)}
                     </span>
                   </div>
@@ -381,6 +381,7 @@ export default function FlightInputPanel({
                     ref={dateInputRef}
                     type="date"
                     className="datetime-hidden-input"
+                    onClick={() => dateInputRef.current?.showPicker()}
                     value={departureTime
                       ? (showCallsignActionRow
                           ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat('yyyy-MM-dd')

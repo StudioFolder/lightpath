@@ -2768,8 +2768,14 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             setDepartureTime(now)
           }
         }
-      } catch {
-        setCallsignError('Unable to search flights. Please try again.')
+      } catch (err) {
+        if (err.message === 'rate_limited') {
+          setCallsignError('Too many requests — please wait a moment and try again.')
+        } else if (err.message === 'server_error') {
+          setCallsignError('Flight data service is temporarily unavailable. Please try again later.')
+        } else {
+          setCallsignError('Unable to search flights. Please try again.')
+        }
       } finally {
         setIsCallsignSearching(false)
       }
