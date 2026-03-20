@@ -10,12 +10,22 @@ export default function FlightInputPanel({
   arrivalAirport,
   departureTime,
   airports,
+  airportsIcao,
   isPanelCollapsed,
   isPanelFading,
   isBWMode,
   isMobile,
   isPlaying,
   showMobileMenu,
+  searchMode,
+  setSearchMode,
+  callsignInput,
+  setCallsignInput,
+  callsignSearchResult,
+  setCallsignSearchResult,
+  callsignError,
+  setCallsignError,
+  isCallsignSearching,
   // Callbacks
   setDepartureCode,
   setDepartureAirport,
@@ -34,6 +44,8 @@ export default function FlightInputPanel({
   // Functions
   searchAirports,
   calculateFlight,
+  handleCallsignSearch,
+  handleCallsignStart,
   getAirportTimezone,
 }) {
 
@@ -41,16 +53,53 @@ export default function FlightInputPanel({
   const [isTransitioning, setIsTransitioning] = useState(false)
   const dateInputRef = useRef(null)
 
-  if (departureAirport && arrivalAirport && !hasEnteredRouteMode && !isTransitioning) {
+  if (searchMode === 'route' && departureAirport && arrivalAirport && !hasEnteredRouteMode && !isTransitioning) {
     setIsTransitioning(true)
     setTimeout(() => {
       setHasEnteredRouteMode(true)
     }, 400)
   }
 
+  function switchToRoute() {
+    setSearchMode('route')
+    setCallsignInput('')
+    setCallsignSearchResult(null)
+    setCallsignError(null)
+    setHasEnteredRouteMode(false)
+    setIsTransitioning(false)
+  }
+
+  function switchToCallsign() {
+    setSearchMode('callsign')
+    setCallsignInput('')
+    setCallsignSearchResult(null)
+    setCallsignError(null)
+    setHasEnteredRouteMode(false)
+    setIsTransitioning(false)
+  }
+
+  const isSubtitleHidden = hasEnteredRouteMode || isTransitioning || searchMode === 'callsign'
+
+  // Resolve airports from ICAO codes when a callsign result is available
+  const resolvedOrig = callsignSearchResult && airportsIcao
+    ? airportsIcao[callsignSearchResult.orig_icao] ?? null
+    : null
+  const resolvedDest = callsignSearchResult && airportsIcao
+    ? airportsIcao[callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao] ?? null
+    : null
+
+  // Parse takeoff time for the disabled datetime pill in callsign mode
+  const callsignTakeoff = callsignSearchResult?.datetime_takeoff
+    ? DateTime.fromISO(callsignSearchResult.datetime_takeoff, { zone: 'utc' })
+    : null
+
+  // Determine whether to show the action row
+  const showRouteActionRow   = searchMode === 'route'    && departureAirport && !isPanelCollapsed
+  const showCallsignActionRow = searchMode === 'callsign' && callsignSearchResult && !isPanelCollapsed
+
   return (
     <div className={`flight-input-wrapper ${isPanelCollapsed ? 'collapsed' : ''}`}>
-      <div 
+      <div
         className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''} ${hasEnteredRouteMode ? 'route-mode' : ''}`}
         onClick={isPanelCollapsed ? () => {
           if (!isMobile) {
@@ -80,8 +129,23 @@ export default function FlightInputPanel({
         style={isPanelCollapsed ? { cursor: 'pointer', ...(isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}) } : (isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {})}
       >
         <div className="panel-header">
-          <h3>Search Route</h3>
-          <button 
+          <h3>
+            Search{' '}
+            <span
+              style={{ cursor: 'pointer', opacity: searchMode === 'route' ? 1 : 0.4, transition: 'opacity 0.2s' }}
+              onClick={(e) => { e.stopPropagation(); switchToRoute() }}
+              onMouseEnter={(e) => { if (searchMode !== 'route') e.target.style.opacity = 0.7 }}
+              onMouseLeave={(e) => { e.target.style.opacity = searchMode === 'route' ? 1 : 0.4 }}
+            >Route</span>
+            {' '}or{' '}
+            <span
+              style={{ cursor: 'pointer', opacity: searchMode === 'callsign' ? 1 : 0.4, transition: 'opacity 0.2s' }}
+              onClick={(e) => { e.stopPropagation(); switchToCallsign() }}
+              onMouseEnter={(e) => { if (searchMode !== 'callsign') e.target.style.opacity = 0.7 }}
+              onMouseLeave={(e) => { e.target.style.opacity = searchMode === 'callsign' ? 1 : 0.4 }}
+            >Flight</span>
+          </h3>
+          <button
             className={`collapse-button ${isPanelCollapsed ? 'collapsed' : ''}`}
             onClick={(e) => {
               if (isPanelCollapsed) return
@@ -111,8 +175,8 @@ export default function FlightInputPanel({
           </button>
         </div>
 
-        <p 
-          className={`panel-subtitle ${hasEnteredRouteMode || isTransitioning ? 'hidden' : ''}`}
+        <p
+          className={`panel-subtitle ${isSubtitleHidden ? 'hidden' : ''}`}
           onMouseMove={!isMobile ? (e) => {
             const spans = e.currentTarget.querySelectorAll('.tagline-word')
             spans.forEach(span => {
@@ -129,167 +193,254 @@ export default function FlightInputPanel({
             })
           } : undefined}
         >
-          {isMobile 
+          {isMobile
             ? <>Trace your flight through<br /> <span className="subtitle-daylight">daylight</span>, <span className="subtitle-twilight">twilight</span>, and <span className="subtitle-darkness">darkness</span></>
             : <>Trace your flight through<br /> <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span></>
           }
         </p>
 
         <div className="panel-content">
-          <div className={`airport-columns ${hasEnteredRouteMode ? 'route-mode' : ''} ${isTransitioning && !hasEnteredRouteMode ? 'fading-out' : ''}`}>
-            <div className="airport-column">
-              <span className="column-label">FROM</span>
-              <AirportSearchInput
-                label="From"
-                code={departureCode}
-                airport={departureAirport}
-                searchAirports={searchAirports}
-                onSelect={(selected) => {
-                  setDepartureCode(selected.code)
-                  setDepartureAirport(selected)
-                }}
-                onSearchChange={() => {
-                  setDepartureCode('')
-                  setDepartureAirport(null)
-                  setSearchEditing(prev => prev + 1)
-                }}
-                onClear={() => {
-                  setDepartureCode('')
-                  setDepartureAirport(null)
-                  setSearchEditing(prev => prev + 1)
-                }}
-              />
-              {departureAirport && (
-                <div className="airport-details">
-                  <span className="airport-city">{departureAirport.city}</span>
-                  <span className="airport-country">{departureAirport.country}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="swap-airports-column">
-              <button
-                className="swap-airports-btn"
-                onClick={() => {
-                  const tempCode = departureCode
-                  const tempAirport = departureAirport
-                  setDepartureCode(arrivalCode)
-                  setDepartureAirport(arrivalAirport)
-                  setArrivalCode(tempCode)
-                  setArrivalAirport(tempAirport)
-                  setSearchEditing(prev => prev + 1)
-                }}
-                aria-label="Swap departure and arrival airports"
-                title="Swap airports"
-              >
-                <img 
-                  src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"} 
-                  alt="Swap" 
-                  className="swap-icon"
+          {searchMode === 'route' ? (
+            <div className={`airport-columns ${hasEnteredRouteMode ? 'route-mode' : ''} ${isTransitioning && !hasEnteredRouteMode ? 'fading-out' : ''}`}>
+              <div className="airport-column">
+                <span className="column-label">FROM</span>
+                <AirportSearchInput
+                  label="From"
+                  code={departureCode}
+                  airport={departureAirport}
+                  searchAirports={searchAirports}
+                  onSelect={(selected) => {
+                    setDepartureCode(selected.code)
+                    setDepartureAirport(selected)
+                  }}
+                  onSearchChange={() => {
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  onClear={() => {
+                    setDepartureCode('')
+                    setDepartureAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
                 />
-              </button>
-            </div>
+                {departureAirport && (
+                  <div className="airport-details">
+                    <span className="airport-city">{departureAirport.city}</span>
+                    <span className="airport-country">{departureAirport.country}</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="airport-column">
-              <span className="column-label">TO</span>
-              <AirportSearchInput
-                label="To"
-                code={arrivalCode}
-                airport={arrivalAirport}
-                searchAirports={searchAirports}
-                onSelect={(selected) => {
-                  setArrivalCode(selected.code)
-                  setArrivalAirport(selected)
-                }}
-                onSearchChange={() => {
-                  setArrivalCode('')
-                  setArrivalAirport(null)
-                  setSearchEditing(prev => prev + 1)
-                }}
-                onClear={() => {
-                  setArrivalCode('')
-                  setArrivalAirport(null)
-                  setSearchEditing(prev => prev + 1)
-                }}
-              />
-              {arrivalAirport && (
-                <div className="airport-details">
-                  <span className="airport-city">{arrivalAirport.city}</span>
-                  <span className="airport-country">{arrivalAirport.country}</span>
-                </div>
-              )}
+              <div className="swap-airports-column">
+                <button
+                  className="swap-airports-btn"
+                  onClick={() => {
+                    const tempCode = departureCode
+                    const tempAirport = departureAirport
+                    setDepartureCode(arrivalCode)
+                    setDepartureAirport(arrivalAirport)
+                    setArrivalCode(tempCode)
+                    setArrivalAirport(tempAirport)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  aria-label="Swap departure and arrival airports"
+                  title="Swap airports"
+                >
+                  <img
+                    src={isBWMode ? "/swap-icon-bw.svg" : "/swap-icon.svg"}
+                    alt="Swap"
+                    className="swap-icon"
+                  />
+                </button>
+              </div>
+
+              <div className="airport-column">
+                <span className="column-label">TO</span>
+                <AirportSearchInput
+                  label="To"
+                  code={arrivalCode}
+                  airport={arrivalAirport}
+                  searchAirports={searchAirports}
+                  onSelect={(selected) => {
+                    setArrivalCode(selected.code)
+                    setArrivalAirport(selected)
+                  }}
+                  onSearchChange={() => {
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                  onClear={() => {
+                    setArrivalCode('')
+                    setArrivalAirport(null)
+                    setSearchEditing(prev => prev + 1)
+                  }}
+                />
+                {arrivalAirport && (
+                  <div className="airport-details">
+                    <span className="airport-city">{arrivalAirport.city}</span>
+                    <span className="airport-country">{arrivalAirport.country}</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* callsign mode */
+            callsignError ? (
+              <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.8 }}>{callsignError}</p>
+                <button
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.6, fontSize: '1.1em', padding: '2px 8px' }}
+                  onClick={() => setCallsignError(null)}
+                  aria-label="Dismiss error"
+                >×</button>
+              </div>
+            ) : callsignSearchResult ? (
+              <div className="airport-columns route-mode">
+                <div className="airport-column">
+                  <span className="column-label">FROM</span>
+                  <div className="input-group">
+                    <span style={{ fontFamily: 'monospace', fontSize: '1.5em', letterSpacing: '0.05em' }}>
+                      {resolvedOrig?.iata ?? callsignSearchResult.orig_icao}
+                    </span>
+                  </div>
+                  {resolvedOrig && (
+                    <div className="airport-details">
+                      <span className="airport-city">{resolvedOrig.city}</span>
+                      <span className="airport-country">{resolvedOrig.country}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="swap-airports-column" />
+
+                <div className="airport-column">
+                  <span className="column-label">TO</span>
+                  <div className="input-group">
+                    <span style={{ fontFamily: 'monospace', fontSize: '1.5em', letterSpacing: '0.05em' }}>
+                      {resolvedDest?.iata ?? (callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao)}
+                    </span>
+                  </div>
+                  {resolvedDest && (
+                    <div className="airport-details">
+                      <span className="airport-city">{resolvedDest.city}</span>
+                      <span className="airport-country">{resolvedDest.country}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="airport-columns" style={{ justifyContent: 'center' }}>
+                  <div className="airport-column" style={{ alignItems: 'center' }}>
+                    <span className="column-label">FLIGHT</span>
+                    <div className="input-group">
+                      <input
+                        type="text"
+                        value={callsignInput}
+                        placeholder="e.g. KL1613"
+                        disabled={isCallsignSearching}
+                        style={{ textAlign: 'center' }}
+                        onChange={(e) => setCallsignInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && callsignInput.trim()) {
+                            handleCallsignSearch()
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+                  <button
+                    className="calculate-pill"
+                    disabled={!callsignInput.trim() || isCallsignSearching}
+                    onClick={handleCallsignSearch}
+                  >
+                    FIND
+                  </button>
+                </div>
+              </>
+            )
+          )}
         </div>
       </div>
 
-      {departureAirport && !isPanelCollapsed && (
+      {(showRouteActionRow || showCallsignActionRow) && (
         <div className="flight-action-row">
-          <div className="datetime-pill">
+          <div className="datetime-pill" style={showCallsignActionRow ? { opacity: 0.45, pointerEvents: 'none' } : {}}>
             <div className="datetime-display">
-              <div className="datetime-field" onClick={() => dateInputRef.current?.showPicker()}>
+              <div className="datetime-field" onClick={showRouteActionRow ? () => dateInputRef.current?.showPicker() : undefined}>
                 <img src={isBWMode ? "/date-icon-bw.svg" : "/date-icon.svg"} alt="Date" className="datetime-icon" />
                 <span className="datetime-value">
-                  {departureAirport && departureTime
-                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
-                    : ''}
+                  {showCallsignActionRow && callsignTakeoff
+                    ? callsignTakeoff.toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
+                    : (departureAirport && departureTime
+                        ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
+                        : '')
+                  }
                 </span>
-                <input 
-                  ref={dateInputRef}
-                  type="date"
-                  className="datetime-hidden-input"
-                  value={departureAirport && departureTime 
-                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
-                    : ''}
-                  onChange={(e) => {
-                    if (!departureAirport || !departureTime) return
-                    const timezone = getAirportTimezone(departureAirport)
-                    const currentTime = DateTime.fromJSDate(departureTime, { zone: timezone })
-                    const [year, month, day] = e.target.value.split('-').map(Number)
-                    const updated = currentTime.set({ year, month, day })
-                    setDepartureTime(updated.toJSDate())
-                  }}
-                  disabled={!departureAirport}
-                />
+                {showRouteActionRow && (
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    className="datetime-hidden-input"
+                    value={departureAirport && departureTime
+                      ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
+                      : ''}
+                    onChange={(e) => {
+                      if (!departureAirport || !departureTime) return
+                      const timezone = getAirportTimezone(departureAirport)
+                      const currentTime = DateTime.fromJSDate(departureTime, { zone: timezone })
+                      const [year, month, day] = e.target.value.split('-').map(Number)
+                      const updated = currentTime.set({ year, month, day })
+                      setDepartureTime(updated.toJSDate())
+                    }}
+                    disabled={!departureAirport}
+                  />
+                )}
               </div>
               <div className="datetime-field">
                 <img src={isBWMode ? "/time-icon-bw.svg" : "/time-icon.svg"} alt="Time" className="datetime-icon" />
-                <input 
-                  type="time"
-                  className="datetime-native-input"
-                  value={departureAirport && departureTime
-                    ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
-                    : ''}
-                  onChange={(e) => {
-                    if (!departureAirport || !departureTime) return
-                    const timezone = getAirportTimezone(departureAirport)
-                    const currentDateTime = DateTime.fromJSDate(departureTime, { zone: timezone })
-                    const [hour, minute] = e.target.value.split(':').map(Number)
-                    const updated = currentDateTime.set({ hour, minute })
-                    setDepartureTime(updated.toJSDate())
-                  }}
-                  disabled={!departureAirport}
-                />
+                {showCallsignActionRow && callsignTakeoff ? (
+                  <span className="datetime-value">{callsignTakeoff.toFormat('HH:mm')}</span>
+                ) : (
+                  <input
+                    type="time"
+                    className="datetime-native-input"
+                    value={departureAirport && departureTime
+                      ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
+                      : ''}
+                    onChange={(e) => {
+                      if (!departureAirport || !departureTime) return
+                      const timezone = getAirportTimezone(departureAirport)
+                      const currentDateTime = DateTime.fromJSDate(departureTime, { zone: timezone })
+                      const [hour, minute] = e.target.value.split(':').map(Number)
+                      const updated = currentDateTime.set({ hour, minute })
+                      setDepartureTime(updated.toJSDate())
+                    }}
+                    disabled={!departureAirport}
+                  />
+                )}
               </div>
             </div>
           </div>
 
-          {arrivalAirport && (
-            <button 
+          {(showCallsignActionRow || (showRouteActionRow && arrivalAirport)) && (
+            <button
               className="calculate-pill"
-              onClick={calculateFlight}
-              disabled={
-                !airports || 
-                departureCode.length !== 3 || 
-                arrivalCode.length !== 3 || 
-                departureCode === arrivalCode
+              onClick={showRouteActionRow ? calculateFlight : handleCallsignStart}
+              disabled={showRouteActionRow
+                ? (!airports || departureCode.length !== 3 || arrivalCode.length !== 3 || departureCode === arrivalCode)
+                : false
               }
             >
-              CALCULATE
+              {showRouteActionRow ? 'CALCULATE' : 'START'}
             </button>
           )}
         </div>
-     )}
+      )}
     </div>
   )
 }

@@ -10,6 +10,7 @@ createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/flight/:route/:date/:time" element={<App />} />
+        <Route path="/flight/:callsign" element={<App />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

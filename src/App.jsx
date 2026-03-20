@@ -15,6 +15,8 @@ import { latLonToVector3, getFlightScale, getViewportScale } from './utils/geoUt
 import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
+import { searchFlight, getFlightEvents } from './services/fr24'
+import { buildControlPoints, interpolateTimestamp } from './utils/routeInterpolation'
 import FlightInputPanel from './components/FlightInputPanel'
 import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
@@ -39,6 +41,7 @@ function App() {
   const [departureCode, setDepartureCode] = useState('')
   const [arrivalCode, setArrivalCode] = useState('')
   const [airports, setAirports] = useState(null)
+  const [airportsIcao, setAirportsIcao] = useState(null)
   const [departureAirport, setDepartureAirport] = useState(null)
   const [arrivalAirport, setArrivalAirport] = useState(null)
   const [searchEditing, setSearchEditing] = useState(0)
@@ -51,6 +54,14 @@ function App() {
   const [animationProgress, setAnimationProgress] = useState(0)
   const [showFlightStats, setShowFlightStats] = useState(true)
   
+  // Flight Search Mode
+  const [searchMode, setSearchMode] = useState('route')  // 'route' | 'callsign'
+  const [callsignInput, setCallsignInput] = useState('')
+  const [callsignSearchResult, setCallsignSearchResult] = useState(null)
+  const [callsignEvents, setCallsignEvents] = useState(null)
+  const [callsignError, setCallsignError] = useState(null)
+  const [isCallsignSearching, setIsCallsignSearching] = useState(false)
+
   // UI State
   const [showAirports, setShowAirports] = useState(true)
   const [showGraticule, setShowGraticule] = useState(true)
@@ -122,6 +133,8 @@ function App() {
   const flightDataRef = useRef(null)
   const animationProgressRef = useRef(0)
   const hasFlightPathRef = useRef(false)
+  const callsignControlPointsRef = useRef(null)
+  const callsignArcLengthFractionsRef = useRef(null)
   
   // Feature Toggles (synced with state)
   const autoRotateRef = useRef(true)
@@ -394,6 +407,25 @@ function App() {
         }
       })
       setAirports(airportMap)
+
+      const airportIcaoMap = {}
+      data.forEach(a => {
+        if (a.icao) {
+          airportIcaoMap[a.icao] = {
+            name: a.name,
+            city: a.municipality,
+            country: a.country,
+            iso: a.iso,
+            iata: a.iata,
+            icao: a.icao,
+            lat: a.lat,
+            lon: a.lon,
+            type: a.type,
+            score: a.score,
+          }
+        }
+      })
+      setAirportsIcao(airportIcaoMap)
     })
     .catch(err => console.error('Error loading airports:', err))
 
@@ -936,7 +968,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
           if (transitionT <= progress) {
             label.visible = true
-            const point = curve.getPoint(transitionT)
+            const isCallsignMode = flightLineRef.current?.userData.isCallsignMode
+            const point = isCallsignMode ? curve.getPointAt(transitionT) : curve.getPoint(transitionT)
+            if (isCallsignMode) point.normalize().multiplyScalar(2.01)
             const eScale = flightLineRef.current?.userData.elementScale || 1.0
             const N = point.clone().normalize()
             const radialLift = N.multiplyScalar(0.03 * eScale)
@@ -950,7 +984,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             if (ring) {
               ring.visible = true
               ring.position.copy(point)
-              const tangent = curve.getTangent(transitionT).normalize()
+              const tangent = (isCallsignMode ? curve.getTangentAt(transitionT) : curve.getTangent(transitionT)).normalize()
               ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent)
               ring.material.opacity = Math.min(fadeProgress, 1)
             }
@@ -972,10 +1006,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         
         if (curve && progress > 0 && progress < 1) {
           // Get current position
-          const position = curve.getPoint(progress)
-          
+          const isCallsignMode = flightLineRef.current?.userData.isCallsignMode
+          const position = isCallsignMode ? curve.getPointAt(progress) : curve.getPoint(progress)
+          if (isCallsignMode) position.normalize().multiplyScalar(2.01)
+
           // Get tangent (direction of travel)
-          _tangent.copy(curve.getTangent(progress)).normalize()
+          _tangent.copy(isCallsignMode ? curve.getTangentAt(progress) : curve.getTangent(progress)).normalize()
           
           // Get normal (pointing away from Earth)
           _normal.copy(position).normalize()
@@ -1204,6 +1240,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         })
         
         flightLineRef.current = null
+        progressTubeRef.current = null
         hasFlightPathRef.current = false
         transitionLabelsRef.current = []
       }
@@ -1213,37 +1250,60 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       // Create a group to hold everything
       const flightGroup = new THREE.Group()
 
-      // Calculate great circle path using proper spherical interpolation
-      const points = []
+      // Calculate route path: CatmullRom from FR24 control points (callsign mode)
+      // or great circle SLERP (route mode)
       const numPoints = 100
       const radius = 2.01
+      const callsignCPs = callsignControlPointsRef.current
 
-      // Get start and end points as 3D vectors
-      const start = latLonToVector3(departure.lat, departure.lon, 1)
-      const end = latLonToVector3(arrival.lat, arrival.lon, 1)
+      const points = []
+      let angle = 0  // used only in SLERP segmentData below
 
-      // Calculate angle between vectors
-      const angle = start.angleTo(end)
+      // callsignSourceCurve: the CatmullRom built directly from FR24 control points.
+      // Used for arc-length parameterization (getPointAt) and arcLengthFractions.
+      let callsignSourceCurve = null
 
-      for (let i = 0; i <= numPoints; i++) {
-        const fraction = i / numPoints
-        
-        const point = new THREE.Vector3()
-        
-        if (angle === 0) {
-          point.copy(start)
-        } else {
-          const sinAngle = Math.sin(angle)
-          const a = Math.sin((1 - fraction) * angle) / sinAngle
-          const b = Math.sin(fraction * angle) / sinAngle
-          
-          point.x = a * start.x + b * end.x
-          point.y = a * start.y + b * end.y
-          point.z = a * start.z + b * end.z
+      if (callsignCPs) {
+        const cpVecs = callsignCPs.map(cp => latLonToVector3(cp.lat, cp.lon, radius))
+        callsignSourceCurve = new THREE.CatmullRomCurve3(cpVecs)
+        for (let i = 0; i <= numPoints; i++) {
+          const pt = callsignSourceCurve.getPointAt(i / numPoints)
+          pt.normalize().multiplyScalar(radius)
+          points.push(pt)
         }
-        
-        point.normalize().multiplyScalar(radius)
-        points.push(point)
+      } else {
+        // Get start and end points as 3D vectors
+        const start = latLonToVector3(departure.lat, departure.lon, 1)
+        const end = latLonToVector3(arrival.lat, arrival.lon, 1)
+
+        // Calculate angle between vectors
+        angle = start.angleTo(end)
+
+        for (let i = 0; i <= numPoints; i++) {
+          const fraction = i / numPoints
+          const point = new THREE.Vector3()
+          if (angle === 0) {
+            point.copy(start)
+          } else {
+            const sinAngle = Math.sin(angle)
+            const a = Math.sin((1 - fraction) * angle) / sinAngle
+            const b = Math.sin(fraction * angle) / sinAngle
+            point.x = a * start.x + b * end.x
+            point.y = a * start.y + b * end.y
+            point.z = a * start.z + b * end.z
+          }
+          point.normalize().multiplyScalar(radius)
+          points.push(point)
+        }
+      }
+
+      // Compute arc-length fractions for callsign mode (used for time interpolation)
+      let arcLengthFractions = null
+      if (callsignSourceCurve) {
+        const lengths = callsignSourceCurve.getLengths(callsignCPs.length - 1)
+        const total = lengths[lengths.length - 1]
+        arcLengthFractions = lengths.map(l => l / total)
+        callsignArcLengthFractionsRef.current = arcLengthFractions
       }
 
       // Calculate day/night segments along the route with sun angle
@@ -1262,25 +1322,33 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       for (let i = 0; i < numPoints; i++) {
         const fraction = (i + 0.5) / numPoints
-        
+
         // Calculate lat/lon at this point
-        const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
-        const b = Math.sin(fraction * angle) / Math.sin(angle)
-        
-        const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
-        const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
-        const z = a * Math.sin(lat1) + b * Math.sin(lat2)
-        
-        const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
-        const lon = Math.atan2(y, x) * 180 / Math.PI
-        
+        let lat, lon
+        if (callsignCPs) {
+          const pt = callsignSourceCurve.getPointAt(fraction)
+          pt.normalize().multiplyScalar(radius)
+          lat = Math.asin(pt.y / radius) * 180 / Math.PI
+          lon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
+        } else {
+          const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
+          const b = Math.sin(fraction * angle) / Math.sin(angle)
+          const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+          const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+          const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+          lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+          lon = Math.atan2(y, x) * 180 / Math.PI
+        }
+
         // Calculate time at this point
-        const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
-        
+        const timeAtPoint = callsignCPs
+          ? interpolateTimestamp(callsignCPs, fraction, arcLengthFractions)
+          : new Date(departureTime.getTime() + fraction * flightDurationMs)
+
         // Get sun angle (degrees from subsolar point)
         const sunAngle = getSunAngle(lat, lon, timeAtPoint)
         const inDaylight = sunAngle < 90
-        
+
         segmentData.push({
           index: i,
           inDaylight,
@@ -1405,10 +1473,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
           if (i > 0 && isDaylight !== lastWasDaylight) {
             const t = i / segmentData.length
-            const elapsedMs = t * flightDurationMs
-            const hours = Math.floor(elapsedMs / 3600000)
-            const minutes = Math.floor((elapsedMs % 3600000) / 60000)
-            
+            let hours, minutes
+            if (callsignCPs) {
+              const depMs = new Date(callsignCPs[0].timestamp).getTime()
+              const elapsedMs = interpolateTimestamp(callsignCPs, t, arcLengthFractions).getTime() - depMs
+              hours = Math.floor(elapsedMs / 3600000)
+              minutes = Math.floor((elapsedMs % 3600000) / 60000)
+            } else {
+              const elapsedMs = t * flightDurationMs
+              hours = Math.floor(elapsedMs / 3600000)
+              minutes = Math.floor((elapsedMs % 3600000) / 60000)
+            }
+
             preCalculatedTransitions.push({
               index: i,
               t: t,
@@ -1450,6 +1526,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         flightGroup.userData.routePoints = points
         flightGroup.userData.scaleFactor = scaleFactor
         flightGroup.userData.elementScale = elementScale
+        flightGroup.userData.isCallsignMode = !!callsignCPs
 
         // Create the thin gray base path
         const thinTubeGeometry = new THREE.TubeGeometry(
@@ -1478,7 +1555,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const fullProgressPoints = []
         const fullNumSamples = 800
         for (let i = 0; i <= fullNumSamples; i++) {
-          fullProgressPoints.push(flightGroup.userData.routeCurve.getPoint(i / fullNumSamples))
+          const frac = i / fullNumSamples
+          const fp = callsignCPs
+            ? flightGroup.userData.routeCurve.getPointAt(frac)
+            : flightGroup.userData.routeCurve.getPoint(frac)
+          if (callsignCPs) fp.normalize().multiplyScalar(radius)
+          fullProgressPoints.push(fp)
         }
 
         const fullTubeSegments = Math.min(fullProgressPoints.length * 2, 1600)
@@ -1540,9 +1622,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const transitionCurve = flightGroup.userData.routeCurve
         preCalculatedTransitions.forEach((trans, idx) => {
           // Compute right-hand side vector relative to direction of travel
-          const tPoint = transitionCurve.getPoint(trans.t)
+          const tPoint = callsignCPs ? transitionCurve.getPointAt(trans.t) : transitionCurve.getPoint(trans.t)
           const tNormal = tPoint.clone().normalize()
-          const tTangent = transitionCurve.getTangent(trans.t).normalize()
+          const tTangent = (callsignCPs ? transitionCurve.getTangentAt(trans.t) : transitionCurve.getTangent(trans.t)).normalize()
           const tBinormal = new THREE.Vector3().crossVectors(tTangent, tNormal).normalize()
 
           // Geographic heuristic: choose side based on path orientation
@@ -1789,7 +1871,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               
               const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
               const lineMaterial = new THREE.LineBasicMaterial({
-                color: 0xffffff,
+                color: isBWModeRef.current ? 0x0f0f0f : 0xffffff,
                 transparent: true,
                 opacity: 0, // Start invisible for fade-in
                 depthTest: true,
@@ -1806,7 +1888,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                 const lineMaterial = new THREE.LineBasicMaterial({
-                  color: 0xffffff,
+                  color: isBWModeRef.current ? 0x0f0f0f : 0xffffff,
                   transparent: true,
                   opacity: 0, // Start invisible for fade-in
                   depthTest: true,
@@ -1827,15 +1909,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               if (child.material) child.material.opacity = v
             })
           })
-
-          // Apply B&W color if in B&W mode
-          if (isBWModeRef.current) {
-            graticuleGroup.traverse((child) => {
-              if (child.material) {
-                child.material.color.setHex(0x0f0f0f)
-              }
-            })
-          }
 
         })
         .catch(err => console.error('Error loading graticule:', err))
@@ -2495,6 +2568,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     }
 
     const calculateFlight = () => {
+      callsignControlPointsRef.current = null
+      callsignArcLengthFractionsRef.current = null
+
       if (!airports) {
         return
       }
@@ -2624,7 +2700,139 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const dateStr = departureTime.toISOString().split('T')[0] // Format: 2026-01-15
       const timeStr = departureTime.toTimeString().slice(0, 5).replace(':', '') // Format: 1430
       navigate(`/flight/${departureCode}-${arrivalCode}/${dateStr}/${timeStr}`, { replace: true })
-      
+
+    }
+
+    const handleCallsignSearch = async () => {
+      setIsCallsignSearching(true)
+      setCallsignError(null)
+      try {
+        const result = await searchFlight(callsignInput.trim())
+        if (!result) {
+          setCallsignError('Flight not found in the last 14 days')
+        } else {
+          setCallsignSearchResult(result)
+        }
+      } catch {
+        setCallsignError('Unable to search flights. Please try again.')
+      } finally {
+        setIsCallsignSearching(false)
+      }
+    }
+
+    const handleCallsignStart = async () => {
+      if (!callsignSearchResult) return
+      try {
+        const record = await getFlightEvents(callsignSearchResult.fr24_id)
+        if (!record || !record.events?.length) {
+          setCallsignError('No flight events found for this flight.')
+          return
+        }
+        setCallsignEvents(record.events)
+
+        // Look up airports by ICAO
+        const departureAirportObj = airportsIcao?.[callsignSearchResult.orig_icao] ?? null
+        const destIcao = callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao
+        const arrivalAirportObj = airportsIcao?.[destIcao] ?? null
+
+        if (!departureAirportObj || !arrivalAirportObj) {
+          setCallsignError('Could not resolve airport coordinates for this flight.')
+          return
+        }
+
+        setDepartureCode(departureAirportObj.iata || callsignSearchResult.orig_icao)
+        setArrivalCode(arrivalAirportObj.iata || (callsignSearchResult.dest_icao_actual ?? callsignSearchResult.dest_icao))
+        setDepartureAirport(departureAirportObj)
+        setArrivalAirport(arrivalAirportObj)
+
+        // Build control points from events
+        const controlPoints = buildControlPoints(record.events, departureAirportObj, arrivalAirportObj)
+        callsignControlPointsRef.current = controlPoints
+
+        // Great circle distance for camera/scale
+        const lat1 = departureAirportObj.lat * Math.PI / 180
+        const lon1 = departureAirportObj.lon * Math.PI / 180
+        const lat2 = arrivalAirportObj.lat * Math.PI / 180
+        const lon2 = arrivalAirportObj.lon * Math.PI / 180
+        const earthRadius = 6371
+        const angularDistance = Math.acos(
+          Math.sin(lat1) * Math.sin(lat2) +
+          Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+        )
+        const distance = earthRadius * angularDistance
+
+        // Real duration from first to last event timestamp
+        const t0 = new Date(controlPoints[0].timestamp).getTime()
+        const t1 = new Date(controlPoints[controlPoints.length - 1].timestamp).getTime()
+        const durationMs = t1 - t0
+        const durationHours = durationMs / 3_600_000
+        const totalFlightMins = Math.round(durationHours * 60)
+
+        // Sample daylight along the route using real timestamps
+        const numSamples = 2000
+        let daylightSegments = 0
+        const cpVecs = controlPoints.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
+        const catmullCurve = new THREE.CatmullRomCurve3(cpVecs)
+
+        // Arc-length fractions for accurate time interpolation
+        const lengths = catmullCurve.getLengths(controlPoints.length - 1)
+        const totalLen = lengths[lengths.length - 1]
+        const arcLengthFractions = lengths.map(l => l / totalLen)
+        callsignArcLengthFractionsRef.current = arcLengthFractions
+
+        for (let i = 0; i < numSamples; i++) {
+          const fraction = (i + 0.5) / numSamples
+          const pt = catmullCurve.getPointAt(fraction)
+          pt.normalize().multiplyScalar(2.01)
+          const lat = Math.asin(pt.y / 2.01) * 180 / Math.PI
+          const lon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
+          const timeAtPoint = interpolateTimestamp(controlPoints, fraction, arcLengthFractions)
+          if (isPointInDaylight(lat, lon, timeAtPoint)) daylightSegments++
+        }
+
+        const daylightTotalMins = Math.round((daylightSegments / numSamples) * totalFlightMins)
+        const darknessTotalMins = totalFlightMins - daylightTotalMins
+
+        const results = {
+          distance: Math.round(distance),
+          duration: durationHours.toFixed(1),
+          durationHours: Math.floor(totalFlightMins / 60),
+          durationMins: totalFlightMins % 60,
+          daylightHours: Math.floor(daylightTotalMins / 60),
+          daylightMins: daylightTotalMins % 60,
+          darknessHours: Math.floor(darknessTotalMins / 60),
+          darknessMins: darknessTotalMins % 60,
+        }
+
+        setFlightResults(results)
+        setIsPanelCollapsed(true)
+        setFlightPath({ departure: departureAirportObj, arrival: arrivalAirportObj })
+
+        flightDataRef.current = {
+          departure: departureAirportObj,
+          arrival: arrivalAirportObj,
+          departureTime: new Date(controlPoints[0].timestamp),
+          flightDurationMs: durationMs,
+        }
+
+        setAnimationProgress(0)
+        animationProgressRef.current = 0
+
+        centerCameraOnFlight(departureAirportObj, arrivalAirportObj, distance)
+
+        const { scaleFactor } = getFlightScale(distance)
+        const planeScale = scaleFactor * viewportScaleRef.current
+        if (planeIconRef.current) {
+          planeIconRef.current.scale.set(planeScale, 1, planeScale)
+        }
+
+        setAutoRotate(false)
+        autoRotateRef.current = false
+
+        navigate(`/flight/${callsignInput.trim()}`, { replace: true })
+      } catch {
+        setCallsignError('Unable to load flight events. Please try again.')
+      }
     }
 
     const getAirportTimezone = (airport) => {
@@ -3351,12 +3559,22 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           arrivalAirport={arrivalAirport}
           departureTime={departureTime}
           airports={airports}
+          airportsIcao={airportsIcao}
           isPanelCollapsed={isPanelCollapsed}
           isPanelFading={isPanelFading}
           isBWMode={isBWMode}
           isMobile={isMobile}
           isPlaying={isPlaying}
           showMobileMenu={showMobileMenu}
+          searchMode={searchMode}
+          setSearchMode={setSearchMode}
+          callsignInput={callsignInput}
+          setCallsignInput={setCallsignInput}
+          callsignSearchResult={callsignSearchResult}
+          setCallsignSearchResult={setCallsignSearchResult}
+          callsignError={callsignError}
+          setCallsignError={setCallsignError}
+          isCallsignSearching={isCallsignSearching}
           setDepartureCode={setDepartureCode}
           setDepartureAirport={setDepartureAirport}
           setArrivalCode={setArrivalCode}
@@ -3373,6 +3591,8 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           setIsMobileMenuAnimating={setIsMobileMenuAnimating}
           searchAirports={searchAirports}
           calculateFlight={calculateFlight}
+          handleCallsignSearch={handleCallsignSearch}
+          handleCallsignStart={handleCallsignStart}
           getLocalDateTimeString={getLocalDateTimeString}
           getAirportTimezone={getAirportTimezone}
         />
