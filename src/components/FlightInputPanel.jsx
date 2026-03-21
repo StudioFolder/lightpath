@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { DateTime } from 'luxon'
 import AirportSearchInput from './AirportSearchInput'
 
@@ -15,7 +15,6 @@ export default function FlightInputPanel({
   isPanelFading,
   isBWMode,
   isMobile,
-  isPlaying,
   showMobileMenu,
   searchMode,
   setSearchMode,
@@ -49,36 +48,100 @@ export default function FlightInputPanel({
   getAirportTimezone,
 }) {
 
-  const [hasEnteredRouteMode, setHasEnteredRouteMode] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [routePhase, setRoutePhase] = useState('idle') // 'idle' | 'animating' | 'ready'
   const dateInputRef = useRef(null)
+  const panelRef = useRef(null)
+  const airportColumnsRef = useRef(null)
+  const [callsignCarouselIndex, setCallsignCarouselIndex] = useState(0)
+  const [isCallsignFocused, setIsCallsignFocused] = useState(false)
+  const callsignCarouselWords = ['KL1613', 'BA249', 'LH400', 'QF1', 'EK201', 'SQ22', 'UA1']
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCallsignCarouselIndex(prev => (prev + 1) % callsignCarouselWords.length)
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [])
 
-  if (searchMode === 'route' && departureAirport && arrivalAirport && !hasEnteredRouteMode && !isTransitioning) {
-    setIsTransitioning(true)
-    setTimeout(() => {
-      setHasEnteredRouteMode(true)
-    }, 400)
+  useEffect(() => {
+    if (searchMode === 'route' && departureAirport && arrivalAirport && routePhase === 'idle') {
+      setRoutePhase('animating')
+    }
+  }, [searchMode, departureAirport, arrivalAirport, routePhase])
+
+  useEffect(() => {
+    if (routePhase !== 'animating') return
+    const el = airportColumnsRef.current
+    if (!el) return
+
+    let done = false
+    const complete = () => {
+      if (done) return
+      done = true
+      setRoutePhase('ready')
+    }
+
+    const fallbackTimer = setTimeout(complete, 500)
+    el.addEventListener('transitionend', complete, { once: true })
+
+    return () => {
+      done = true
+      clearTimeout(fallbackTimer)
+      el.removeEventListener('transitionend', complete)
+    }
+  }, [routePhase])
+
+  function expandPanel() {
+    if (!isPanelCollapsed) return
+    if (!isMobile) {
+      setIsPanelCollapsed(false)
+      setShowFlightStats(false)
+      return
+    }
+    setIsPanelFading(true)
+    const el = panelRef.current
+    if (el) {
+      el.addEventListener('transitionend', () => {
+        setIsPanelCollapsed(false)
+        setShowFlightStats(false)
+        setIsPanelFading(false)
+      }, { once: true })
+    }
   }
 
   function switchToRoute() {
+    expandPanel()
     setSearchMode('route')
-    setCallsignInput('')
-    setCallsignSearchResult(null)
     setCallsignError(null)
-    setHasEnteredRouteMode(false)
-    setIsTransitioning(false)
+    // Inherit airports from callsign result if route fields are empty
+    if (!departureAirport && !arrivalAirport && resolvedOrig && resolvedDest) {
+      setDepartureCode(resolvedOrig.iata || resolvedOrig.icao)
+      setDepartureAirport(resolvedOrig)
+      setArrivalCode(resolvedDest.iata || resolvedDest.icao)
+      setArrivalAirport(resolvedDest)
+      setRoutePhase('ready')
+    } else if (departureAirport && arrivalAirport) {
+      setRoutePhase('ready')
+    } else {
+      setRoutePhase('idle')
+    }
   }
 
   function switchToCallsign() {
+    expandPanel()
     setSearchMode('callsign')
-    setCallsignInput('')
-    setCallsignSearchResult(null)
     setCallsignError(null)
-    setHasEnteredRouteMode(false)
-    setIsTransitioning(false)
+    // Clear route airports if they were manually entered (no callsign result backing them)
+    if (!callsignSearchResult) {
+      setDepartureCode('')
+      setDepartureAirport(null)
+      setArrivalCode('')
+      setArrivalAirport(null)
+    }
+    setRoutePhase('idle')
   }
 
-  const isSubtitleHidden = hasEnteredRouteMode || isTransitioning || searchMode === 'callsign'
+  const isSubtitleHidden = routePhase !== 'idle' || !!callsignSearchResult
+  const isSubtitleFaded = !isSubtitleHidden && !!callsignError
 
   // Resolve airports from ICAO codes when a callsign result is available
   const resolvedOrig = callsignSearchResult && airportsIcao
@@ -95,7 +158,8 @@ export default function FlightInputPanel({
   return (
     <div className={`flight-input-wrapper ${isPanelCollapsed ? 'collapsed' : ''}`}>
       <div
-        className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''} ${hasEnteredRouteMode ? 'route-mode' : ''}`}
+        ref={panelRef}
+        className={`flight-input ${isPanelCollapsed ? 'collapsed' : ''} ${isPanelFading ? 'fading' : ''} ${routePhase === 'ready' ? 'route-mode' : ''} ${searchMode === 'callsign' && callsignSearchResult ? 'callsign-result' : ''}`}
         onClick={isPanelCollapsed ? () => {
           if (!isMobile) {
             setIsPanelCollapsed(false)
@@ -106,72 +170,80 @@ export default function FlightInputPanel({
             setIsHamburgerOpen(false)
             setIsMobileMenuClosing(true)
             setExpandedSection(null)
-            setTimeout(() => {
+            const cleanup = () => {
               setShowMobileMenu(false)
-              setTimeout(() => {
-                setIsMobileMenuClosing(false)
-                setIsMobileMenuAnimating(false)
-              }, 300)
-            }, 50)
+              setIsMobileMenuClosing(false)
+              setIsMobileMenuAnimating(false)
+            }
+            const menuEl = document.querySelector('.mobile-menu')
+            if (menuEl) {
+              const fallbackTimer = setTimeout(cleanup, 350)
+              menuEl.addEventListener('animationend', () => {
+                clearTimeout(fallbackTimer)
+                cleanup()
+              }, { once: true })
+            } else {
+              cleanup()
+            }
           }
           setIsPanelFading(true)
-          setTimeout(() => {
-            setIsPanelCollapsed(false)
-            setShowFlightStats(false)
-            setIsPanelFading(false)
-          }, 200)
+          const el = panelRef.current
+          if (el) {
+            el.addEventListener('transitionend', () => {
+              setIsPanelCollapsed(false)
+              setShowFlightStats(false)
+              setIsPanelFading(false)
+            }, { once: true })
+          }
         } : undefined}
-        style={isPanelCollapsed ? { cursor: 'pointer', ...(isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}) } : (isMobile ? { opacity: isPlaying ? 0 : 1, pointerEvents: isPlaying ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {})}
+        style={isPanelCollapsed ? { cursor: 'pointer' } : undefined}
       >
         <div className="panel-header">
-          <h3>
-            Search{' '}
+          <img src={isBWMode ? '/search-icon-bw.svg' : '/search-icon.svg'} width="20" height="20" alt="" className="panel-header-search-icon" />
+          <div className="mode-toggle">
+            <div className="mode-toggle-indicator" style={{ transform: `translateX(${searchMode === 'callsign' ? '100%' : '0'})` }} />
             <span
-              style={{ cursor: 'pointer', opacity: searchMode === 'route' ? 1 : 0.4, transition: 'opacity 0.2s' }}
+              className={`mode-toggle-btn ${searchMode === 'route' ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); switchToRoute() }}
-              onMouseEnter={(e) => { if (searchMode !== 'route') e.target.style.opacity = 0.7 }}
-              onMouseLeave={(e) => { e.target.style.opacity = searchMode === 'route' ? 1 : 0.4 }}
-            >Route</span>
-            {' '}or{' '}
+            >
+              ROUTE
+            </span>
             <span
-              style={{ cursor: 'pointer', opacity: searchMode === 'callsign' ? 1 : 0.4, transition: 'opacity 0.2s' }}
+              className={`mode-toggle-btn ${searchMode === 'callsign' ? 'active' : ''}`}
               onClick={(e) => { e.stopPropagation(); switchToCallsign() }}
-              onMouseEnter={(e) => { if (searchMode !== 'callsign') e.target.style.opacity = 0.7 }}
-              onMouseLeave={(e) => { e.target.style.opacity = searchMode === 'callsign' ? 1 : 0.4 }}
-            >Flight</span>
-          </h3>
-          <button
-            className={`collapse-button ${isPanelCollapsed ? 'collapsed' : ''}`}
-            onClick={(e) => {
-              if (isPanelCollapsed) return
-              e.stopPropagation()
-              if (!isMobile) {
-                setIsPanelCollapsed(true)
-                return
-              }
-              setIsPanelFading(true)
-              setTimeout(() => {
-                setIsPanelCollapsed(true)
-                setIsPanelFading(false)
-              }, 200)
-            }}
-            aria-label={isPanelCollapsed ? "Expand panel" : "Collapse panel"}
-          >
-            <svg className="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-            <img
-              className="collapse-lens"
-              src={isBWMode ? '/search-icon-bw.svg' : '/search-icon.svg'}
-              alt="Search"
-              width="20"
-              height="20"
-            />
-          </button>
+            >
+              FLIGHT
+            </span>
+          </div>
+          {!isPanelCollapsed && (
+            <button
+              className="collapse-button"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!isMobile) {
+                  setIsPanelCollapsed(true)
+                  return
+                }
+                setIsPanelFading(true)
+                const el = panelRef.current
+                if (el) {
+                  el.addEventListener('transitionend', () => {
+                    setIsPanelCollapsed(true)
+                    setIsPanelFading(false)
+                  }, { once: true })
+                }
+              }}
+              aria-label="Collapse panel"
+            >
+              <svg className="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <p
-          className={`panel-subtitle ${isSubtitleHidden ? 'hidden' : ''}`}
+          className={`panel-subtitle ${isSubtitleHidden ? 'hidden' : ''} ${isSubtitleFaded ? 'faded' : ''}`}
           onMouseMove={!isMobile ? (e) => {
             const spans = e.currentTarget.querySelectorAll('.tagline-word')
             spans.forEach(span => {
@@ -196,7 +268,11 @@ export default function FlightInputPanel({
 
         <div className="panel-content">
           {searchMode === 'route' ? (
-            <div className={`airport-columns ${hasEnteredRouteMode ? 'route-mode' : ''} ${isTransitioning && !hasEnteredRouteMode ? 'fading-out' : ''}`}>
+            <>
+            {routePhase === 'ready' && (
+              <div className="callsign-result-label">Great Circle Route</div>
+            )}
+            <div ref={airportColumnsRef} className={`airport-columns ${routePhase === 'ready' ? 'route-mode' : ''} ${routePhase === 'animating' ? 'fading-out' : ''}`}>
               <div className="airport-column">
                 <span className="column-label">FROM</span>
                 <AirportSearchInput
@@ -280,18 +356,30 @@ export default function FlightInputPanel({
                 )}
               </div>
             </div>
+            </>
           ) : (
             /* callsign mode */
             callsignError ? (
-              <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.8 }}>{callsignError}</p>
-                <button
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.6, fontSize: '1.1em', padding: '2px 8px' }}
+              <div className="callsign-error">
+                <p className="callsign-error-message">{callsignError}</p>
+                <span
+                  className="callsign-error-back"
                   onClick={() => setCallsignError(null)}
-                  aria-label="Dismiss error"
-                >×</button>
+                >back</span>
               </div>
             ) : callsignSearchResult ? (
+              <>
+              <div className="callsign-result-label">
+                {(callsignSearchResult.summary?.flight || callsignInput).replace(/^([A-Z]{2,3})(\d.*)$/, '$1 $2')}
+                <button
+                  className="callsign-result-clear"
+                  onClick={() => {
+                    setCallsignSearchResult(null)
+                    setCallsignInput('')
+                  }}
+                  aria-label="Clear flight"
+                >×</button>
+              </div>
               <div className="airport-columns route-mode">
                 <div className="airport-column">
                   <span className="column-label">FROM</span>
@@ -308,7 +396,13 @@ export default function FlightInputPanel({
                   )}
                 </div>
 
-                <div className="swap-airports-column" />
+                <div className="swap-airports-column">
+                  <img
+                    src={isBWMode ? "/plane-icon-bw.svg" : "/plane-icon.svg"}
+                    className="route-plane-icon"
+                    alt="plane"
+                  />
+                </div>
 
                 <div className="airport-column">
                   <span className="column-label">TO</span>
@@ -325,36 +419,55 @@ export default function FlightInputPanel({
                   )}
                 </div>
               </div>
+              </>
             ) : (
               <>
-                <div className="airport-columns" style={{ justifyContent: 'center' }}>
-                  <div className="airport-column" style={{ alignItems: 'center' }}>
-                    <span className="column-label">FLIGHT</span>
+                <div className="airport-columns callsign-input-columns">
+                  <div className="airport-column callsign-input-column">
+                    <span className="column-label">FLIGHT NUMBER</span>
                     <div className="input-group">
-                      <input
-                        type="text"
-                        value={callsignInput}
-                        placeholder="e.g. KL1613"
-                        disabled={isCallsignSearching}
-                        style={{ textAlign: 'center' }}
-                        onChange={(e) => setCallsignInput(e.target.value.toUpperCase())}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && callsignInput.trim()) {
-                            handleCallsignSearch()
-                          }
-                        }}
-                      />
+                      <div className="autocomplete-container">
+                        <input
+                          type="text"
+                          value={callsignInput}
+                          placeholder=""
+                          disabled={isCallsignSearching}
+                          onChange={(e) => setCallsignInput(e.target.value.toUpperCase().slice(0, 6))}
+                          onFocus={() => setIsCallsignFocused(true)}
+                          onBlur={() => setIsCallsignFocused(false)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && callsignInput.trim()) {
+                              handleCallsignSearch()
+                            }
+                          }}
+                        />
+                        {!callsignInput && !isCallsignFocused && (
+                          <div className="placeholder-carousel">
+                            <div className="carousel-words">
+                              {callsignCarouselWords.map((word, i) => (
+                                <span
+                                  key={word}
+                                  className={`carousel-word ${i === callsignCarouselIndex ? 'active' : ''}`}
+                                >
+                                  {word}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {callsignInput.trim().length >= 3 && (
+                          <button
+                            className={`callsign-enter-btn${isCallsignSearching ? ' loading' : ''}`}
+                            onClick={handleCallsignSearch}
+                            disabled={isCallsignSearching}
+                            aria-label="Search flight"
+                          >
+                            <img src={isBWMode ? '/enter-icon-bw.svg' : '/enter-icon.svg'} width="16" height="16" alt="" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
-                  <button
-                    className="calculate-pill"
-                    disabled={!callsignInput.trim() || isCallsignSearching}
-                    onClick={handleCallsignSearch}
-                  >
-                    FIND
-                  </button>
                 </div>
               </>
             )
@@ -362,8 +475,7 @@ export default function FlightInputPanel({
         </div>
       </div>
 
-      {(showRouteActionRow || showCallsignActionRow) && (
-        <div className="flight-action-row">
+      <div className={`flight-action-row ${showRouteActionRow || showCallsignActionRow ? 'visible' : ''}`}>
           <div className="datetime-pill">
             <div className="datetime-display">
               <div className="datetime-field" onClick={() => dateInputRef.current?.showPicker()}>
@@ -414,6 +526,7 @@ export default function FlightInputPanel({
                 <input
                   type="time"
                   className="datetime-native-input"
+                  tabIndex={showRouteActionRow || showCallsignActionRow ? 0 : -1}
                   value={departureTime
                     ? (showCallsignActionRow
                         ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat('HH:mm')
@@ -455,7 +568,6 @@ export default function FlightInputPanel({
             </button>
           )}
         </div>
-      )}
     </div>
   )
 }

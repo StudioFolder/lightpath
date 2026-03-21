@@ -22,6 +22,8 @@ import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
 import { Analytics } from '@vercel/analytics/react'
 
+const CATMULLROM_TENSION = 0.0
+
 // ===== THEME COLOR CONSTANTS =====
 // Single source of truth for background colors used in Three.js scene,
 // document body, and meta theme-color. Mirror values in App.css :root / .bw-mode.
@@ -68,7 +70,7 @@ function App() {
   const [showPlaneIcon, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
-  const [isPanelFading, setIsPanelFading] = useState(false)
+  const [isPanelFading, setIsPanelFading] = useState(false) // Drives .fading class for mobile collapse/expand fade-then-switch pattern
   const [autoRotate, setAutoRotate] = useState(true)
   const [isBWMode, setIsBWMode] = useState(false)
   const [followPlaneMode, setFollowPlaneMode] = useState(false)
@@ -84,7 +86,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isMobileMenuClosing, setIsMobileMenuClosing] = useState(false)
-  const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false)
+  const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false) // Guards hamburger button against re-trigger during close animation
   const [isHamburgerOpen, setIsHamburgerOpen] = useState(false)
 
   // ===== REFS =====
@@ -145,6 +147,7 @@ function App() {
 
   // Scaling
   const viewportScaleRef = useRef(getViewportScale(window.innerWidth))
+  const targetBumpScaleRef = useRef(5)
   
   // External Data & Intervals
   const timezoneDataRef = useRef(null)
@@ -1313,7 +1316,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       if (callsignCPs) {
         const cpVecs = callsignCPs.map(cp => latLonToVector3(cp.lat, cp.lon, radius))
-        callsignSourceCurve = new THREE.CatmullRomCurve3(cpVecs)
+        callsignSourceCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
         for (let i = 0; i <= numPoints; i++) {
           const pt = callsignSourceCurve.getPointAt(i / numPoints)
           pt.normalize().multiplyScalar(radius)
@@ -1366,7 +1369,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const lat2 = arrival.lat * Math.PI / 180
       const lon2 = arrival.lon * Math.PI / 180
 
-      const flightDurationMs = (flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000
+      const flightDurationMs = flightDataRef.current?.flightDurationMs ?? ((flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000)
 
       for (let i = 0; i < numPoints; i++) {
         const fraction = (i + 0.5) / numPoints
@@ -2566,6 +2569,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const duration = 1500
       const startTime = Date.now()
 
+      // Bump scale: ramp from 5 (far) to 12 (close) based on camera distance
+      const bumpFromRadius = (r) => 5 + (3.5 - Math.max(2.3, Math.min(3.5, r))) / (3.5 - 2.3) * 5
+      const startBump = bumpFromRadius(startRadius)
+      const endBump = bumpFromRadius(radius)
+      targetBumpScaleRef.current = endBump
+
       const animateCamera = () => {
         const elapsed = Date.now() - startTime
         const progress = Math.min(elapsed / duration, 1)
@@ -2577,12 +2586,17 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // Spherical interpolation (slerp) - maintain constant distance from origin
         const startNormal = startPosition.clone().normalize()
         const targetNormal = targetPosition.clone().normalize()
-        
+
         // Calculate angle between start and target
         const angle = startNormal.angleTo(targetNormal)
-        
+
         // Interpolate distance from current to target
         const currentRadius = startRadius + (radius - startRadius) * eased
+
+        // Interpolate bump scale with camera distance
+        if (!isBWMode && earthMaterialRef.current) {
+          earthMaterialRef.current.bumpScale = startBump + (endBump - startBump) * eased
+        }
 
         // Handle edge case where positions are identical or opposite
         if (angle < 0.0001) {
@@ -2595,11 +2609,11 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           const axis = new THREE.Vector3().crossVectors(startNormal, targetNormal).normalize()
           const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle * eased)
           const interpolatedNormal = startNormal.clone().applyQuaternion(quaternion)
-          
+
           // Apply interpolated radius (smooth zoom)
           camera.position.copy(interpolatedNormal.multiplyScalar(currentRadius))
         }
-        
+
         camera.lookAt(0, 0, 0)
         controls.update()
 
@@ -2714,7 +2728,8 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       
       setFlightResults(results)
       setIsPanelCollapsed(true)
-      
+      setShowFlightStats(true)
+
       // Trigger flight path drawing
       setFlightPath({ departure, arrival })
 
@@ -2818,6 +2833,14 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             timestamp: new Date(baseTime + e.offsetMs).toISOString(),
           }))
 
+        // Fallback: insufficient waypoints — degrade to great circle
+        if (controlPointsWithTime.length < 2) {
+          callsignControlPointsRef.current = null
+          callsignArcLengthFractionsRef.current = null
+          calculateFlight()
+          return
+        }
+
         // Add airport endpoints
         const firstOffset = events[0]?.offsetMs ?? 0
         const lastOffset = events[events.length - 1]?.offsetMs ?? totalDurationMs
@@ -2850,7 +2873,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const numSamples = 2000
         let daylightSegments = 0
         const cpVecs = controlPoints.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
-        const catmullCurve = new THREE.CatmullRomCurve3(cpVecs)
+        const catmullCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
 
         const lengths = catmullCurve.getLengths(controlPoints.length - 1)
         const totalLen = lengths[lengths.length - 1]
@@ -2906,6 +2929,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
         setFlightResults(results)
         setIsPanelCollapsed(true)
+        setShowFlightStats(true)
         setFlightPath({ departure: departureAirportObj, arrival: arrivalAirportObj })
 
         flightDataRef.current = {
@@ -2970,14 +2994,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     const handleProgressChange = (newProgress) => {
       setAnimationProgress(newProgress)
       animationProgressRef.current = newProgress
-    }
-
-    const getLocalDateTimeString = (date, airport) => {
-      if (!airport) return ''
-      
-      const timezone = getAirportTimezone(airport)
-      const dt = DateTime.fromJSDate(date, { zone: timezone })
-      return dt.toFormat("yyyy-MM-dd'T'HH:mm")
     }
 
     const searchAirports = (query) => {
@@ -3153,8 +3169,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // Interpolate bump scale
         const earthSphere = sceneRef.current.getObjectByName('earth-sphere')
         if (earthSphere) {
-          const startBump = isBWMode ? 5 : 0
-          const endBump = isBWMode ? 0 : 5
+          const bumpTarget = targetBumpScaleRef.current
+          const startBump = isBWMode ? bumpTarget : 0
+          const endBump = isBWMode ? 0 : bumpTarget
           earthSphere.material.bumpScale = startBump + (endBump - startBump) * easeT
         }
 
@@ -3314,7 +3331,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     }, [isBWMode])
 
     return (
-      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showFlightStats ? 'stats-visible' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
+      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showFlightStats ? 'stats-visible' : ''} ${isPlaying ? 'playing' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
         <div className="info-overlay">
           <img 
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
@@ -3618,10 +3635,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           <a href="mailto:lightpath@studiofolder.it">Get in touch</a>
         </div>
 
-        <div 
-          className="bw-toggle-overlay"
-          style={isMobile ? { opacity: isPlaying || showMobileMenu ? 0 : 1, pointerEvents: isPlaying || showMobileMenu ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}
-        >
+        <div className="bw-toggle-overlay">
           <label>
             <div className="toggle-switch">
               <input 
@@ -3635,10 +3649,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           </label>
         </div>
 
-        <div 
-          className="follow-toggle-overlay"
-          style={isMobile ? { opacity: isPlaying || showMobileMenu ? 0 : 1, pointerEvents: isPlaying || showMobileMenu ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}
-        >
+        <div className="follow-toggle-overlay">
           <label>
             <div className="toggle-switch">
               <input 
@@ -3665,7 +3676,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           isPanelFading={isPanelFading}
           isBWMode={isBWMode}
           isMobile={isMobile}
-          isPlaying={isPlaying}
           showMobileMenu={showMobileMenu}
           searchMode={searchMode}
           setSearchMode={setSearchMode}
@@ -3694,7 +3704,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           calculateFlight={calculateFlight}
           handleCallsignSearch={handleCallsignSearch}
           handleCallsignStart={handleCallsignStart}
-          getLocalDateTimeString={getLocalDateTimeString}
           getAirportTimezone={getAirportTimezone}
         />
 
@@ -3722,8 +3731,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
         <canvas ref={canvasRef} />   
     
-        {flightResults && (
-          <AnimationControls
+        <AnimationControls
             flightPath={flightPath}
             flightResults={flightResults}
             flightData={flightDataRef.current}
@@ -3732,6 +3740,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             showFlightStats={showFlightStats}
             departureCode={departureCode}
             arrivalCode={arrivalCode}
+            callsignDisplay={searchMode === 'callsign' && callsignSearchResult ? (callsignSearchResult.summary?.flight || callsignInput).replace(/^([A-Z]{2,3})(\d.*)$/, '$1 $2') : null}
             isBWMode={isBWMode}
             onProgressChange={handleProgressChange}
             setIsPlaying={setIsPlaying}
@@ -3742,8 +3751,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             getLocalDateAtAirport={getLocalDateAtAirport}
             formatFlightTime={formatFlightTime}
           />
-        )}
-        
+
         <div
           ref={tooltipRef}
           style={{
