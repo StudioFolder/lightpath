@@ -1685,11 +1685,7 @@ canvas {
 }
 
 .airport-columns.route-mode .swap-airports-column {
-  padding-top: 90px;
-}
-
-.flight-input.callsign-result .swap-airports-column {
-  padding-top: 38px;
+  padding-top: 64px;
 }
 
 .airport-columns.route-mode .input-group input::placeholder {
@@ -1784,7 +1780,7 @@ canvas {
 
 .callsign-result-clear {
   position: absolute;
-  right: calc(50% - 46px);
+  right: calc(50% - 52px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1801,6 +1797,10 @@ canvas {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease !important;
+}
+
+.callsign-result-clear svg {
+  transform: translateY(0.5px);
 }
 
 .flight-input:hover .callsign-result-clear {
