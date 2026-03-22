@@ -1164,6 +1164,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           
           planeIconRef.current.material.opacity = showPlaneIconRef.current ? opacity : 0
           planeIconRef.current.visible = showPlaneIconRef.current && opacity > 0
+
         } else {
           planeIconRef.current.visible = false
           // Re-enable OrbitControls when animation ends or is outside valid range
