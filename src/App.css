@@ -1331,6 +1331,10 @@ canvas {
   opacity: 0.85;
 }
 
+.collapsed-mode-label {
+  display: none;
+}
+
 /* Collapsed: show lens, fade out arrow */
 .flight-input.collapsed .collapse-arrow {
   opacity: 0;
@@ -1681,7 +1685,11 @@ canvas {
 }
 
 .airport-columns.route-mode .swap-airports-column {
-  padding-top: 80px;
+  padding-top: 90px;
+}
+
+.flight-input.callsign-result .swap-airports-column {
+  padding-top: 38px;
 }
 
 .airport-columns.route-mode .input-group input::placeholder {
@@ -1764,8 +1772,9 @@ canvas {
   align-items: center;
   justify-content: center;
   width: 100%;
+  font-family: 'ABCReproMono', monospace;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.85);
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1775,22 +1784,20 @@ canvas {
 
 .callsign-result-clear {
   position: absolute;
-  right: calc(50% - 42px);
+  right: calc(50% - 46px);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px !important;
-  height: 16px;
+  width: 18px !important;
+  height: 18px !important;
+  min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   background: rgba(255, 255, 255, 0.25) !important;
   border: none !important;
-  border-radius: 50%;
+  border-radius: 50% !important;
   color: rgba(30, 30, 30, 0.85) !important;
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 300;
-  line-height: 1;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease !important;
@@ -3109,12 +3116,10 @@ canvas {
   }
 
   .flight-input-wrapper.collapsed {
-    top: 20px;
+    top: 22px;
     left: auto;
-    right: 70px;
+    right: 64px;
     transform: none;
-    width: auto;
-    max-width: none;
   }
 
   .share-actions {
@@ -3123,6 +3128,12 @@ canvas {
     right: 16px;
     flex-direction: column;
     gap: 2px;
+  }
+
+  .flight-input-wrapper.collapsed ~ .share-actions {
+    top: 22px;
+    right: 54px;
+    flex-direction: row;
   }
 
   .share-actions .share-button {
@@ -3171,31 +3182,58 @@ canvas {
   }
 
   .flight-input.collapsed {
-    top: auto;
-    left: auto;
-    right: auto;
-    transform: none;
-    width: auto;
+    width: fit-content !important;
     min-width: 0 !important;
-    max-width: 160px;
-    padding: 4px 14px !important;
-    border-radius: 48px;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 10px 14px !important;
+    border-radius: 48px !important;
+    box-shadow: none !important;
   }
 
   .flight-input.collapsed .panel-header {
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
-    transition: none !important;
-    margin: -4px -14px;
-    padding: 4px 20px;
+    align-items: center;
+    margin: -10px -14px;
+    padding: 10px 14px;
     height: auto;
     border-radius: 48px;
+    background: transparent !important;
   }
 
-  .flight-input.collapsed .collapse-button {
-    width: 16px !important;
-    height: 16px !important;
-  } 
+  .flight-input.collapsed .panel-header .mode-toggle {
+    display: none !important;
+  }
+
+  .flight-input.collapsed .panel-header-search-icon {
+    margin: 0;
+  }
+
+  .flight-input.collapsed .collapsed-mode-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.85);
+    white-space: nowrap;
+  }
+
+  .bw-mode .flight-input.collapsed .collapsed-mode-label {
+    color: var(--bw-text-primary);
+  }
+
+  .flight-input.collapsed .collapse-button,
+  .flight-input.collapsed .panel-content,
+  .flight-input.collapsed .panel-subtitle {
+    display: none !important;
+  }
+
+  .flight-input.collapsed.fading {
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+  }
 
   .flight-input.collapsed .panel-content {
     transition: none !important;
@@ -3259,6 +3297,22 @@ canvas {
     padding: 6px 12px;
   }
 
+  .callsign-input-column .autocomplete-container {
+    position: relative;
+    height: 36px;
+  }
+
+  .callsign-input-column .autocomplete-container input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100% !important;
+    padding: 0 12px !important;
+    box-sizing: border-box !important;
+  }
+
   .airport-columns.route-mode .input-clear-btn {
     right: -2px;
   }
@@ -3283,11 +3337,15 @@ canvas {
 
   .swap-airports-column {
     width: 60px;
-    padding-top: 18px;
+    padding-top: 30px;
   }
 
   .airport-columns.route-mode .swap-airports-column {
-    padding-top: 38px;
+    padding-top: 60px;
+  }
+
+  .flight-input.callsign-result .swap-airports-column {
+    padding-top: 64px;
   }
 
   .panel-subtitle {
@@ -3297,47 +3355,52 @@ canvas {
     padding: 0;
   }
 
-  .subtitle-daylight {
-    background: linear-gradient(90deg, var(--path-day-color) 60%, rgb(255, 240, 130));
+  .subtitle-daylight,
+  .subtitle-twilight,
+  .subtitle-darkness {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    opacity: 0.8;
+    background-size: 300% 100%;
+    background-position: 0% 0%;
+    animation: colorSweep 6s ease-out infinite;
+  }
+
+  .subtitle-daylight {
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 40%, var(--path-day-color) 50%, rgb(255, 240, 130) 55%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0.5) 100%);
+    animation-delay: 0.6s;
   }
 
   .subtitle-twilight {
-    background: linear-gradient(90deg, var(--path-twilight-warm), var(--path-twilight-cool));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    opacity: 0.8;
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 40%, var(--path-twilight-warm) 48%, var(--path-twilight-cool) 55%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0.5) 100%);
+    animation-delay: 0.9s;
   }
 
   .subtitle-darkness {
-    background: linear-gradient(90deg, rgb(89, 13, 140), var(--path-night-color) 40%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: brightness(1.4);
-    opacity: 0.9;
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 40%, rgb(89, 13, 140) 48%, var(--path-night-color) 55%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0.5) 100%);
+    animation-delay: 1.2s;
+  }
+
+  @keyframes colorSweep {
+    0% {
+      background-position: 100% 0%;
+    }
+    30% {
+      background-position: 0% 0%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
   }
 
   .bw-mode .subtitle-daylight {
-    background: linear-gradient(90deg, var(--path-day-color) 30%, rgb(220, 220, 220));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    opacity: 1;
+    background-image: linear-gradient(90deg, var(--bw-text-secondary) 0%, var(--bw-text-secondary) 40%, var(--path-day-color) 50%, rgb(220, 220, 220) 55%, var(--bw-text-secondary) 65%, var(--bw-text-secondary) 100%);
     filter: brightness(0.9);
   }
 
   .bw-mode .subtitle-darkness {
-    background: linear-gradient(90deg, rgb(80, 80, 80), var(--path-night-color) 40%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    background-image: linear-gradient(90deg, var(--bw-text-secondary) 0%, var(--bw-text-secondary) 40%, rgb(80, 80, 80) 48%, var(--path-night-color) 55%, var(--bw-text-secondary) 65%, var(--bw-text-secondary) 100%);
     filter: none;
-    opacity: 0.9;
   }
 
   /* Header elements - visually centered */  
@@ -3436,10 +3499,28 @@ canvas {
   }
   
   .route-plane-icon {
-    width: 11px;
-    height: 11px;
+    width: 16px;
+    height: 16px;
   }
   
+  .callsign-enter-btn {
+    right: -20px;
+    top: 22px;
+    transform: translateY(-50%);
+  }
+
+  .callsign-enter-btn.loading {
+    display: none !important;
+  }
+
+  .callsign-result-clear {
+    right: calc(50% - 50px) !important;
+  }
+
+  .callsign-input-columns .input-group {
+    animation: none !important;
+  }
+
   .animation-distance {
     font-size: 11px;
     margin-top: 4px;
@@ -3664,12 +3745,7 @@ canvas {
   }
 
   .flight-input.collapsed .panel-header {
-    margin: -8px -14px -6px -14px;
-  }
-  
-  .flight-input.collapsed {
-    width: auto;
-    min-width: 180px;
+    margin: -8px -14px;
   }
   
   .flight-input h3 {

@@ -132,6 +132,7 @@ export default function FlightInputPanel({
     setCallsignError(null)
     // Clear route airports if they were manually entered (no callsign result backing them)
     if (!callsignSearchResult) {
+      setCallsignInput('')
       setDepartureCode('')
       setDepartureAirport(null)
       setArrivalCode('')
@@ -200,6 +201,7 @@ export default function FlightInputPanel({
       >
         <div className="panel-header">
           <img src={isBWMode ? '/search-icon-bw.svg' : '/search-icon.svg'} width="20" height="20" alt="" className="panel-header-search-icon" />
+          <span className="collapsed-mode-label">{searchMode === 'callsign' ? 'Flight' : 'Route'}</span>
           <div className="mode-toggle">
             <div className="mode-toggle-indicator" style={{ transform: `translateX(${searchMode === 'callsign' ? '100%' : '0'})` }} />
             <span
@@ -376,9 +378,10 @@ export default function FlightInputPanel({
                   onClick={() => {
                     setCallsignSearchResult(null)
                     setCallsignInput('')
+                    document.activeElement?.blur()
                   }}
                   aria-label="Clear flight"
-                >×</button>
+                ><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="2" y1="2" x2="8" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
               </div>
               <div className="airport-columns route-mode">
                 <div className="airport-column">
