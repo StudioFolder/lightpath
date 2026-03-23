@@ -83,7 +83,12 @@ function App() {
   const [isClosing, setIsClosing] = useState(false)
 
   // Mobile Detection
-  const [isMobile, setIsMobile] = useState(false)
+  // Compute initial mobile state synchronously so the scene effect can use it
+  const isMobileInitial = typeof window !== 'undefined' && (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (('ontouchstart' in window || navigator.maxTouchPoints > 0) && window.innerWidth <= 768)
+  )
+  const [isMobile, setIsMobile] = useState(isMobileInitial)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isMobileMenuClosing, setIsMobileMenuClosing] = useState(false)
   const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false) // Guards hamburger button against re-trigger during close animation
@@ -532,7 +537,7 @@ function App() {
 
     // Load simplified Earth texture
     const earthTexture = new THREE.TextureLoader().load(
-      '/earth-texture.png',
+      isMobile ? '/earth-texture-mobile.png' : '/earth-texture.png',
       () => {
         earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
         checkAllLoaded()
@@ -541,12 +546,12 @@ function App() {
       (error) => console.error('Error loading texture:', error)
     )
 
-    const oceanMaskTexture = new THREE.TextureLoader().load('/ocean-mask.png', () => {
+    const oceanMaskTexture = new THREE.TextureLoader().load(isMobile ? '/ocean-mask-mobile.png' : '/ocean-mask.png', () => {
       oceanMaskTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
       oceanMaskTextureRef.current = oceanMaskTexture
     })
 
-    const bumpTexture = new THREE.TextureLoader().load('/earth-bump.jpg', () => {
+    const bumpTexture = new THREE.TextureLoader().load(isMobile ? '/earth-bump-mobile.jpg' : '/earth-bump.jpg', () => {
       bumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
     })
 
