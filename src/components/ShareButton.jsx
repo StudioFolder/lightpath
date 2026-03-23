@@ -19,14 +19,12 @@ export default function ShareButton({
   isPanelCollapsed,
   isBWMode,
   isPlaying,
-  isMobile,
-  getLocalTimeAtAirport,
-  getLocalDateAtAirport,
   getTimezoneAbbreviation,
   getAirportTimezone,
 }) {
   const [isCapturing, setIsCapturing] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   useEffect(() => {
     preloadLogo(true)
@@ -123,36 +121,7 @@ export default function ShareButton({
       document.body.removeChild(textArea)
     }
     setIsCopied(true)
-    const btn = document.querySelector('.copy-url-button')
-    if (!btn) return
-
-    // Phase 1: fade out copy icon (150ms)
-    btn.classList.add('phase-1')
-
-    setTimeout(() => {
-      // Phase 2: draw the tick stroke (350ms)
-      btn.classList.remove('phase-1')
-      btn.classList.add('phase-2')
-
-      setTimeout(() => {
-        // Hold completed tick (600ms), then phase 3: fade out tick (200ms)
-        setTimeout(() => {
-          btn.classList.remove('phase-2')
-          btn.classList.add('phase-3')
-
-          setTimeout(() => {
-            // Phase 4: fade copy icon back in (200ms)
-            btn.classList.remove('phase-3')
-            btn.classList.add('phase-4')
-
-            setTimeout(() => {
-              btn.classList.remove('phase-4')
-              setIsCopied(false)
-            }, 250)
-          }, 200)
-        }, 600)
-      }, 350)
-    }, 150)
+    setIsAnimating(true)
   }
 
   return (
@@ -173,8 +142,14 @@ export default function ShareButton({
         />
       </button>
       <button
-        className={`copy-url-button${isCopied ? ' copied' : ''}`}
+        className={`copy-url-button${isCopied ? ' copied' : ''}${isAnimating ? ' animating' : ''}`}
         onClick={handleCopyUrl}
+        onAnimationEnd={(e) => {
+          if (e.animationName === 'copyTickCopy' || e.animationName === 'copyTickCopyBW') {
+            setIsAnimating(false)
+            setIsCopied(false)
+          }
+        }}
         aria-label="Copy flight URL"
       >
         <span className="copy-url-icon-wrapper">

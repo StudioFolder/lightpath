@@ -8,6 +8,7 @@ export default function AnimationControls({
   showFlightStats,
   departureCode,
   arrivalCode,
+  callsignDisplay,
   isBWMode,
   // Callbacks
   onProgressChange,
@@ -23,6 +24,10 @@ export default function AnimationControls({
   const currentTime = flightData
     ? new Date(flightData.departureTime.getTime() + animationProgress * flightData.flightDurationMs)
     : null
+
+  if (!flightResults) {
+    return <div className="animation-controls" />
+  }
 
   return (
     <div className={`animation-controls ${flightPath ? 'visible' : ''}`}>
@@ -45,7 +50,10 @@ export default function AnimationControls({
         </div>
       </div>
 
-      <div className="animation-header">
+      <div className="animation-header"
+        onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
+        onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
+      >
         <div className="airport-time airport-time-left">
           <span className="airport-code">
             {flightData && getTimezoneAbbreviation(flightData.departure)}
@@ -59,22 +67,27 @@ export default function AnimationControls({
         </div>
 
         <div className="flight-info-center"
-          onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
-          onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
           onClick={() => {
             if ('ontouchstart' in window) {
               setShowFlightStats(prev => !prev)
             }
           }}
         >
+          <div className={`stats-hint-line${showFlightStats ? ' hidden' : ''}`} />
           <div className="animation-route">
-            <span>{departureCode}</span>
-            <img 
-              src={isBWMode ? "/plane-icon-bw.svg" : "/plane-icon.svg"} 
-              className="route-plane-icon" 
-              alt="plane" 
-            />
-            <span>{arrivalCode}</span>
+            {callsignDisplay ? (
+              <span>{callsignDisplay}</span>
+            ) : (
+              <>
+                <span>{departureCode}</span>
+                <img
+                  src={isBWMode ? "/plane-icon-bw.svg" : "/plane-icon.svg"}
+                  className="route-plane-icon"
+                  alt="plane"
+                />
+                <span>{arrivalCode}</span>
+              </>
+            )}
           </div>
           <div className="animation-distance">
             {Math.round(flightResults.distance * animationProgress).toLocaleString()} km

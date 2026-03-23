@@ -7,7 +7,6 @@ export default function AirportSearchInput({ label, code, airport, searchAirport
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const inputRef = useRef(null)
 
-  const hasContent = airport || search.length > 0
   const showLabel = !!airport
 
   const [carouselIndex, setCarouselIndex] = useState(0)

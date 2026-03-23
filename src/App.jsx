@@ -15,10 +15,14 @@ import { latLonToVector3, getFlightScale, getViewportScale } from './utils/geoUt
 import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
+import { lookupFlight } from './services/fr24'
+import { interpolateTimestamp } from './utils/routeInterpolation'
 import FlightInputPanel from './components/FlightInputPanel'
 import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
 import { Analytics } from '@vercel/analytics/react'
+
+const CATMULLROM_TENSION = 0.2
 
 // ===== THEME COLOR CONSTANTS =====
 // Single source of truth for background colors used in Three.js scene,
@@ -39,10 +43,12 @@ function App() {
   const [departureCode, setDepartureCode] = useState('')
   const [arrivalCode, setArrivalCode] = useState('')
   const [airports, setAirports] = useState(null)
+  const [airportsIcao, setAirportsIcao] = useState(null)
   const [departureAirport, setDepartureAirport] = useState(null)
   const [arrivalAirport, setArrivalAirport] = useState(null)
   const [searchEditing, setSearchEditing] = useState(0)
   const [pendingUrlFlight, setPendingUrlFlight] = useState(false)
+  const [pendingCallsignStart, setPendingCallsignStart] = useState(false)
   
   // Flight Calculation & Animation
   const [flightPath, setFlightPath] = useState(null)
@@ -51,13 +57,20 @@ function App() {
   const [animationProgress, setAnimationProgress] = useState(0)
   const [showFlightStats, setShowFlightStats] = useState(true)
   
+  // Flight Search Mode
+  const [searchMode, setSearchMode] = useState('route')  // 'route' | 'callsign'
+  const [callsignInput, setCallsignInput] = useState('')
+  const [callsignSearchResult, setCallsignSearchResult] = useState(null)
+  const [callsignError, setCallsignError] = useState(null)
+  const [isCallsignSearching, setIsCallsignSearching] = useState(false)
+
   // UI State
   const [showAirports, setShowAirports] = useState(true)
   const [showGraticule, setShowGraticule] = useState(true)
-  const [showPlaneIcon, setShowPlaneIcon] = useState(true)
+  const [, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
-  const [isPanelFading, setIsPanelFading] = useState(false)
+  const [isPanelFading, setIsPanelFading] = useState(false) // Drives .fading class for mobile collapse/expand fade-then-switch pattern
   const [autoRotate, setAutoRotate] = useState(true)
   const [isBWMode, setIsBWMode] = useState(false)
   const [followPlaneMode, setFollowPlaneMode] = useState(true)
@@ -70,10 +83,15 @@ function App() {
   const [isClosing, setIsClosing] = useState(false)
 
   // Mobile Detection
-  const [isMobile, setIsMobile] = useState(false)
+  // Compute initial mobile state synchronously so the scene effect can use it
+  const isMobileInitial = typeof window !== 'undefined' && (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (('ontouchstart' in window || navigator.maxTouchPoints > 0) && window.innerWidth <= 768)
+  )
+  const [isMobile, setIsMobile] = useState(isMobileInitial)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isMobileMenuClosing, setIsMobileMenuClosing] = useState(false)
-  const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false)
+  const [isMobileMenuAnimating, setIsMobileMenuAnimating] = useState(false) // Guards hamburger button against re-trigger during close animation
   const [isHamburgerOpen, setIsHamburgerOpen] = useState(false)
 
   // ===== REFS =====
@@ -122,6 +140,8 @@ function App() {
   const flightDataRef = useRef(null)
   const animationProgressRef = useRef(0)
   const hasFlightPathRef = useRef(false)
+  const callsignControlPointsRef = useRef(null)
+  const callsignArcLengthFractionsRef = useRef(null)
   
   // Feature Toggles (synced with state)
   const autoRotateRef = useRef(true)
@@ -132,6 +152,7 @@ function App() {
 
   // Scaling
   const viewportScaleRef = useRef(getViewportScale(window.innerWidth))
+  const targetBumpScaleRef = useRef(7)
   
   // External Data & Intervals
   const timezoneDataRef = useRef(null)
@@ -293,23 +314,62 @@ function App() {
 
   // Read URL parameters and set up flight data
   useEffect(() => {
-    if (!params.route || !params.date || !params.time) return
-    if (!airports) return
+    const segment = params.segment1 || params.callsign
+    if (!segment) return
+    if (!airports || !airportsIcao) return
 
-    const [from, to] = params.route.split('-')
+    // Disambiguate: if segment contains a hyphen and both parts are 3-letter codes, it's route mode
+    const isRouteMode = segment.includes('-') && segment.split('-').length === 2
+      && segment.split('-').every(part => part.length === 3)
 
-    if (!airports[from] || !airports[to]) return
+    if (isRouteMode) {
+      const [from, to] = segment.split('-')
+      if (!airports[from] || !airports[to]) return
+      if (!params.date || !params.time) return
+      const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00`
+      const flightDateTime = new Date(dateTime)
+      setDepartureCode(from)
+      setDepartureAirport(airports[from])
+      setArrivalCode(to)
+      setArrivalAirport(airports[to])
+      setDepartureTime(flightDateTime)
+      setPendingUrlFlight(true)
+    } else {
+      // Callsign mode: segment is a flight number
+      const flightNumber = segment.toUpperCase()
+      setSearchMode('callsign')
+      setCallsignInput(flightNumber)
 
-    const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00`
-    const flightDateTime = new Date(dateTime)
+      // If date/time provided, parse them
+      if (params.date && params.time) {
+        const dateTime = `${params.date}T${params.time.slice(0, 2)}:${params.time.slice(2, 4)}:00Z`
+        setDepartureTime(new Date(dateTime))
+      }
 
-    setDepartureCode(from)
-    setDepartureAirport(airports[from])
-    setArrivalCode(to)
-    setArrivalAirport(airports[to])
-    setDepartureTime(flightDateTime)
-    setPendingUrlFlight(true)
-  }, [airports])
+      // Auto-trigger lookup
+      lookupFlight(flightNumber).then(result => {
+        if (!result) {
+          setCallsignError('Flight not found in the last 14 days')
+          return
+        }
+        setCallsignSearchResult(result)
+
+        // If no date/time in URL, use typical departure time
+        if (!params.date || !params.time) {
+          if (result.typicalDepartureTimeUtc) {
+            const [hh, mm] = result.typicalDepartureTimeUtc.split(':').map(Number)
+            const now = new Date()
+            now.setUTCHours(hh, mm, 0, 0)
+            setDepartureTime(now)
+          }
+        }
+
+        setPendingCallsignStart(true)
+      }).catch(() => {
+        setCallsignError('Unable to search flights. Please try again.')
+      })
+    }
+  }, [airports, airportsIcao])
 
   // Auto-calculate flight once URL state is ready
   useEffect(() => {
@@ -319,6 +379,15 @@ function App() {
     setPendingUrlFlight(false)
     calculateFlight()
   }, [pendingUrlFlight, departureCode, arrivalCode, departureAirport, arrivalAirport])
+
+  // Auto-start callsign flight from URL deep-link
+  useEffect(() => {
+    if (!pendingCallsignStart) return
+    if (!callsignSearchResult) return
+    if (!airportsIcao) return
+    setPendingCallsignStart(false)
+    handleCallsignStart()
+  }, [pendingCallsignStart, callsignSearchResult, airportsIcao])
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -394,6 +463,25 @@ function App() {
         }
       })
       setAirports(airportMap)
+
+      const airportIcaoMap = {}
+      data.forEach(a => {
+        if (a.icao) {
+          airportIcaoMap[a.icao] = {
+            name: a.name,
+            city: a.municipality,
+            country: a.country,
+            iso: a.iso,
+            iata: a.iata,
+            icao: a.icao,
+            lat: a.lat,
+            lon: a.lon,
+            type: a.type,
+            score: a.score,
+          }
+        }
+      })
+      setAirportsIcao(airportIcaoMap)
     })
     .catch(err => console.error('Error loading airports:', err))
 
@@ -449,7 +537,7 @@ function App() {
 
     // Load simplified Earth texture
     const earthTexture = new THREE.TextureLoader().load(
-      '/earth-texture.png',
+      isMobile ? '/earth-texture-mobile.png' : '/earth-texture.png',
       () => {
         earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
         checkAllLoaded()
@@ -458,12 +546,12 @@ function App() {
       (error) => console.error('Error loading texture:', error)
     )
 
-    const oceanMaskTexture = new THREE.TextureLoader().load('/ocean-mask.png', () => {
+    const oceanMaskTexture = new THREE.TextureLoader().load(isMobile ? '/ocean-mask-mobile.png' : '/ocean-mask.png', () => {
       oceanMaskTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
       oceanMaskTextureRef.current = oceanMaskTexture
     })
 
-    const bumpTexture = new THREE.TextureLoader().load('/earth-bump.png', () => {
+    const bumpTexture = new THREE.TextureLoader().load(isMobile ? '/earth-bump-mobile.jpg' : '/earth-bump.jpg', () => {
       bumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
     })
 
@@ -472,7 +560,7 @@ function App() {
       roughness: 0.9,
       metalness: 0.0,
       bumpMap: bumpTexture,
-      bumpScale: 5,
+      bumpScale: 7,
     })
 
     material.onBeforeCompile = (shader) => {
@@ -599,7 +687,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           positionDotAtLocation(userLat, userLon)
           centerCameraOnLocation(userLat, userLon)
         },
-        (error) => {
+        (_error) => {
           positionDotAtLocation(45.464, 9.190)
           centerCameraOnLocation(45.464, 9.190)
         }
@@ -936,12 +1024,14 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
           if (transitionT <= progress) {
             label.visible = true
-            const point = curve.getPoint(transitionT)
+            const isCallsignMode = flightLineRef.current?.userData.isCallsignMode
+            const point = isCallsignMode ? curve.getPointAt(transitionT) : curve.getPoint(transitionT)
+            if (isCallsignMode) point.normalize().multiplyScalar(2.01)
             const eScale = flightLineRef.current?.userData.elementScale || 1.0
             const N = point.clone().normalize()
             const radialLift = N.multiplyScalar(0.03 * eScale)
             const B = label.userData.binormalDirection
-            const lateralShift = B ? B.clone().multiplyScalar(0.06 * eScale) : new THREE.Vector3()
+            const lateralShift = B ? B.clone().multiplyScalar(0.04 * eScale) : new THREE.Vector3()
             label.position.copy(point).add(radialLift).add(lateralShift)
 
             const fadeProgress = (progress - transitionT) / 0.02
@@ -950,7 +1040,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             if (ring) {
               ring.visible = true
               ring.position.copy(point)
-              const tangent = curve.getTangent(transitionT).normalize()
+              const tangent = (isCallsignMode ? curve.getTangentAt(transitionT) : curve.getTangent(transitionT)).normalize()
               ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent)
               ring.material.opacity = Math.min(fadeProgress, 1)
             }
@@ -972,10 +1062,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         
         if (curve && progress > 0 && progress < 1) {
           // Get current position
-          const position = curve.getPoint(progress)
-          
+          const isCallsignMode = flightLineRef.current?.userData.isCallsignMode
+          const position = isCallsignMode ? curve.getPointAt(progress) : curve.getPoint(progress)
+          if (isCallsignMode) position.normalize().multiplyScalar(2.01)
+
           // Get tangent (direction of travel)
-          _tangent.copy(curve.getTangent(progress)).normalize()
+          _tangent.copy(isCallsignMode ? curve.getTangentAt(progress) : curve.getTangent(progress)).normalize()
           
           // Get normal (pointing away from Earth)
           _normal.copy(position).normalize()
@@ -1077,6 +1169,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           
           planeIconRef.current.material.opacity = showPlaneIconRef.current ? opacity : 0
           planeIconRef.current.visible = showPlaneIconRef.current && opacity > 0
+
         } else {
           planeIconRef.current.visible = false
           // Re-enable OrbitControls when animation ends or is outside valid range
@@ -1204,6 +1297,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         })
         
         flightLineRef.current = null
+        progressTubeRef.current = null
         hasFlightPathRef.current = false
         transitionLabelsRef.current = []
       }
@@ -1213,37 +1307,60 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       // Create a group to hold everything
       const flightGroup = new THREE.Group()
 
-      // Calculate great circle path using proper spherical interpolation
-      const points = []
+      // Calculate route path: CatmullRom from FR24 control points (callsign mode)
+      // or great circle SLERP (route mode)
       const numPoints = 100
       const radius = 2.01
+      const callsignCPs = callsignControlPointsRef.current
 
-      // Get start and end points as 3D vectors
-      const start = latLonToVector3(departure.lat, departure.lon, 1)
-      const end = latLonToVector3(arrival.lat, arrival.lon, 1)
+      const points = []
+      let angle = 0  // used only in SLERP segmentData below
 
-      // Calculate angle between vectors
-      const angle = start.angleTo(end)
+      // callsignSourceCurve: the CatmullRom built directly from FR24 control points.
+      // Used for arc-length parameterization (getPointAt) and arcLengthFractions.
+      let callsignSourceCurve = null
 
-      for (let i = 0; i <= numPoints; i++) {
-        const fraction = i / numPoints
-        
-        const point = new THREE.Vector3()
-        
-        if (angle === 0) {
-          point.copy(start)
-        } else {
-          const sinAngle = Math.sin(angle)
-          const a = Math.sin((1 - fraction) * angle) / sinAngle
-          const b = Math.sin(fraction * angle) / sinAngle
-          
-          point.x = a * start.x + b * end.x
-          point.y = a * start.y + b * end.y
-          point.z = a * start.z + b * end.z
+      if (callsignCPs) {
+        const cpVecs = callsignCPs.map(cp => latLonToVector3(cp.lat, cp.lon, radius))
+        callsignSourceCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
+        for (let i = 0; i <= numPoints; i++) {
+          const pt = callsignSourceCurve.getPointAt(i / numPoints)
+          pt.normalize().multiplyScalar(radius)
+          points.push(pt)
         }
-        
-        point.normalize().multiplyScalar(radius)
-        points.push(point)
+      } else {
+        // Get start and end points as 3D vectors
+        const start = latLonToVector3(departure.lat, departure.lon, 1)
+        const end = latLonToVector3(arrival.lat, arrival.lon, 1)
+
+        // Calculate angle between vectors
+        angle = start.angleTo(end)
+
+        for (let i = 0; i <= numPoints; i++) {
+          const fraction = i / numPoints
+          const point = new THREE.Vector3()
+          if (angle === 0) {
+            point.copy(start)
+          } else {
+            const sinAngle = Math.sin(angle)
+            const a = Math.sin((1 - fraction) * angle) / sinAngle
+            const b = Math.sin(fraction * angle) / sinAngle
+            point.x = a * start.x + b * end.x
+            point.y = a * start.y + b * end.y
+            point.z = a * start.z + b * end.z
+          }
+          point.normalize().multiplyScalar(radius)
+          points.push(point)
+        }
+      }
+
+      // Compute arc-length fractions for callsign mode (used for time interpolation)
+      let arcLengthFractions = null
+      if (callsignSourceCurve) {
+        const lengths = callsignSourceCurve.getLengths(callsignCPs.length - 1)
+        const total = lengths[lengths.length - 1]
+        arcLengthFractions = lengths.map(l => l / total)
+        callsignArcLengthFractionsRef.current = arcLengthFractions
       }
 
       // Calculate day/night segments along the route with sun angle
@@ -1258,38 +1375,43 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const lat2 = arrival.lat * Math.PI / 180
       const lon2 = arrival.lon * Math.PI / 180
 
-      const flightDurationMs = (flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000
+      const flightDurationMs = flightDataRef.current?.flightDurationMs ?? ((flightResults.durationHours * 60 + flightResults.durationMins) * 60 * 1000)
 
       for (let i = 0; i < numPoints; i++) {
         const fraction = (i + 0.5) / numPoints
-        
+
         // Calculate lat/lon at this point
-        const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
-        const b = Math.sin(fraction * angle) / Math.sin(angle)
-        
-        const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
-        const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
-        const z = a * Math.sin(lat1) + b * Math.sin(lat2)
-        
-        const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
-        const lon = Math.atan2(y, x) * 180 / Math.PI
-        
+        let lat, lon
+        if (callsignCPs) {
+          const pt = callsignSourceCurve.getPointAt(fraction)
+          pt.normalize().multiplyScalar(radius)
+          lat = Math.asin(pt.y / radius) * 180 / Math.PI
+          lon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
+        } else {
+          const a = Math.sin((1 - fraction) * angle) / Math.sin(angle)
+          const b = Math.sin(fraction * angle) / Math.sin(angle)
+          const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+          const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+          const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+          lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
+          lon = Math.atan2(y, x) * 180 / Math.PI
+        }
+
         // Calculate time at this point
-        const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
-        
+        const timeAtPoint = callsignCPs
+          ? interpolateTimestamp(callsignCPs, fraction, arcLengthFractions)
+          : new Date(departureTime.getTime() + fraction * flightDurationMs)
+
         // Get sun angle (degrees from subsolar point)
         const sunAngle = getSunAngle(lat, lon, timeAtPoint)
         const inDaylight = sunAngle < 90
-        
+
         segmentData.push({
           index: i,
           inDaylight,
           sunAngle  // Store the angle for gradient calculations
         })
       }
-
-      // Calculate solar declination once for the entire flight
-        const sunDeclination = calculateSolarDeclination(departureTime)     
 
       // Pre-calculate colors for entire path - BOTH color and B&W versions
         const preCalculatedColorsColor = []
@@ -1405,10 +1527,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
           if (i > 0 && isDaylight !== lastWasDaylight) {
             const t = i / segmentData.length
-            const elapsedMs = t * flightDurationMs
-            const hours = Math.floor(elapsedMs / 3600000)
-            const minutes = Math.floor((elapsedMs % 3600000) / 60000)
-            
+            let hours, minutes
+            if (callsignCPs) {
+              const depMs = new Date(callsignCPs[0].timestamp).getTime()
+              const elapsedMs = interpolateTimestamp(callsignCPs, t, arcLengthFractions).getTime() - depMs
+              hours = Math.floor(elapsedMs / 3600000)
+              minutes = Math.floor((elapsedMs % 3600000) / 60000)
+            } else {
+              const elapsedMs = t * flightDurationMs
+              hours = Math.floor(elapsedMs / 3600000)
+              minutes = Math.floor((elapsedMs % 3600000) / 60000)
+            }
+
             preCalculatedTransitions.push({
               index: i,
               t: t,
@@ -1450,6 +1580,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         flightGroup.userData.routePoints = points
         flightGroup.userData.scaleFactor = scaleFactor
         flightGroup.userData.elementScale = elementScale
+        flightGroup.userData.isCallsignMode = !!callsignCPs
 
         // Create the thin gray base path
         const thinTubeGeometry = new THREE.TubeGeometry(
@@ -1478,7 +1609,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const fullProgressPoints = []
         const fullNumSamples = 800
         for (let i = 0; i <= fullNumSamples; i++) {
-          fullProgressPoints.push(flightGroup.userData.routeCurve.getPoint(i / fullNumSamples))
+          const frac = i / fullNumSamples
+          const fp = callsignCPs
+            ? flightGroup.userData.routeCurve.getPointAt(frac)
+            : flightGroup.userData.routeCurve.getPoint(frac)
+          if (callsignCPs) fp.normalize().multiplyScalar(radius)
+          fullProgressPoints.push(fp)
         }
 
         const fullTubeSegments = Math.min(fullProgressPoints.length * 2, 1600)
@@ -1540,9 +1676,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const transitionCurve = flightGroup.userData.routeCurve
         preCalculatedTransitions.forEach((trans, idx) => {
           // Compute right-hand side vector relative to direction of travel
-          const tPoint = transitionCurve.getPoint(trans.t)
+          const tPoint = callsignCPs ? transitionCurve.getPointAt(trans.t) : transitionCurve.getPoint(trans.t)
           const tNormal = tPoint.clone().normalize()
-          const tTangent = transitionCurve.getTangent(trans.t).normalize()
+          const tTangent = (callsignCPs ? transitionCurve.getTangentAt(trans.t) : transitionCurve.getTangent(trans.t)).normalize()
           const tBinormal = new THREE.Vector3().crossVectors(tTangent, tNormal).normalize()
 
           // Geographic heuristic: choose side based on path orientation
@@ -1587,7 +1723,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             depthTest: true
           })
           const sprite = new THREE.Sprite(material)
-          sprite.scale.set((isMobile ? 0.22 : 0.20) * elementScale, (isMobile ? 0.08 : 0.07) * elementScale, 1)
+          sprite.scale.set((isMobile ? 0.22 : 0.17) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
           sprite.visible = false
 
           sprite.userData.transitionT = trans.t
@@ -1627,39 +1763,35 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       // Determine label placement direction based on flight path orientation
       // Labels go on the opposite side of the dot from the path direction
-      // Sample actual path direction at each endpoint using great circle interpolation
-      // This handles polar routes correctly (where straight lat diff is misleading)
-      const sampleFraction = 0.02  // Sample 2% along the path
-      const angDist = Math.acos(
-        Math.sin(departure.lat * Math.PI / 180) * Math.sin(arrival.lat * Math.PI / 180) +
-        Math.cos(departure.lat * Math.PI / 180) * Math.cos(arrival.lat * Math.PI / 180) *
-        Math.cos((arrival.lon - departure.lon) * Math.PI / 180)
-      )
+      let departureLabelSouth, arrivalLabelSouth
 
-      // Point near departure (path direction leaving departure)
-      const aStart = Math.sin((1 - sampleFraction) * angDist) / Math.sin(angDist)
-      const bStart = Math.sin(sampleFraction * angDist) / Math.sin(angDist)
-      const lat1r = departure.lat * Math.PI / 180
-      const lon1r = departure.lon * Math.PI / 180
-      const lat2r = arrival.lat * Math.PI / 180
-      const lon2r = arrival.lon * Math.PI / 180
-      const xS = aStart * Math.cos(lat1r) * Math.cos(lon1r) + bStart * Math.cos(lat2r) * Math.cos(lon2r)
-      const yS = aStart * Math.cos(lat1r) * Math.sin(lon1r) + bStart * Math.cos(lat2r) * Math.sin(lon2r)
-      const zS = aStart * Math.sin(lat1r) + bStart * Math.sin(lat2r)
-      const nearDepLat = Math.atan2(zS, Math.sqrt(xS * xS + yS * yS)) * 180 / Math.PI
+      if (callsignSourceCurve) {
+        // In callsign mode, sample the actual curve direction near each airport
+        // Use ~5% along the curve for departure direction, ~95% for arrival direction
+        const depSample = callsignSourceCurve.getPointAt(0.05)
+        const depStart = callsignSourceCurve.getPointAt(0)
+        const depLatDiff = Math.asin(depSample.y / 2.01) - Math.asin(depStart.y / 2.01)
 
-      // Point near arrival (path direction arriving at arrival)
-      const aEnd = Math.sin(sampleFraction * angDist) / Math.sin(angDist)
-      const bEnd = Math.sin((1 - sampleFraction) * angDist) / Math.sin(angDist)
-      const xE = aEnd * Math.cos(lat1r) * Math.cos(lon1r) + bEnd * Math.cos(lat2r) * Math.cos(lon2r)
-      const yE = aEnd * Math.cos(lat1r) * Math.sin(lon1r) + bEnd * Math.cos(lat2r) * Math.sin(lon2r)
-      const zE = aEnd * Math.sin(lat1r) + bEnd * Math.sin(lat2r)
-      const nearArrLat = Math.atan2(zE, Math.sqrt(xE * xE + yE * yE)) * 180 / Math.PI
+        const arrSample = callsignSourceCurve.getPointAt(0.95)
+        const arrEnd = callsignSourceCurve.getPointAt(1)
+        const arrLatDiff = Math.asin(arrEnd.y / 2.01) - Math.asin(arrSample.y / 2.01)
 
-      // Path heads north from departure → label goes south (and vice versa)
-      const departureLabelSouth = nearDepLat > departure.lat
-      // Path arrives from north to arrival → label goes south (and vice versa)
-      const arrivalLabelSouth = nearArrLat > arrival.lat
+        // For departure: if path heads north, place label south (and vice versa)
+        const depLonDiff = Math.atan2(depSample.x, depSample.z) - Math.atan2(depStart.x, depStart.z)
+        const isDepEastWest = Math.abs(depLatDiff) < Math.abs(depLonDiff) * 0.3
+        departureLabelSouth = isDepEastWest || depLatDiff > 0
+
+        // For arrival: if path arrives from south (heading north), place label south
+        const arrLonDiff = Math.atan2(arrEnd.x, arrEnd.z) - Math.atan2(arrSample.x, arrSample.z)
+        const isArrEastWest = Math.abs(arrLatDiff) < Math.abs(arrLonDiff) * 0.3
+        arrivalLabelSouth = isArrEastWest || arrLatDiff < 0
+      } else {
+        // Route mode: use straight-line bearing (existing logic)
+        const latDiff = arrival.lat - departure.lat
+        const isEastWest = Math.abs(latDiff) < Math.abs(arrival.lon - departure.lon) * 0.3
+        departureLabelSouth = isEastWest || latDiff > 0
+        arrivalLabelSouth = isEastWest || latDiff < 0
+      }
 
       // Create labels with offset — positioned away from the flight path
       const createLabelWithOffset = async (code, lat, lon, iconSrc, placeSouth) => {
@@ -1667,7 +1799,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const basePos = latLonToVector3(lat, lon, 2.05)
         const offsetLat = placeSouth ? lat - 0.5 : lat + 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offsetDistance = placeSouth ? 0.075 : 0.055
+        const offsetDistance = placeSouth ? 0.075 : 0.06
         const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(offsetDistance * elementScale)
         label.position.copy(basePos.add(offset))
         return label
@@ -1814,7 +1946,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               
               const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
               const lineMaterial = new THREE.LineBasicMaterial({
-                color: 0xffffff,
+                color: isBWModeRef.current ? 0x0f0f0f : 0xffffff,
                 transparent: true,
                 opacity: 0, // Start invisible for fade-in
                 depthTest: true,
@@ -1831,7 +1963,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
                 const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
                 const lineMaterial = new THREE.LineBasicMaterial({
-                  color: 0xffffff,
+                  color: isBWModeRef.current ? 0x0f0f0f : 0xffffff,
                   transparent: true,
                   opacity: 0, // Start invisible for fade-in
                   depthTest: true,
@@ -1852,15 +1984,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               if (child.material) child.material.opacity = v
             })
           })
-
-          // Apply B&W color if in B&W mode
-          if (isBWModeRef.current) {
-            graticuleGroup.traverse((child) => {
-              if (child.material) {
-                child.material.color.setHex(0x0f0f0f)
-              }
-            })
-          }
 
         })
         .catch(err => console.error('Error loading graticule:', err))
@@ -1986,7 +2109,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           const positions = labelGeometry.attributes.position
           for (let i = 0; i < positions.count; i++) {
             const x = positions.getX(i)
-            const y = positions.getY(i)
             
             // Bend along the x-axis to follow meridian curvature
             const bendRadius = 2.008
@@ -2470,6 +2592,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const duration = 1500
       const startTime = Date.now()
 
+      // Bump scale: ramp from 5 (far) to 12 (close) based on camera distance
+      const bumpFromRadius = (r) => 7 + (3.5 - Math.max(2.3, Math.min(3.5, r))) / (3.5 - 2.3) * 7
+      const startBump = bumpFromRadius(startRadius)
+      const endBump = bumpFromRadius(radius)
+      targetBumpScaleRef.current = endBump
+
       const animateCamera = () => {
         const elapsed = Date.now() - startTime
         const progress = Math.min(elapsed / duration, 1)
@@ -2481,12 +2609,17 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // Spherical interpolation (slerp) - maintain constant distance from origin
         const startNormal = startPosition.clone().normalize()
         const targetNormal = targetPosition.clone().normalize()
-        
+
         // Calculate angle between start and target
         const angle = startNormal.angleTo(targetNormal)
-        
+
         // Interpolate distance from current to target
         const currentRadius = startRadius + (radius - startRadius) * eased
+
+        // Interpolate bump scale with camera distance
+        if (!isBWMode && earthMaterialRef.current) {
+          earthMaterialRef.current.bumpScale = startBump + (endBump - startBump) * eased
+        }
 
         // Handle edge case where positions are identical or opposite
         if (angle < 0.0001) {
@@ -2499,11 +2632,11 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           const axis = new THREE.Vector3().crossVectors(startNormal, targetNormal).normalize()
           const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle * eased)
           const interpolatedNormal = startNormal.clone().applyQuaternion(quaternion)
-          
+
           // Apply interpolated radius (smooth zoom)
           camera.position.copy(interpolatedNormal.multiplyScalar(currentRadius))
         }
-        
+
         camera.lookAt(0, 0, 0)
         controls.update()
 
@@ -2520,6 +2653,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     }
 
     const calculateFlight = () => {
+      callsignControlPointsRef.current = null
+      callsignArcLengthFractionsRef.current = null
+
       if (!airports) {
         return
       }
@@ -2558,7 +2694,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       // Sample points along the route and check daylight
       const numSamples = 2000
       let daylightSegments = 0
-      let darknessSegments = 0
 
       for (let i = 0; i < numSamples; i++) {  // Changed to < instead of <=
         const fraction = (i + 0.5) / numSamples  // Sample at midpoint of each segment
@@ -2582,8 +2717,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         
         if (inDaylight) {
           daylightSegments++
-        } else {
-          darknessSegments++
         }
       }
 
@@ -2614,8 +2747,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       }
       
       setFlightResults(results)
+      setFollowPlaneMode(true)
       setIsPanelCollapsed(true)
-      
+      setShowFlightStats(true)
+
       // Trigger flight path drawing
       setFlightPath({ departure, arrival })
 
@@ -2649,7 +2784,220 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const dateStr = departureTime.toISOString().split('T')[0] // Format: 2026-01-15
       const timeStr = departureTime.toTimeString().slice(0, 5).replace(':', '') // Format: 1430
       navigate(`/flight/${departureCode}-${arrivalCode}/${dateStr}/${timeStr}`, { replace: true })
-      
+
+    }
+
+    const handleCallsignSearch = async () => {
+      setIsCallsignSearching(true)
+      setCallsignError(null)
+      try {
+        const result = await lookupFlight(callsignInput.trim())
+        if (!result) {
+          setCallsignError('Flight not found in the last 14 days')
+        } else {
+          setCallsignSearchResult(result)
+          // Set default departure time from typicalDepartureTimeUtc
+          if (result.typicalDepartureTimeUtc) {
+            const [hh, mm] = result.typicalDepartureTimeUtc.split(':').map(Number)
+            const now = new Date()
+            now.setUTCHours(hh, mm, 0, 0)
+            setDepartureTime(now)
+          }
+        }
+      } catch (err) {
+        if (err.message === 'rate_limited') {
+          setCallsignError('Too many requests — please wait a moment and try again.')
+        } else if (err.message === 'server_error') {
+          setCallsignError('Flight data service is temporarily unavailable. Please try again later.')
+        } else {
+          setCallsignError('Unable to search flights. Please try again.')
+        }
+      } finally {
+        setIsCallsignSearching(false)
+      }
+    }
+
+    const handleCallsignStart = async () => {
+      if (!callsignSearchResult) return
+
+      try {
+        const { summary, events, totalDurationMs } = callsignSearchResult
+
+        if (!events?.length) {
+          setCallsignError('No flight events found for this flight.')
+          return
+        }
+
+        // Look up airports by ICAO
+        const departureAirportObj = airportsIcao?.[summary.orig_icao] ?? null
+        const destIcao = summary.dest_icao_actual ?? summary.dest_icao
+        const arrivalAirportObj = airportsIcao?.[destIcao] ?? null
+
+        if (!departureAirportObj || !arrivalAirportObj) {
+          setCallsignError('Could not resolve airport coordinates for this flight.')
+          return
+        }
+
+        setDepartureCode(departureAirportObj.iata || summary.orig_icao)
+        setArrivalCode(arrivalAirportObj.iata || destIcao)
+        setDepartureAirport(departureAirportObj)
+        setArrivalAirport(arrivalAirportObj)
+
+        // Build control points with absolute timestamps derived from
+        // user-chosen departureTime + relative offsets
+        const baseTime = departureTime.getTime()
+        const controlPointsWithTime = events
+          .filter(e => e.lat != null && e.lon != null)
+          .map(e => ({
+            lat: e.lat,
+            lon: e.lon,
+            timestamp: new Date(baseTime + e.offsetMs).toISOString(),
+          }))
+
+        // Fallback: insufficient waypoints — degrade to great circle
+        if (controlPointsWithTime.length < 2) {
+          callsignControlPointsRef.current = null
+          callsignArcLengthFractionsRef.current = null
+          calculateFlight()
+          return
+        }
+
+        // Add airport endpoints
+        const firstOffset = events[0]?.offsetMs ?? 0
+        const lastOffset = events[events.length - 1]?.offsetMs ?? totalDurationMs
+        const controlPoints = [
+          { lat: departureAirportObj.lat, lon: departureAirportObj.lon, timestamp: new Date(baseTime + firstOffset).toISOString() },
+          ...controlPointsWithTime,
+          { lat: arrivalAirportObj.lat, lon: arrivalAirportObj.lon, timestamp: new Date(baseTime + lastOffset).toISOString() },
+        ]
+
+        // Filter out near-duplicate control points to prevent CatmullRom loops.
+        // Points closer than threshold km to their predecessor are removed.
+        const MIN_CP_DISTANCE_KM = 50
+        const filteredControlPoints = [controlPoints[0]]
+        for (let i = 1; i < controlPoints.length; i++) {
+          const prev = filteredControlPoints[filteredControlPoints.length - 1]
+          const curr = controlPoints[i]
+          const dLat = (curr.lat - prev.lat) * Math.PI / 180
+          const dLon = (curr.lon - prev.lon) * Math.PI / 180
+          const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2
+          const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+          if (distKm >= MIN_CP_DISTANCE_KM || i === controlPoints.length - 1) {
+            filteredControlPoints.push(curr)
+          }
+        }
+
+        callsignControlPointsRef.current = filteredControlPoints
+
+        // Great circle distance for camera/scale
+        const lat1 = departureAirportObj.lat * Math.PI / 180
+        const lon1 = departureAirportObj.lon * Math.PI / 180
+        const lat2 = arrivalAirportObj.lat * Math.PI / 180
+        const lon2 = arrivalAirportObj.lon * Math.PI / 180
+        const earthRadius = 6371
+        const angularDistance = Math.acos(
+          Math.sin(lat1) * Math.sin(lat2) +
+          Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+        )
+        const distance = earthRadius * angularDistance
+
+        // Duration from relative offsets
+        const durationMs = totalDurationMs
+        const durationHours = durationMs / 3_600_000
+        const totalFlightMins = Math.round(durationHours * 60)
+
+        // Sample daylight along the route using user-chosen date + offsets
+        const numSamples = 2000
+        let daylightSegments = 0
+        const cpVecs = callsignControlPointsRef.current.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
+        const catmullCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
+
+        const lengths = catmullCurve.getLengths(callsignControlPointsRef.current.length - 1)
+        const totalLen = lengths[lengths.length - 1]
+        const arcLengthFractions = lengths.map(l => l / totalLen)
+        callsignArcLengthFractionsRef.current = arcLengthFractions
+
+        // Compute real route distance by summing haversine segments along the CatmullRom curve
+        const routeSamples = 500
+        let realDistanceKm = 0
+        let prevLat = null, prevLon = null
+        for (let i = 0; i <= routeSamples; i++) {
+          const fraction = i / routeSamples
+          const pt = catmullCurve.getPointAt(fraction)
+          pt.normalize().multiplyScalar(2.01)
+          const sLat = Math.asin(pt.y / 2.01) * 180 / Math.PI
+          const sLon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
+          if (prevLat !== null) {
+            const dLat = (sLat - prevLat) * Math.PI / 180
+            const dLon = (sLon - prevLon) * Math.PI / 180
+            const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(prevLat * Math.PI / 180) * Math.cos(sLat * Math.PI / 180) *
+              Math.sin(dLon / 2) ** 2
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            realDistanceKm += 6371 * c
+          }
+          prevLat = sLat
+          prevLon = sLon
+        }
+
+        for (let i = 0; i < numSamples; i++) {
+          const fraction = (i + 0.5) / numSamples
+          const pt = catmullCurve.getPointAt(fraction)
+          pt.normalize().multiplyScalar(2.01)
+          const lat = Math.asin(pt.y / 2.01) * 180 / Math.PI
+          const lon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
+          const timeAtPoint = interpolateTimestamp(controlPoints, fraction, arcLengthFractions)
+          if (isPointInDaylight(lat, lon, timeAtPoint)) daylightSegments++
+        }
+
+        const daylightTotalMins = Math.round((daylightSegments / numSamples) * totalFlightMins)
+        const darknessTotalMins = totalFlightMins - daylightTotalMins
+
+        const results = {
+          distance: Math.round(realDistanceKm),
+          duration: durationHours.toFixed(1),
+          durationHours: Math.floor(totalFlightMins / 60),
+          durationMins: totalFlightMins % 60,
+          daylightHours: Math.floor(daylightTotalMins / 60),
+          daylightMins: daylightTotalMins % 60,
+          darknessHours: Math.floor(darknessTotalMins / 60),
+          darknessMins: darknessTotalMins % 60,
+        }
+
+        setFlightResults(results)
+        setFollowPlaneMode(true)
+        setIsPanelCollapsed(true)
+        setShowFlightStats(true)
+        setFlightPath({ departure: departureAirportObj, arrival: arrivalAirportObj })
+
+        flightDataRef.current = {
+          departure: departureAirportObj,
+          arrival: arrivalAirportObj,
+          departureTime: departureTime,
+          flightDurationMs: durationMs,
+        }
+
+        setAnimationProgress(0)
+        animationProgressRef.current = 0
+
+        centerCameraOnFlight(departureAirportObj, arrivalAirportObj, distance)
+
+        const { scaleFactor } = getFlightScale(distance)
+        const planeScale = scaleFactor * viewportScaleRef.current
+        if (planeIconRef.current) {
+          planeIconRef.current.scale.set(planeScale, 1, planeScale)
+        }
+
+        setAutoRotate(false)
+        autoRotateRef.current = false
+
+        const dt = DateTime.fromJSDate(departureTime, { zone: 'utc' })
+        navigate(`/flight/${callsignInput.trim()}/${dt.toFormat('yyyy-MM-dd')}/${dt.toFormat('HHmm')}`, { replace: true })
+      } catch {
+        setCallsignError('Unable to load flight route. Please try again.')
+      }
     }
 
     const getAirportTimezone = (airport) => {
@@ -2686,14 +3034,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     const handleProgressChange = (newProgress) => {
       setAnimationProgress(newProgress)
       animationProgressRef.current = newProgress
-    }
-
-    const getLocalDateTimeString = (date, airport) => {
-      if (!airport) return ''
-      
-      const timezone = getAirportTimezone(airport)
-      const dt = DateTime.fromJSDate(date, { zone: timezone })
-      return dt.toFormat("yyyy-MM-dd'T'HH:mm")
     }
 
     const searchAirports = (query) => {
@@ -2869,8 +3209,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // Interpolate bump scale
         const earthSphere = sceneRef.current.getObjectByName('earth-sphere')
         if (earthSphere) {
-          const startBump = isBWMode ? 5 : 0
-          const endBump = isBWMode ? 0 : 5
+          const bumpTarget = targetBumpScaleRef.current
+          const startBump = isBWMode ? bumpTarget : 0
+          const endBump = isBWMode ? 0 : bumpTarget
           earthSphere.material.bumpScale = startBump + (endBump - startBump) * easeT
         }
 
@@ -3030,7 +3371,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     }, [isBWMode])
 
     return (
-      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showFlightStats ? 'stats-visible' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
+      <div className={`app ${isLoading ? 'loading' : 'loaded'} ${isBWMode ? 'bw-mode' : ''} ${flightResults ? 'has-flight' : ''} ${showFlightStats ? 'stats-visible' : ''} ${isPlaying ? 'playing' : ''} ${showMobileMenu ? 'menu-open' : ''} ${isMobileMenuClosing ? 'menu-closing' : ''}`}>
         <div className="info-overlay">
           <img 
             src={isBWMode ? "/lightpath-logo-black.png" : "/lightpath-logo-white.png"}
@@ -3094,13 +3435,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         {showMobileMenu && (
           <div className="mobile-menu-offcanvas">
             <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
-              {/* <p className="mobile-menu-tagline">
-                Explore how your flight moves through daylight, twilight, and darkness.
-              </p> */}
 
               {aboutContent && (
                 <div className="mobile-menu-about">
-                  <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
+                  <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
                     {aboutContent.replace('{version}', packageJson.version)}
                   </ReactMarkdown>
                 </div>
@@ -3118,7 +3456,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               
               {expandedSection === 'data' && dataContent && (
                 <div className="mobile-menu-accordion">
-                  <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
+                  <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
                 </div>
               )}
               
@@ -3200,26 +3538,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         )}
 
         <div className="nav-accordion">
-          {/* <p 
-            className="nav-tagline"
-            onMouseMove={(e) => {
-              const spans = e.currentTarget.querySelectorAll('.tagline-word')
-              spans.forEach(span => {
-                const rect = span.getBoundingClientRect()
-                span.style.setProperty('--torch-x', `${e.clientX - rect.left}px`)
-                span.style.setProperty('--torch-y', `${e.clientY - rect.top}px`)
-              })
-            }}
-            onMouseLeave={(e) => {
-              const spans = e.currentTarget.querySelectorAll('.tagline-word')
-              spans.forEach(span => {
-                span.style.setProperty('--torch-x', `-200px`)
-                span.style.setProperty('--torch-y', `-200px`)
-              })
-            }}
-          >
-            Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.
-          </p> */}
 
           <button 
             className="nav-link"
@@ -3233,7 +3551,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
           {expandedSection === 'about' && aboutContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
-              <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
+              <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
                 {aboutContent.replace('{version}', packageJson.version)}
               </ReactMarkdown>
             </div>
@@ -3251,7 +3569,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             
           {expandedSection === 'data' && dataContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
-              <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
+              <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
             </div>
           )}
 
@@ -3334,10 +3652,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           <a href="mailto:lightpath@studiofolder.it">Get in touch</a>
         </div>
 
-        <div 
-          className="bw-toggle-overlay"
-          style={isMobile ? { opacity: isPlaying || showMobileMenu ? 0 : 1, pointerEvents: isPlaying || showMobileMenu ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}
-        >
+        <div className="bw-toggle-overlay">
           <label>
             <div className="toggle-switch">
               <input 
@@ -3351,10 +3666,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           </label>
         </div>
 
-        <div 
-          className="follow-toggle-overlay"
-          style={isMobile ? { opacity: isPlaying || showMobileMenu ? 0 : 1, pointerEvents: isPlaying || showMobileMenu ? 'none' : 'all', transition: 'opacity 0.3s ease' } : {}}
-        >
+        <div className="follow-toggle-overlay">
           <label>
             <div className="toggle-switch">
               <input 
@@ -3376,12 +3688,21 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           arrivalAirport={arrivalAirport}
           departureTime={departureTime}
           airports={airports}
+          airportsIcao={airportsIcao}
           isPanelCollapsed={isPanelCollapsed}
           isPanelFading={isPanelFading}
           isBWMode={isBWMode}
           isMobile={isMobile}
-          isPlaying={isPlaying}
           showMobileMenu={showMobileMenu}
+          searchMode={searchMode}
+          setSearchMode={setSearchMode}
+          callsignInput={callsignInput}
+          setCallsignInput={setCallsignInput}
+          callsignSearchResult={callsignSearchResult}
+          setCallsignSearchResult={setCallsignSearchResult}
+          callsignError={callsignError}
+          setCallsignError={setCallsignError}
+          isCallsignSearching={isCallsignSearching}
           setDepartureCode={setDepartureCode}
           setDepartureAirport={setDepartureAirport}
           setArrivalCode={setArrivalCode}
@@ -3398,7 +3719,8 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           setIsMobileMenuAnimating={setIsMobileMenuAnimating}
           searchAirports={searchAirports}
           calculateFlight={calculateFlight}
-          getLocalDateTimeString={getLocalDateTimeString}
+          handleCallsignSearch={handleCallsignSearch}
+          handleCallsignStart={handleCallsignStart}
           getAirportTimezone={getAirportTimezone}
         />
 
@@ -3426,8 +3748,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
         <canvas ref={canvasRef} />   
     
-        {flightResults && (
-          <AnimationControls
+        <AnimationControls
             flightPath={flightPath}
             flightResults={flightResults}
             flightData={flightDataRef.current}
@@ -3436,6 +3757,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             showFlightStats={showFlightStats}
             departureCode={departureCode}
             arrivalCode={arrivalCode}
+            callsignDisplay={searchMode === 'callsign' && callsignSearchResult ? (callsignSearchResult.summary?.flight || callsignInput).replace(/^([A-Z]{2,3})(\d.*)$/, '$1 $2') : null}
             isBWMode={isBWMode}
             onProgressChange={handleProgressChange}
             setIsPlaying={setIsPlaying}
@@ -3446,8 +3768,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             getLocalDateAtAirport={getLocalDateAtAirport}
             formatFlightTime={formatFlightTime}
           />
-        )}
-        
+
         <div
           ref={tooltipRef}
           style={{

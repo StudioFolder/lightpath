@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const SRC = path.resolve(__dirname, "../docs/data-sources/world-airports.csv");
+const SRC = path.resolve(__dirname, "../data/data-sources/world-airports.csv");
 const DEST = path.resolve(__dirname, "../public/airports.json");
 
 const VALID_TYPES = new Set(["large_airport", "medium_airport", "small_airport"]);

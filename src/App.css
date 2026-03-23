@@ -83,7 +83,6 @@ body:has(.bw-mode) {
   color: var(--bw-text-primary);
 }
 
-.bw-mode .flight-input h3,
 .bw-mode .input-group input,
 .bw-mode .animation-controls,
 .bw-mode .animation-route,
@@ -97,6 +96,10 @@ body:has(.bw-mode) {
 .bw-mode .airport-date,
 .bw-mode .input-group label {
   color: var(--bw-text-secondary);
+}
+
+.bw-mode .callsign-airport-code {
+  color: var(--bw-text-primary);
 }
 
 .bw-mode .airport-toggle-overlay label,
@@ -171,6 +174,26 @@ body:has(.bw-mode) {
 
 .bw-mode .flight-input.collapsed .panel-header {
   background: transparent;
+}
+
+.bw-mode .mode-toggle {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.bw-mode .mode-toggle-indicator {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.bw-mode .mode-toggle-btn {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.bw-mode .mode-toggle-btn:hover {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.bw-mode .mode-toggle-btn.active {
+  color: rgba(0, 0, 0, 0.75);
 }
 
 /* BW mode — column labels */
@@ -594,17 +617,13 @@ canvas {
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   width: 440px;
-  min-height: 260px;
+  min-height: 270px;
   position: relative;
   z-index: 2;
-  transition: padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), 
-            width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s, 
-            border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
-            min-height 0.5s cubic-bezier(0.4, 0.0, 0.2, 1) 0.25s;
-}
-
-.flight-input.route-mode {
-  min-height: 216px;
+  transition: padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+              width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
+              border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
+              min-height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s;
 }
 
 .flight-input h3 {
@@ -661,11 +680,10 @@ canvas {
 
 .flight-input button:not(.swap-airports-btn) {
   width: auto;
-  padding: 10px 24px;
+  padding: 10px 0 4px 0;
   background: transparent;
   color: white;
   border: 1px solid transparent;
-  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -713,6 +731,44 @@ canvas {
 .flight-input .input-clear-btn:hover {
   background: rgba(255, 255, 255, 0.6) !important;
   border-color: transparent !important;
+}
+
+.callsign-enter-btn {
+  position: absolute;
+  right: 112px;
+  top: 50%;
+  transform: translateY(calc(-50% - 6px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.callsign-enter-btn:hover {
+  opacity: 1;
+  background: none !important;
+}
+
+.callsign-enter-btn.loading {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.bw-mode .callsign-enter-btn {
+  opacity: 0.4;
+}
+
+.bw-mode .callsign-enter-btn:hover {
+  opacity: 0.8;
 }
 
 .collapse-lens {
@@ -788,20 +844,24 @@ canvas {
   position: absolute;
   bottom: 20px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(12px);
   background: rgba(30, 30, 30, 0.25);
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
   border: none;
-  padding: 20px 20px 14px;
+  padding: 16px 8px 14px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  min-width: 400px; /* desktop only, overridden on mobile */
-  display: none;
+  min-width: 440px; /* desktop only, overridden on mobile */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .animation-controls.visible {
-  display: block;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
 }
 
 .flight-stats {
@@ -858,29 +918,54 @@ canvas {
   flex: 1;
 }
 
+.stats-hint-line {
+  width: 24px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 1px;
+  margin-bottom: 6px;
+  margin-top: -8px;
+  transform-origin: center;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.stats-hint-line.hidden {
+  transform: scaleX(0);
+  opacity: 0;
+}
+
+.bw-mode .stats-hint-line {
+  background: rgba(40, 40, 40, 0.35);
+}
+
 .animation-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 0;
+  padding: 0 12px 0 12px;
 }
 
 .animation-route {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 2px;
   font-size: 18px;
   font-weight: 600;
   color: #fff;
-  margin-bottom: 4px;
   white-space: nowrap;
+}
+
+.animation-route span {
+  font-family: 'ABCReproMono', monospace;
+  font-size: 20px;
 }
 
 .animation-distance {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
-  margin-top: 16px;
+  margin-top: 18px;
   margin-bottom: 2px;
 }
 
@@ -894,7 +979,7 @@ canvas {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-top: 18px;
+  padding-top: 26px;
 }
 
 .airport-time-left {
@@ -928,7 +1013,7 @@ canvas {
 }
 
 .slider-container {
-  margin: 0;
+  margin-top: -12px;
   position: relative;
 }
 
@@ -983,58 +1068,71 @@ canvas {
   font-size: 12px;
   color: #999;
   margin-top: 2px;
-  padding: 0 18px;
+  padding: 0 28px;
 }
 
 .flight-input.collapsed {
-  padding: 10px 24px 6px;
-  width: 216px;
-  border-radius: 36px;
+  padding: 14px 24px 14px 24px;
+  width: 132px;
   min-height: 0;
+  border-radius: 36px;
+  transition: padding 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+              width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
+              border-radius 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
+              min-height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 .flight-input.collapsed .panel-content {
-  max-height: 0 !important;
-  opacity: 0 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  pointer-events: none !important;
-  overflow: hidden !important;
-  transition: max-height 0.25s ease-in, 
-              opacity 0.25s ease-in !important;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-height 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
+              opacity 0.2s ease;
 }
 
 .flight-input.collapsed .panel-header {
   background: transparent;
-  margin: -6px -24px;
-  padding: 12px 16px 16px;
-  height: auto;
-  justify-content: center;
-  align-items: center;
-  gap: 32px;
-  position: static;
-  transition: margin-bottom 0.25s ease-in;
-}
-
-.flight-input.collapsed .panel-header h3 {
   margin: 0;
-  line-height: 1;
-  flex-grow: 0;
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: margin-bottom 0.25s ease-in, opacity 0.2s ease;
+  padding: 0;
+  height: 20px;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0;
+  position: static;
 }
 
-.flight-input.collapsed:hover .panel-header h3 {
-  opacity: 1;
+.flight-input.collapsed .panel-header-search-icon {
+  margin-right: 16px;
 }
 
-.flight-input.collapsed .collapse-button {
-  width: auto !important;
-  height: auto !important;
-  padding: 0 !important;
-  margin: 0 !important;
+.flight-input.collapsed .panel-header .mode-toggle {
+  opacity: 0;
+  pointer-events: none;
 }
+
+.flight-input.collapsed .collapsed-mode-label {
+  max-width: 80px;
+  margin-top: 1px;
+  color: rgba(255, 255, 255, 0.7);
+  pointer-events: auto;
+  transform: translateX(0);
+  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.05s,
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.05s;
+}
+
+.flight-input.collapsed:hover .collapsed-mode-label {
+  color: rgba(255, 255, 255, 1);
+}
+
+.bw-mode .flight-input.collapsed .collapsed-mode-label {
+  color: var(--bw-text-secondary);
+}
+
+.bw-mode .flight-input.collapsed:hover .collapsed-mode-label {
+  color: var(--bw-text-primary);
+}
+
 
 .flight-input.collapsed .collapse-lens {
   opacity: 0.7;
@@ -1052,7 +1150,7 @@ canvas {
 .share-actions {
   position: absolute;
   top: 28px;
-  left: calc(50% + 120px);
+  left: calc(50% + 80px);
   z-index: 10;
   display: flex;
   flex-direction: row;
@@ -1167,44 +1265,53 @@ canvas {
   stroke-dashoffset: 28;
 }
 
-/* Phase 1: fade out copy icon */
-.copy-url-button.phase-1 .copy-url-icon--copy {
-  opacity: 0;
-  transition: opacity 0.15s ease;
+/* Keyframe animation for copy → tick → copy sequence */
+@keyframes copyTickCopy {
+  0%   { opacity: 0.5; }
+  10%  { opacity: 0; }
+  88%  { opacity: 0; }
+  100% { opacity: 0.5; }
 }
 
-/* Phase 2: draw tick stroke left-to-right */
-.copy-url-button.phase-2 .copy-url-icon--copy {
-  opacity: 0;
+@keyframes copyTickCopyBW {
+  0%   { opacity: 0.6; }
+  10%  { opacity: 0; }
+  88%  { opacity: 0; }
+  100% { opacity: 0.6; }
 }
 
-.copy-url-button.phase-2 .copy-url-icon--tick {
-  opacity: 1;
+@keyframes copyTickTick {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  75%  { opacity: 1; }
+  88%  { opacity: 0; }
+  100% { opacity: 0; }
 }
 
-.copy-url-button.phase-2 .copy-url-icon--tick path {
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.35s ease-out;
+@keyframes copyTickDraw {
+  0%   { stroke-dashoffset: 28; }
+  12%  { stroke-dashoffset: 28; }
+  35%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 0; }
 }
 
-/* Phase 3: fade out tick */
-.copy-url-button.phase-3 .copy-url-icon--copy {
-  opacity: 0;
+.copy-url-button.animating .copy-url-icon--copy {
+  animation: copyTickCopy 1.55s ease forwards;
+  transition: none;
 }
 
-.copy-url-button.phase-3 .copy-url-icon--tick {
-  opacity: 0;
-  transition: opacity 0.2s ease;
+@media (hover: hover) {
+  .copy-url-button.animating:hover .copy-url-icon--copy {
+    opacity: 0;
+  }
 }
 
-.copy-url-button.phase-3 .copy-url-icon--tick path {
-  stroke-dashoffset: 0;
+.copy-url-button.animating .copy-url-icon--tick {
+  animation: copyTickTick 1.55s ease forwards;
 }
 
-/* Phase 4: fade copy icon back in */
-.copy-url-button.phase-4 .copy-url-icon--copy {
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
+.copy-url-button.animating .copy-url-icon--tick path {
+  animation: copyTickDraw 1.55s ease forwards;
 }
 
 /* BW mode */
@@ -1218,10 +1325,16 @@ canvas {
   }
 }
 
-.bw-mode .copy-url-button.phase-1 .copy-url-icon--copy { opacity: 0; }
-.bw-mode .copy-url-button.phase-2 .copy-url-icon--copy { opacity: 0; }
-.bw-mode .copy-url-button.phase-3 .copy-url-icon--copy { opacity: 0; }
-.bw-mode .copy-url-button.phase-4 .copy-url-icon--copy { opacity: 0.6; }
+.bw-mode .copy-url-button.animating .copy-url-icon--copy {
+  animation: copyTickCopyBW 1.55s ease forwards;
+  transition: none;
+}
+
+@media (hover: hover) {
+  .bw-mode .copy-url-button.animating:hover .copy-url-icon--copy {
+    opacity: 0;
+  }
+}
 
 /* ========================================
    10. FLIGHT INPUT PANEL — PANEL HEADER
@@ -1231,12 +1344,35 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
   height: 56px;
   background: rgba(20, 20, 20, 0.5);
   margin: -16px -24px 12px -24px;
   padding: 16px 24px;
   border-radius: 24px 24px 0 0;
-  transition: margin-bottom 0.35s ease-out;
+  transition: background 0.3s ease,
+              margin 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-header-search-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.collapsed-mode-label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transform: translateX(10px);
+  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Collapsed: show lens, fade out arrow */
@@ -1262,12 +1398,53 @@ canvas {
   display: none;
 }
 
-.panel-header h3 {
-  margin: 0;
-  padding: 0;
-  line-height: 24px;
-  flex-shrink: 0;
-  flex-grow: 1;
+.mode-toggle {
+  display: flex;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  gap: 0;
+  transition: opacity 0.2s ease;
+}
+
+.mode-toggle-indicator {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: calc(50% + 1px);
+  height: calc(100% + 2px);
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mode-toggle-btn {
+  color: rgba(255, 255, 255, 0.2);
+  position: relative;
+  top: 1px;
+  z-index: 1;
+  font-family: 'ABCRepro', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+.mode-toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.25s ease;
+}
+
+.mode-toggle-btn.active {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .panel-subtitle {
@@ -1289,7 +1466,14 @@ canvas {
   max-height: 0;
   margin: 0;
   overflow: hidden;
-  transition: opacity 0.25s ease, max-height 0.3s ease 0.1s, margin 0.3s ease 0.1s;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.panel-subtitle.faded {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
 }
 
 .bw-mode .panel-subtitle {
@@ -1317,7 +1501,8 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
+  position: absolute;
+  right: 24px;
   flex-shrink: 0;
   transition: color 0.2s, transform 0.3s ease;
   transform: rotate(0deg);
@@ -1337,8 +1522,8 @@ canvas {
 .swap-airports-column .swap-airports-btn {
   background: none !important;
   border: none !important;
-  width: 28px !important;
-  height: 28px !important;
+  width: 20px !important;
+  height: 20px !important;
   cursor: pointer;
   padding: 0 !important;
   display: flex;
@@ -1360,11 +1545,11 @@ canvas {
 }
 
 .panel-content {
-  overflow: visible;
-  max-height: 380px;
+  max-height: 500px;
   opacity: 1;
-  transition: max-height 0.35s ease-out, 
-              opacity 0.35s ease-out;
+  overflow: visible;
+  transition: max-height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1) 0.05s,
+              opacity 0.25s ease 0.47s;
 }
 
 /* ========================================
@@ -1399,7 +1584,7 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 24px;
+  padding-top: 30px;
   width: 80px;
   flex-shrink: 0;
 }
@@ -1422,7 +1607,7 @@ canvas {
 .airport-columns .input-group input {
   border-radius: 24px;
   background: transparent;
-  padding: 0px 16px;
+  padding: 0px 48px;
   font-family: 'ABCReproMono', monospace;
   font-size: 24px;
   text-align: center;
@@ -1523,12 +1708,17 @@ canvas {
   color: rgba(40, 40, 40, 0.3);
 }
 
+.callsign-input-column .carousel-words {
+  width: 120px;
+}
+
 /* ========================================
    12. FLIGHT INPUT PANEL — ROUTE MODE
    ======================================== */
 
 .airport-columns.route-mode .airport-column {
   align-items: center;
+  margin-top: 16px;
 }
 
 .airport-columns.route-mode .airport-name-inline {
@@ -1536,7 +1726,7 @@ canvas {
 }
 
 .airport-columns.route-mode .swap-airports-column {
-  padding-top: 46px;
+  padding-top: 64px;
 }
 
 .airport-columns.route-mode .input-group input::placeholder {
@@ -1584,6 +1774,138 @@ canvas {
   border-radius: 8px;
 }
 
+.callsign-airport-code {
+  font-family: 'ABCReproMono', monospace;
+  font-size: 48px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 4px 0;
+  display: block;
+}
+
+.callsign-input-columns {
+  justify-content: center;
+}
+
+.callsign-input-column {
+  align-items: center;
+}
+
+.callsign-input-column input {
+  text-align: center;
+}
+
+.callsign-find-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.callsign-result-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-family: 'ABCReproMono', monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 -2px 0;
+  animation: cascadeIn 0.4s ease 0.05s both;
+}
+
+.callsign-result-clear {
+  position: absolute;
+  right: calc(50% - 52px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px !important;
+  height: 18px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  color: rgba(30, 30, 30, 0.85) !important;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease !important;
+}
+
+.callsign-result-clear svg {
+  transform: translateY(0.5px);
+}
+
+.flight-input:hover .callsign-result-clear {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.callsign-result-clear:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+}
+
+.bw-mode .callsign-result-clear {
+  background: rgba(40, 40, 40, 0.2) !important;
+  color: rgba(40, 40, 40, 0.85) !important;
+}
+
+.bw-mode .callsign-result-clear:hover {
+  background: rgba(40, 40, 40, 0.4) !important;
+}
+
+.bw-mode .callsign-result-label {
+  color: var(--bw-text-tertiary);
+}
+
+.callsign-error {
+  text-align: center;
+  padding: 0;
+}
+
+.callsign-error-message {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+}
+
+.callsign-error-back {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.callsign-error-back:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.bw-mode .callsign-error-message {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .callsign-error-back {
+  color: var(--bw-text-tertiary);
+}
+
+.bw-mode .callsign-error-back:hover {
+  color: var(--bw-text-secondary);
+}
+
 .airport-columns.route-mode .autocomplete-container {
   position: relative;
 }
@@ -1597,11 +1919,34 @@ canvas {
 }
 
 .airport-columns.route-mode .airport-details {
+  margin-top: 2px;
   animation: cascadeIn 0.4s ease 0.4s both;
 }
 
 .airport-columns.route-mode .swap-airports-btn {
   animation: cascadeIn 0.4s ease 0.3s both;
+}
+
+/* Callsign idle — cascade on mount (switching from route → flight) */
+.callsign-input-columns .column-label {
+  animation: cascadeIn 0.4s ease 0.1s both;
+}
+
+.callsign-input-columns .input-group {
+  animation: cascadeIn 0.4s ease 0.25s both;
+}
+
+.callsign-find-row {
+  animation: cascadeIn 0.4s ease 0.35s both;
+}
+
+/* Callsign error — cascade on mount */
+.callsign-error .callsign-error-message {
+  animation: cascadeIn 0.4s ease 0.1s both;
+}
+
+.callsign-error .callsign-error-back {
+  animation: cascadeIn 0.4s ease 0.25s both;
 }
 
 @keyframes cascadeIn {
@@ -1625,6 +1970,13 @@ canvas {
   margin-top: 12px;
   width: 440px;
   z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flight-action-row.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .datetime-pill {
@@ -1638,6 +1990,7 @@ canvas {
   border-radius: 32px;
   padding: 12px 20px;
   position: relative;
+  will-change: backdrop-filter;
 }
 
 .datetime-display {
@@ -1679,6 +2032,7 @@ canvas {
   text-transform: uppercase;
   cursor: pointer;
   transition: border-color 0.2s ease;
+  will-change: backdrop-filter;
 }
 
 .calculate-pill:hover {
@@ -1688,6 +2042,16 @@ canvas {
 .calculate-pill:disabled {
   color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
+}
+
+@keyframes pill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.calculate-pill--loading {
+  animation: pill-pulse 1.2s ease-in-out infinite;
+  cursor: default;
 }
 
 .airport-name-inline {
@@ -2661,7 +3025,6 @@ canvas {
   /* Flight input panel - narrower */
   .flight-input {
     width: 340px;
-    min-height: 216px;
     top: 16px;
     padding: 18px;
   }
@@ -2679,6 +3042,11 @@ canvas {
   .flight-input.fading {
     opacity: 0;
     transition: opacity 0.2s ease !important;
+  }
+
+  .app.playing .flight-input {
+    opacity: 0 !important;
+    pointer-events: none;
   }
   
   .flight-input.collapsed {
@@ -2788,12 +3156,10 @@ canvas {
   }
 
   .flight-input-wrapper.collapsed {
-    top: 20px;
+    top: 22px;
     left: auto;
-    right: 70px;
+    right: 72px;
     transform: none;
-    width: auto;
-    max-width: none;
   }
 
   .share-actions {
@@ -2802,6 +3168,12 @@ canvas {
     right: 16px;
     flex-direction: column;
     gap: 2px;
+  }
+
+  .flight-input-wrapper.collapsed ~ .share-actions {
+    top: 22px;
+    right: 58px;
+    flex-direction: row;
   }
 
   .share-actions .share-button {
@@ -2841,40 +3213,67 @@ canvas {
   .flight-input {
     width: calc(100vw - 36px);
     max-width: 356px;
-    min-height: 208px;
     top: auto;
     padding: 16px 20px 8px !important;
     border-radius: 24px;
+    min-height: 230px;
     transition: opacity 0.2s ease !important;
     z-index: 300;
   }
 
   .flight-input.collapsed {
-    top: auto;
-    left: auto;
-    right: auto;
-    transform: none;
-    width: auto;
+    width: fit-content !important;
     min-width: 0 !important;
-    max-width: 160px;
-    padding: 4px 14px !important;
-    border-radius: 48px;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 10px 14px !important;
+    border-radius: 48px !important;
+    box-shadow: none !important;
   }
 
   .flight-input.collapsed .panel-header {
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
-    transition: none !important;
-    margin: -4px -14px;
-    padding: 4px 20px;
+    align-items: center;
+    margin: -10px -14px;
+    padding: 10px 14px;
     height: auto;
     border-radius: 48px;
+    background: transparent !important;
   }
 
-  .flight-input.collapsed .collapse-button {
-    width: 16px !important;
-    height: 16px !important;
-  } 
+  .flight-input.collapsed .panel-header .mode-toggle {
+    display: none !important;
+  }
+
+  .flight-input.collapsed .panel-header-search-icon {
+    margin: 0;
+  }
+
+  .flight-input.collapsed .collapsed-mode-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.85);
+    white-space: nowrap;
+  }
+
+  .bw-mode .flight-input.collapsed .collapsed-mode-label {
+    color: var(--bw-text-primary);
+  }
+
+  .flight-input.collapsed .collapse-button,
+  .flight-input.collapsed .panel-content,
+  .flight-input.collapsed .panel-subtitle {
+    display: none !important;
+  }
+
+  .flight-input.collapsed.fading {
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+  }
 
   .flight-input.collapsed .panel-content {
     transition: none !important;
@@ -2888,10 +3287,6 @@ canvas {
     transition: none !important;
   }
 
-  .flight-input.route-mode {
-    min-height: 0;
-  }
-
   .panel-header {
     transition: none !important;
     margin: -16px -20px 16px -20px;
@@ -2899,7 +3294,7 @@ canvas {
     border-radius: 24px 24px 0 0;
   }
 
-  .flight-input.collapsed .panel-header h3 {
+  .flight-input.collapsed .panel-header .mode-toggle {
     transition: none !important;
   }
 
@@ -2942,6 +3337,22 @@ canvas {
     padding: 6px 12px;
   }
 
+  .callsign-input-column .autocomplete-container {
+    position: relative;
+    height: 36px;
+  }
+
+  .callsign-input-column .autocomplete-container input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100% !important;
+    padding: 0 12px !important;
+    box-sizing: border-box !important;
+  }
+
   .airport-columns.route-mode .input-clear-btn {
     right: -2px;
   }
@@ -2960,13 +3371,21 @@ canvas {
     font-size: 40px;
   }
 
+  .callsign-airport-code {
+    font-size: 40px;
+  }
+
   .swap-airports-column {
     width: 60px;
-    padding-top: 28px;
+    padding-top: 30px;
   }
 
   .airport-columns.route-mode .swap-airports-column {
-    padding-top: 38px;
+    padding-top: 60px;
+  }
+
+  .flight-input.callsign-result .swap-airports-column {
+    padding-top: 64px;
   }
 
   .panel-subtitle {
@@ -2976,47 +3395,52 @@ canvas {
     padding: 0;
   }
 
-  .subtitle-daylight {
-    background: linear-gradient(90deg, var(--path-day-color) 60%, rgb(255, 240, 130));
+  .subtitle-daylight,
+  .subtitle-twilight,
+  .subtitle-darkness {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    opacity: 0.8;
+    background-size: 300% 100%;
+    background-position: 0% 0%;
+    animation: colorSweep 6s ease-out infinite;
+  }
+
+  .subtitle-daylight {
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 40%, var(--path-day-color) 50%, rgb(255, 240, 130) 55%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0.5) 100%);
+    animation-delay: 0.6s;
   }
 
   .subtitle-twilight {
-    background: linear-gradient(90deg, var(--path-twilight-warm), var(--path-twilight-cool));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    opacity: 0.8;
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 40%, var(--path-twilight-warm) 48%, var(--path-twilight-cool) 55%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0.5) 100%);
+    animation-delay: 0.9s;
   }
 
   .subtitle-darkness {
-    background: linear-gradient(90deg, rgb(89, 13, 140), var(--path-night-color) 40%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: brightness(1.4);
-    opacity: 0.9;
+    background-image: linear-gradient(90deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) 40%, rgb(89, 13, 140) 48%, var(--path-night-color) 55%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0.5) 100%);
+    animation-delay: 1.2s;
+  }
+
+  @keyframes colorSweep {
+    0% {
+      background-position: 100% 0%;
+    }
+    30% {
+      background-position: 0% 0%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
   }
 
   .bw-mode .subtitle-daylight {
-    background: linear-gradient(90deg, var(--path-day-color) 30%, rgb(220, 220, 220));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    opacity: 1;
+    background-image: linear-gradient(90deg, var(--bw-text-secondary) 0%, var(--bw-text-secondary) 40%, var(--path-day-color) 50%, rgb(220, 220, 220) 55%, var(--bw-text-secondary) 65%, var(--bw-text-secondary) 100%);
     filter: brightness(0.9);
   }
 
   .bw-mode .subtitle-darkness {
-    background: linear-gradient(90deg, rgb(80, 80, 80), var(--path-night-color) 40%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    background-image: linear-gradient(90deg, var(--bw-text-secondary) 0%, var(--bw-text-secondary) 40%, rgb(80, 80, 80) 48%, var(--path-night-color) 55%, var(--bw-text-secondary) 65%, var(--bw-text-secondary) 100%);
     filter: none;
-    opacity: 0.9;
   }
 
   /* Header elements - visually centered */  
@@ -3117,10 +3541,28 @@ canvas {
   }
   
   .route-plane-icon {
-    width: 11px;
-    height: 11px;
+    width: 16px;
+    height: 16px;
   }
   
+  .callsign-enter-btn {
+    right: -20px;
+    top: 22px;
+    transform: translateY(-50%);
+  }
+
+  .callsign-enter-btn.loading {
+    display: none !important;
+  }
+
+  .callsign-result-clear {
+    right: calc(50% - 50px) !important;
+  }
+
+  .callsign-input-columns .input-group {
+    animation: none !important;
+  }
+
   .animation-distance {
     font-size: 11px;
     margin-top: 8px;
@@ -3252,6 +3694,7 @@ canvas {
   .app.menu-open:not(.menu-closing) .follow-toggle-overlay,
   .app.menu-open:not(.menu-closing) .flight-input-wrapper {
     opacity: 0;
+    pointer-events: none;
   }
 
   .app.menu-open.menu-closing .animation-controls,
@@ -3259,6 +3702,12 @@ canvas {
   .app.menu-open.menu-closing .follow-toggle-overlay,
   .app.menu-open.menu-closing .flight-input-wrapper {
     opacity: 1;
+  }
+
+  .app.playing .bw-toggle-overlay,
+  .app.playing .follow-toggle-overlay {
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* Hamburger line styles */
@@ -3328,7 +3777,6 @@ canvas {
     border-radius: 24px;
     transition: opacity 0.2s ease !important;
     z-index: 300;
-    min-height: 208px;
   }
 
   .panel-header {
@@ -3339,12 +3787,7 @@ canvas {
   }
 
   .flight-input.collapsed .panel-header {
-    margin: -8px -14px -6px -14px;
-  }
-  
-  .flight-input.collapsed {
-    width: auto;
-    min-width: 180px;
+    margin: -8px -14px;
   }
   
   .flight-input h3 {

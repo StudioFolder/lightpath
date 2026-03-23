@@ -25,7 +25,7 @@ export function preloadLogo(isBWMode) {
   return logoCache[src]
 }
 
-export async function captureFlightImage(renderer, scene, progressTubeMesh, transitionLabels, flightCurve, flightData, isBWMode) {
+export async function captureFlightImage(renderer, scene, progressTubeMesh, transitionLabels, flightCurve, flightData, _isBWMode) {
   const { departure, arrival, distance } = flightData
 
   // --- Camera positioning (independent from interactive view) ---

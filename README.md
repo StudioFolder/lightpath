@@ -11,6 +11,7 @@ Lightpath calculates the flight trajectory between any two airports and visualiz
 ## What it does
 
 - **Great circle routing** — Plots the shortest path between airports on a 3D globe
+- **Real flight trajectories** — Look up any flight by callsign to trace its actual route using historical flight data
 - **Solar illumination mapping** — Color-codes flight segments by daylight, twilight (civil/nautical/astronomical), and darkness
 - **Time animation** — Watch flights move through changing light as Earth rotates
 - **Astronomical accuracy** — Uses NOAA equations for solar declination and Jean Meeus algorithms for solar position
@@ -21,7 +22,7 @@ Lightpath calculates the flight trajectory between any two airports and visualiz
 
 - **React 19** + **Three.js** for 3D rendering
 - **Vite** for build tooling
-- **solar-calculator** (NOAA) + **suncalc** (Jean Meeus) for astronomical calculations
+- **solar-calculator** (NOAA) + **suncalc** for astronomical calculations
 - **Custom GLSL shaders** for twilight visualization
 
 ---
@@ -30,26 +31,35 @@ Lightpath calculates the flight trajectory between any two airports and visualiz
 
 - Real-time solar position calculation
 - Latitude-dependent twilight width modeling
+- Two search modes: airport-to-airport routing (Great Circle Routes) and flight number lookup
 - Animated flight playback with sun position sync
 - Color and black-and-white visualization modes
 - Shareable flight URLs
+- Optional overlays: airport dots, graticule, timezone boundaries, twilight lines
 
 ---
 
 ## Project structure
 ```
 src/
-├── App.jsx              # Main component
+├── App.jsx              # Main component (3D scene, state, non-panel UI)
 ├── App.css              # All styles
 ├── components/
 │   ├── AirportSearchInput.jsx
 │   ├── FlightInputPanel.jsx
-│   └── AnimationControls.jsx
+│   ├── AnimationControls.jsx
+│   └── ShareButton.jsx
+├── services/
+│   └── fr24.js          # FlightRadar24 API client
 └── utils/
-    ├── geoUtils.js      # Coordinate conversion
+    ├── geoUtils.js      # Coordinate conversion + flight scaling
     ├── solarUtils.js    # Solar position calculations
     ├── sceneUtils.js    # Label texture generation
-    └── animationUtils.js # Fade animations
+    ├── animationUtils.js # Fade animations
+    ├── routeInterpolation.js # Timestamp interpolation along arc-length
+    ├── captureUtils.js  # Screenshot capture for share cards
+    ├── cardGenerator.js # Share card image generation
+    └── shareUtils.js    # Web Share API wrapper
 
 scripts/
 └── build-airports.js    # OurAirports CSV → airports.json
@@ -59,7 +69,7 @@ public/
 ├── earth-texture.png    # Custom Earth texture
 ├── graticule-10.geojson # Latitude/longitude grid
 ├── timezones.geojson    # Timezone boundaries
-└── icons/               # SVG icons
+└── fonts/               # ABC Repro, ABC Repro Mono
 ```
 
 ---
@@ -80,9 +90,10 @@ npm run build
 ## Credits
 
 Airport data: [OurAirports](https://ourairports.com/data/)
-Astronomical calculations: [solar-calculator](https://www.npmjs.com/package/solar-calculator) (NOAA) and [suncalc](https://github.com/mourner/suncalc) (Jean Meeus)   
+Astronomical calculations: [solar-calculator](https://www.npmjs.com/package/solar-calculator) (NOAA) and [suncalc](https://github.com/mourner/suncalc) (Jean Meeus)
+Topography: [NASA](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/topography-bathymetry-maps/)
 
-Designed and developed by [Studio Folder](https:www.studiofolder.it)
+Designed and developed by [Studio Folder](https://www.studiofolder.it)
 
 
 ---
