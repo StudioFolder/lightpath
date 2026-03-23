@@ -1,18 +1,3 @@
-export function buildControlPoints(events, departureAirport, arrivalAirport) {
-  const sorted = [...events].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-  const firstEvent = sorted[0];
-  const lastEvent  = sorted[sorted.length - 1];
-
-  const middle = sorted.filter(e => e.lat != null && e.lon != null);
-
-  return [
-    { lat: departureAirport.lat, lon: departureAirport.lon, timestamp: firstEvent?.timestamp ?? null },
-    ...middle.map(e => ({ lat: e.lat, lon: e.lon, timestamp: e.timestamp })),
-    { lat: arrivalAirport.lat,   lon: arrivalAirport.lon,  timestamp: lastEvent?.timestamp  ?? null },
-  ];
-}
-
 /**
  * Interpolate a timestamp at a given arc-length fraction along the route.
  *

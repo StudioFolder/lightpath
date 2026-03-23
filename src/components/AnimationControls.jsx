@@ -50,7 +50,10 @@ export default function AnimationControls({
         </div>
       </div>
 
-      <div className="animation-header">
+      <div className="animation-header"
+        onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
+        onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
+      >
         <div className="airport-time airport-time-left">
           <span className="airport-code">
             {flightData && getTimezoneAbbreviation(flightData.departure)}
@@ -64,8 +67,6 @@ export default function AnimationControls({
         </div>
 
         <div className="flight-info-center"
-          onMouseEnter={() => { if (!showFlightStats) setShowFlightStats(true) }}
-          onMouseLeave={() => { if (isPlaying || animationProgress > 0) setShowFlightStats(false) }}
           onClick={() => {
             if ('ontouchstart' in window) {
               setShowFlightStats(prev => !prev)

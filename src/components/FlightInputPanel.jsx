@@ -49,6 +49,7 @@ export default function FlightInputPanel({
 }) {
 
   const [routePhase, setRoutePhase] = useState('idle') // 'idle' | 'animating' | 'ready'
+  const [panelFullyOpen, setPanelFullyOpen] = useState(!isPanelCollapsed)
   const dateInputRef = useRef(null)
   const panelRef = useRef(null)
   const airportColumnsRef = useRef(null)
@@ -61,6 +62,15 @@ export default function FlightInputPanel({
     }, 2000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (isPanelCollapsed) {
+      setPanelFullyOpen(false)
+    } else {
+      const timer = setTimeout(() => setPanelFullyOpen(true), 460)
+      return () => clearTimeout(timer)
+    }
+  }, [isPanelCollapsed])
 
   useEffect(() => {
     if (searchMode === 'route' && departureAirport && arrivalAirport && routePhase === 'idle') {
@@ -153,8 +163,8 @@ export default function FlightInputPanel({
     : null
 
   // Determine whether to show the action row
-  const showRouteActionRow   = searchMode === 'route'    && departureAirport && !isPanelCollapsed
-  const showCallsignActionRow = searchMode === 'callsign' && callsignSearchResult && !isPanelCollapsed
+  const showRouteActionRow   = searchMode === 'route'    && departureAirport && panelFullyOpen
+  const showCallsignActionRow = searchMode === 'callsign' && callsignSearchResult && panelFullyOpen
 
   return (
     <div className={`flight-input-wrapper ${isPanelCollapsed ? 'collapsed' : ''}`}>

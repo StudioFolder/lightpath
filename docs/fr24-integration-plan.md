@@ -3,8 +3,8 @@
 **Project**: Lightpath
 **Feature**: Historical Flight Route Tracking
 **Target**: v1.0.0 (currently v0.9.6)
-**Date**: 2026-03-20
-**Status**: Phase 4 complete (caching, deep links, date-independence implemented)
+**Date**: 2026-03-21
+**Status**: Phase 5 in progress (cleanup, error handling, UI polish started)
 **Alternative approach**: `api-plan-adsbexchange.md` (ADSBexchange via RapidAPI, Feb 2026)
 
 ---
@@ -589,11 +589,13 @@ Flight Summary Light is only needed to obtain the `fr24_id` and confirm the flig
 
 4. **Vite proxy `flight_ended` filter** — ✅ FIXED. The local dev Vite custom middleware (`vite.config.js`) now replicates the full `flight-lookup.js` logic including the `flight_ended === true` filter. Local dev behavior matches production. The only difference is no Upstash Redis cache locally — every search hits FR24 live.
 
-5. **Callsign resolved airports display styling** — The resolved FROM/TO airports in callsign mode use inline `fontFamily: 'monospace'` styling (lines 304, 321 of FlightInputPanel.jsx) which doesn't match the route mode styling. Should use the same CSS classes as route mode's airport code display. Cosmetic issue for UI polish phase.
+5. **Callsign resolved airports display styling** — ✅ FIXED (2026-03-21). Replaced inline `fontFamily: 'monospace'` with `.callsign-airport-code` CSS class matching route mode's `.airport-columns.route-mode .input-group input` styling (ABCReproMono, 48px, weight 300, letter-spacing 2px). BW mode override and mobile breakpoint added. Color set to `rgba(255, 255, 255, 0.85)` for dark mode.
 
 6. **`vercel.json` rewrite change** — Updated `/(.*) → /index.html` to `/((?!api/).*)` for `vercel dev` compatibility. This is a no-op in production (Vercel resolves functions before rewrites). Should be verified on production deploy.
 
 7. **Serverless functions use `export default` (ES modules)** — Changed from `module.exports` (CommonJS) to `export default` due to `"type": "module"` in package.json. Works with both Vercel deployment and `vercel dev`. Verified.
+
+8. **Flight mode shows great circle distance instead of real route distance** — ✅ FIXED (2026-03-20). In `handleCallsignStart()`, the displayed distance was computed as a great circle between origin/destination airports, identical to route mode. Now the real route distance is computed by sampling the CatmullRom curve (500 points via `getPointAt`) and summing haversine segment distances. The great circle distance is still used for camera positioning (`centerCameraOnFlight`) and plane icon scaling (`getFlightScale`), since those depend on the airport-to-airport span. The `results.distance` value now reflects the actual airway routing (typically 2–8% longer than great circle for transatlantic flights).
 
 ### Phase 4b: Caching & Date-Independence ✅
 
@@ -615,17 +617,31 @@ Flight Summary Light is only needed to obtain the `fr24_id` and confirm the flig
 - [x] Ensure `handleCallsignStart()` updates URL with the user-selected date/time after rendering: `navigate(\`/flight/${callsignInput}/${dt.toFormat('yyyy-MM-dd')}/${dt.toFormat('HHmm')}\`, { replace: true })`
 - [x] Update `main.jsx` routes: `/flight/:segment1/:date/:time` and `/flight/:callsign`
 
-### Phase 5: Testing & Polish
+### Phase 5: Testing & Polish (in progress)
 
+**Completed (2026-03-21):**
+- [x] Delete legacy `api/flight-search.js` and `api/flight-events.js` — superseded by `api/flight-lookup.js`, no longer called by client
+- [x] CSS refinement: `.callsign-airport-code` class matching route mode styling (both color and B&W themes)
+- [x] Fix date field click area — `onClick` added directly on hidden date `<input>` instead of parent div (z-index conflict)
+- [x] Error differentiation — `fr24.js` now throws typed errors (`rate_limited`, `server_error`, `request_failed`); `handleCallsignSearch()` shows specific user-facing messages for 429 / 5xx / generic errors
+- [x] Remove dead `buildControlPoints()` from `routeInterpolation.js` — was unused, `handleCallsignStart` builds control points inline
+- [x] Fix `flightDurationMs` rounding inconsistency — rendering useEffect now reads exact `totalDurationMs` from `flightDataRef.current.flightDurationMs` instead of recomputing from rounded hours/minutes (eliminates ~30s precision loss)
+- [x] Graceful fallback when events are insufficient — if `< 2` events with lat/lon, falls back to great circle via `calculateFlight()`
+- [x] Loading indicator — FIND button shows `'...'` with pulsing animation (`calculate-pill--loading`) during search
+- [x] Callsign error state — inline styles extracted to CSS classes (`.callsign-error`, `.callsign-error-message`, `.callsign-error-dismiss`) with BW mode overrides
+- [x] Callsign input layout — inline styles extracted to CSS classes (`.callsign-input-columns`, `.callsign-input-column`, `.callsign-find-row`)
+- [x] Mode toggle redesign (partial) — pill-shaped ROUTE/FLIGHT toggle with sliding indicator replaces h3 text. Uses `<span>` elements (not `<button>`) to avoid browser focus styling. Indicator animates via `transform: translateX`. Both themes implemented.
+
+**In progress:**
+- [ ] Mode toggle header layout — three-element layout (h3 "Search" left, toggle centred, chevron right) not yet resolved; toggle positioning conflicts with collapse button placement
+
+**Remaining:**
 - [ ] Test with diverse flights (short-haul, long-haul, polar, domestic)
-- [ ] Tune CatmullRom tension parameter
+- [ ] Tune CatmullRom tension parameter (currently 0.0 default; `CATMULLROM_TENSION` constant extracted for easy tuning)
 - [ ] Verify visual quality at different zoom levels
 - [ ] Edge cases: diverted flights, cancelled flights, no events
 - [ ] Performance: verify no rendering regression
 - [ ] Capture/share: verify ShareButton works with event-based routes
-- [ ] CSS refinement for callsign mode UI elements (both color and B&W modes)
-- [ ] Graceful fallback when events are insufficient (great circle between Summary airports)
-- [ ] Error differentiation (429 rate limit vs 5xx API error vs not found)
 
 ### Phase 6: Credit Monitoring (Post-Launch)
 
@@ -747,17 +763,21 @@ On Explorer tier (30,000 credits/month): without cache, ~1,875 unique lookups. W
 
 ---
 
-## 9a. Complete File Inventory (as of 2026-03-20)
+## 9a. Complete File Inventory (as of 2026-03-21)
 
 ### New files created:
 ```
 api/flight-lookup.js           # Merged serverless function: summary + events + Upstash Redis cache (implemented)
-api/flight-search.js           # Legacy: Vercel serverless proxy → FR24 Flight Summary Light (deprecated, kept for reference)
-api/flight-events.js           # Legacy: Vercel serverless proxy → FR24 Historic Events Light (deprecated, kept for reference)
-src/services/fr24.js           # Client-side API calls (lookupFlight with in-memory cache)
-src/utils/routeInterpolation.js # buildControlPoints + interpolateTimestamp (with arc-length-aware interpolation)
+src/services/fr24.js           # Client-side API calls (lookupFlight with in-memory cache, typed errors)
+src/utils/routeInterpolation.js # interpolateTimestamp (with arc-length-aware interpolation)
 tests/fr24-sandbox-test.mjs    # Standalone sandbox API test (not committed)
 tests/fr24-production-test.mjs # Standalone production API test (not committed)
+```
+
+### Deleted files:
+```
+api/flight-search.js           # Legacy: deleted 2026-03-21, superseded by flight-lookup.js
+api/flight-events.js           # Legacy: deleted 2026-03-21, superseded by flight-lookup.js
 ```
 
 ### Modified files:
@@ -767,9 +787,20 @@ src/App.jsx                    # searchMode state, callsign state/refs, handleCa
                                # airportsIcao lookup, arc-length fractions, calculateFlight clears callsign refs,
                                # deep-link useEffect for /flight/:callsign/:date/:time,
                                # editable datetime pill in callsign mode,
-                               # relative timing model (user-chosen date + offsets)
-src/components/FlightInputPanel.jsx  # Header mode toggle, callsign input/FIND, resolved airports display,
-                               # error state, editable datetime pill, CALCULATE/START conditional text
+                               # relative timing model (user-chosen date + offsets),
+                               # error differentiation (rate_limited, server_error, request_failed),
+                               # flightDurationMs precision fix, graceful fallback for insufficient events,
+                               # CATMULLROM_TENSION constant
+src/App.css                    # .callsign-airport-code (matching route mode styling),
+                               # .callsign-error / .callsign-error-message / .callsign-error-dismiss,
+                               # .callsign-input-columns / .callsign-input-column / .callsign-find-row,
+                               # .calculate-pill--loading animation,
+                               # .mode-toggle / .mode-toggle-indicator / .mode-toggle-btn (pill toggle),
+                               # BW mode overrides for all new classes
+src/components/FlightInputPanel.jsx  # Pill-shaped mode toggle (ROUTE/FLIGHT with sliding indicator),
+                               # h3 "Search" title, callsign input/FIND, resolved airports display,
+                               # error state with CSS classes, editable datetime pill,
+                               # date picker onClick fix, loading indicator on FIND button
 vite.config.js                 # Custom configureServer middleware for local dev (/api/flight-lookup)
 vercel.json                    # SPA rewrite updated with negative lookahead to exclude /api/
 src/main.jsx                   # Routes: /, /flight/:segment1/:date/:time, /flight/:callsign

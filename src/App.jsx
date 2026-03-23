@@ -22,7 +22,7 @@ import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
 import { Analytics } from '@vercel/analytics/react'
 
-const CATMULLROM_TENSION = 0.0
+const CATMULLROM_TENSION = 0.2
 
 // ===== THEME COLOR CONSTANTS =====
 // Single source of truth for background colors used in Three.js scene,
@@ -67,7 +67,7 @@ function App() {
   // UI State
   const [showAirports, setShowAirports] = useState(true)
   const [showGraticule, setShowGraticule] = useState(true)
-  const [showPlaneIcon, setShowPlaneIcon] = useState(true)
+  const [, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
   const [isPanelFading, setIsPanelFading] = useState(false) // Drives .fading class for mobile collapse/expand fade-then-switch pattern
@@ -147,7 +147,7 @@ function App() {
 
   // Scaling
   const viewportScaleRef = useRef(getViewportScale(window.innerWidth))
-  const targetBumpScaleRef = useRef(5)
+  const targetBumpScaleRef = useRef(7)
   
   // External Data & Intervals
   const timezoneDataRef = useRef(null)
@@ -546,7 +546,7 @@ function App() {
       oceanMaskTextureRef.current = oceanMaskTexture
     })
 
-    const bumpTexture = new THREE.TextureLoader().load('/earth-bump.png', () => {
+    const bumpTexture = new THREE.TextureLoader().load('/earth-bump.jpg', () => {
       bumpTexture.anisotropy = renderer.capabilities.getMaxAnisotropy()
     })
 
@@ -555,7 +555,7 @@ function App() {
       roughness: 0.9,
       metalness: 0.0,
       bumpMap: bumpTexture,
-      bumpScale: 5,
+      bumpScale: 7,
     })
 
     material.onBeforeCompile = (shader) => {
@@ -682,7 +682,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           positionDotAtLocation(userLat, userLon)
           centerCameraOnLocation(userLat, userLon)
         },
-        (error) => {
+        (_error) => {
           positionDotAtLocation(45.464, 9.190)
           centerCameraOnLocation(45.464, 9.190)
         }
@@ -1026,7 +1026,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             const N = point.clone().normalize()
             const radialLift = N.multiplyScalar(0.03 * eScale)
             const B = label.userData.binormalDirection
-            const lateralShift = B ? B.clone().multiplyScalar(0.06 * eScale) : new THREE.Vector3()
+            const lateralShift = B ? B.clone().multiplyScalar(0.04 * eScale) : new THREE.Vector3()
             label.position.copy(point).add(radialLift).add(lateralShift)
 
             const fadeProgress = (progress - transitionT) / 0.02
@@ -1408,9 +1408,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         })
       }
 
-      // Calculate solar declination once for the entire flight
-        const sunDeclination = calculateSolarDeclination(departureTime)     
-
       // Pre-calculate colors for entire path - BOTH color and B&W versions
         const preCalculatedColorsColor = []
         const preCalculatedColorsBW = []
@@ -1721,7 +1718,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             depthTest: true
           })
           const sprite = new THREE.Sprite(material)
-          sprite.scale.set((isMobile ? 0.22 : 0.20) * elementScale, (isMobile ? 0.08 : 0.07) * elementScale, 1)
+          sprite.scale.set((isMobile ? 0.22 : 0.17) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
           sprite.visible = false
 
           sprite.userData.transitionT = trans.t
@@ -1761,14 +1758,35 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       // Determine label placement direction based on flight path orientation
       // Labels go on the opposite side of the dot from the path direction
-      const latDiff = arrival.lat - departure.lat
-      // East-west threshold: at 0.3, flights need <30% lat-vs-lon ratio to count as east-west
-      const isEastWest = Math.abs(latDiff) < Math.abs(arrival.lon - departure.lon) * 0.3
+      let departureLabelSouth, arrivalLabelSouth
 
-      // For departure: path heads toward arrival
-      // For arrival: path arrives from departure
-      const departureLabelSouth = isEastWest || latDiff > 0  // path goes north → label south
-      const arrivalLabelSouth = isEastWest || latDiff < 0    // path comes from north → label south
+      if (callsignSourceCurve) {
+        // In callsign mode, sample the actual curve direction near each airport
+        // Use ~5% along the curve for departure direction, ~95% for arrival direction
+        const depSample = callsignSourceCurve.getPointAt(0.05)
+        const depStart = callsignSourceCurve.getPointAt(0)
+        const depLatDiff = Math.asin(depSample.y / 2.01) - Math.asin(depStart.y / 2.01)
+
+        const arrSample = callsignSourceCurve.getPointAt(0.95)
+        const arrEnd = callsignSourceCurve.getPointAt(1)
+        const arrLatDiff = Math.asin(arrEnd.y / 2.01) - Math.asin(arrSample.y / 2.01)
+
+        // For departure: if path heads north, place label south (and vice versa)
+        const depLonDiff = Math.atan2(depSample.x, depSample.z) - Math.atan2(depStart.x, depStart.z)
+        const isDepEastWest = Math.abs(depLatDiff) < Math.abs(depLonDiff) * 0.3
+        departureLabelSouth = isDepEastWest || depLatDiff > 0
+
+        // For arrival: if path arrives from south (heading north), place label south
+        const arrLonDiff = Math.atan2(arrEnd.x, arrEnd.z) - Math.atan2(arrSample.x, arrSample.z)
+        const isArrEastWest = Math.abs(arrLatDiff) < Math.abs(arrLonDiff) * 0.3
+        arrivalLabelSouth = isArrEastWest || arrLatDiff < 0
+      } else {
+        // Route mode: use straight-line bearing (existing logic)
+        const latDiff = arrival.lat - departure.lat
+        const isEastWest = Math.abs(latDiff) < Math.abs(arrival.lon - departure.lon) * 0.3
+        departureLabelSouth = isEastWest || latDiff > 0
+        arrivalLabelSouth = isEastWest || latDiff < 0
+      }
 
       // Create labels with offset — positioned away from the flight path
       const createLabelWithOffset = async (code, lat, lon, iconSrc, placeSouth) => {
@@ -1776,7 +1794,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const basePos = latLonToVector3(lat, lon, 2.05)
         const offsetLat = placeSouth ? lat - 0.5 : lat + 0.5
         const offsetPos = latLonToVector3(offsetLat, lon, 2.05)
-        const offsetDistance = placeSouth ? 0.075 : 0.025
+        const offsetDistance = placeSouth ? 0.075 : 0.06
         const offset = offsetPos.clone().sub(basePos).normalize().multiplyScalar(offsetDistance * elementScale)
         label.position.copy(basePos.add(offset))
         return label
@@ -2086,7 +2104,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           const positions = labelGeometry.attributes.position
           for (let i = 0; i < positions.count; i++) {
             const x = positions.getX(i)
-            const y = positions.getY(i)
             
             // Bend along the x-axis to follow meridian curvature
             const bendRadius = 2.008
@@ -2571,7 +2588,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const startTime = Date.now()
 
       // Bump scale: ramp from 5 (far) to 12 (close) based on camera distance
-      const bumpFromRadius = (r) => 5 + (3.5 - Math.max(2.3, Math.min(3.5, r))) / (3.5 - 2.3) * 5
+      const bumpFromRadius = (r) => 7 + (3.5 - Math.max(2.3, Math.min(3.5, r))) / (3.5 - 2.3) * 7
       const startBump = bumpFromRadius(startRadius)
       const endBump = bumpFromRadius(radius)
       targetBumpScaleRef.current = endBump
@@ -2672,7 +2689,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       // Sample points along the route and check daylight
       const numSamples = 2000
       let daylightSegments = 0
-      let darknessSegments = 0
 
       for (let i = 0; i < numSamples; i++) {  // Changed to < instead of <=
         const fraction = (i + 0.5) / numSamples  // Sample at midpoint of each segment
@@ -2696,8 +2712,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         
         if (inDaylight) {
           daylightSegments++
-        } else {
-          darknessSegments++
         }
       }
 
@@ -2728,6 +2742,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       }
       
       setFlightResults(results)
+      setFollowPlaneMode(true)
       setIsPanelCollapsed(true)
       setShowFlightStats(true)
 
@@ -2851,7 +2866,25 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           { lat: arrivalAirportObj.lat, lon: arrivalAirportObj.lon, timestamp: new Date(baseTime + lastOffset).toISOString() },
         ]
 
-        callsignControlPointsRef.current = controlPoints
+        // Filter out near-duplicate control points to prevent CatmullRom loops.
+        // Points closer than threshold km to their predecessor are removed.
+        const MIN_CP_DISTANCE_KM = 50
+        const filteredControlPoints = [controlPoints[0]]
+        for (let i = 1; i < controlPoints.length; i++) {
+          const prev = filteredControlPoints[filteredControlPoints.length - 1]
+          const curr = controlPoints[i]
+          const dLat = (curr.lat - prev.lat) * Math.PI / 180
+          const dLon = (curr.lon - prev.lon) * Math.PI / 180
+          const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) *
+            Math.sin(dLon / 2) ** 2
+          const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+          if (distKm >= MIN_CP_DISTANCE_KM || i === controlPoints.length - 1) {
+            filteredControlPoints.push(curr)
+          }
+        }
+
+        callsignControlPointsRef.current = filteredControlPoints
 
         // Great circle distance for camera/scale
         const lat1 = departureAirportObj.lat * Math.PI / 180
@@ -2873,10 +2906,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // Sample daylight along the route using user-chosen date + offsets
         const numSamples = 2000
         let daylightSegments = 0
-        const cpVecs = controlPoints.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
+        const cpVecs = callsignControlPointsRef.current.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
         const catmullCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
 
-        const lengths = catmullCurve.getLengths(controlPoints.length - 1)
+        const lengths = catmullCurve.getLengths(callsignControlPointsRef.current.length - 1)
         const totalLen = lengths[lengths.length - 1]
         const arcLengthFractions = lengths.map(l => l / totalLen)
         callsignArcLengthFractionsRef.current = arcLengthFractions
@@ -2929,6 +2962,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         }
 
         setFlightResults(results)
+        setFollowPlaneMode(true)
         setIsPanelCollapsed(true)
         setShowFlightStats(true)
         setFlightPath({ departure: departureAirportObj, arrival: arrivalAirportObj })
@@ -3396,13 +3430,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         {showMobileMenu && (
           <div className="mobile-menu-offcanvas">
             <div className={`mobile-menu-content-wrap ${isMobileMenuClosing ? '' : 'visible'}`}>
-              {/* <p className="mobile-menu-tagline">
-                Explore how your flight moves through daylight, twilight, and darkness.
-              </p> */}
 
               {aboutContent && (
                 <div className="mobile-menu-about">
-                  <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
+                  <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
                     {aboutContent.replace('{version}', packageJson.version)}
                   </ReactMarkdown>
                 </div>
@@ -3420,7 +3451,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               
               {expandedSection === 'data' && dataContent && (
                 <div className="mobile-menu-accordion">
-                  <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
+                  <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
                 </div>
               )}
               
@@ -3502,26 +3533,6 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         )}
 
         <div className="nav-accordion">
-          {/* <p 
-            className="nav-tagline"
-            onMouseMove={(e) => {
-              const spans = e.currentTarget.querySelectorAll('.tagline-word')
-              spans.forEach(span => {
-                const rect = span.getBoundingClientRect()
-                span.style.setProperty('--torch-x', `${e.clientX - rect.left}px`)
-                span.style.setProperty('--torch-y', `${e.clientY - rect.top}px`)
-              })
-            }}
-            onMouseLeave={(e) => {
-              const spans = e.currentTarget.querySelectorAll('.tagline-word')
-              spans.forEach(span => {
-                span.style.setProperty('--torch-x', `-200px`)
-                span.style.setProperty('--torch-y', `-200px`)
-              })
-            }}
-          >
-            Explore how your flight moves through <span className="tagline-word tagline-daylight">daylight</span>, <span className="tagline-word tagline-twilight">twilight</span>, and <span className="tagline-word tagline-darkness">darkness</span>.
-          </p> */}
 
           <button 
             className="nav-link"
@@ -3535,7 +3546,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
           {expandedSection === 'about' && aboutContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
-              <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
+              <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>
                 {aboutContent.replace('{version}', packageJson.version)}
               </ReactMarkdown>
             </div>
@@ -3553,7 +3564,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             
           {expandedSection === 'data' && dataContent && (
             <div className={`accordion-content ${isClosing ? 'closing' : ''}`}>
-              <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
+              <ReactMarkdown components={{ a: ({node: _node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{dataContent}</ReactMarkdown>
             </div>
           )}
 

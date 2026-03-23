@@ -27,6 +27,9 @@ data/
 # Private documentation (kept locally)
 docs/
 
+# Archived unused source files (kept locally)
+archive/
+
 # Environment variables
 .env.local
 .vercel
