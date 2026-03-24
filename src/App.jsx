@@ -44,6 +44,7 @@ function App() {
   const [arrivalCode, setArrivalCode] = useState('')
   const [airports, setAirports] = useState(null)
   const [airportsIcao, setAirportsIcao] = useState(null)
+  const [airlines, setAirlines] = useState(null)
   const [departureAirport, setDepartureAirport] = useState(null)
   const [arrivalAirport, setArrivalAirport] = useState(null)
   const [searchEditing, setSearchEditing] = useState(0)
@@ -485,6 +486,14 @@ function App() {
     })
     .catch(err => console.error('Error loading airports:', err))
 
+    // Load airline data from local JSON
+    fetch('/airlines.json')
+    .then(res => res.json())
+    .then(data => {
+      setAirlines(data)
+    })
+    .catch(err => console.error('Error loading airlines:', err))
+
     // 1. Create the scene
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(BG_COLOR_DARK)
@@ -679,21 +688,21 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     }
 
     // Try to get user's location
+    dot.visible = false
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const userLat = position.coords.latitude
           const userLon = position.coords.longitude
           positionDotAtLocation(userLat, userLon)
+          dot.visible = true
           centerCameraOnLocation(userLat, userLon)
         },
         (_error) => {
-          positionDotAtLocation(45.464, 9.190)
           centerCameraOnLocation(45.464, 9.190)
         }
       )
     } else {
-      positionDotAtLocation(45.464, 9.190)
       centerCameraOnLocation(45.464, 9.190)
     }
 
@@ -2787,11 +2796,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
     }
 
-    const handleCallsignSearch = async () => {
+    const handleCallsignSearch = async (inputOverride) => {
+      const flightId = (inputOverride ?? callsignInput).trim()
       setIsCallsignSearching(true)
       setCallsignError(null)
       try {
-        const result = await lookupFlight(callsignInput.trim())
+        const result = await lookupFlight(flightId)
         if (!result) {
           setCallsignError('Flight not found in the last 14 days')
         } else {
@@ -3073,6 +3083,41 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       // Return results in priority order: exact codes, code prefixes, city matches, airport name matches
       return [...exactCodeMatches, ...codeStartMatches, ...cityMatches, ...airportNameMatches].slice(0, 8)
+    }
+
+    const searchAirlines = (query) => {
+      if (!airlines || query.length < 2) return []
+
+      const upperQuery = query.toUpperCase()
+      const exactIataMatches = []
+      const iataStartMatches = []
+      const exactIcaoMatches = []
+      const icaoStartMatches = []
+      const nameMatches = []
+      const aliasMatches = []
+
+      for (const airline of airlines) {
+        const iata = (airline.iata ?? '').toUpperCase()
+        const name = (airline.name ?? '').toUpperCase()
+        const icao = (airline.icao ?? '').toUpperCase()
+        const alias = (airline.alias ?? '').toUpperCase()
+
+        if (iata === upperQuery) {
+          exactIataMatches.push(airline)
+        } else if (iata.startsWith(upperQuery)) {
+          iataStartMatches.push(airline)
+        } else if (icao === upperQuery) {
+          exactIcaoMatches.push(airline)
+        } else if (icao.startsWith(upperQuery)) {
+          icaoStartMatches.push(airline)
+        } else if (name.includes(upperQuery)) {
+          nameMatches.push(airline)
+        } else if (alias && alias.includes(upperQuery)) {
+          aliasMatches.push(airline)
+        }
+      }
+
+      return [...exactIataMatches, ...iataStartMatches, ...exactIcaoMatches, ...icaoStartMatches, ...nameMatches, ...aliasMatches].slice(0, 8)
     }
 
     const loadMarkdownContent = async (filename, section) => {
@@ -3717,6 +3762,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           setExpandedSection={setExpandedSection}
           setShowMobileMenu={setShowMobileMenu}
           setIsMobileMenuAnimating={setIsMobileMenuAnimating}
+          searchAirlines={searchAirlines}
           searchAirports={searchAirports}
           calculateFlight={calculateFlight}
           handleCallsignSearch={handleCallsignSearch}

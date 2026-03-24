@@ -42,6 +42,7 @@ export default function FlightInputPanel({
   setIsMobileMenuAnimating,
   // Functions
   searchAirports,
+  searchAirlines,
   calculateFlight,
   handleCallsignSearch,
   handleCallsignStart,
@@ -53,15 +54,64 @@ export default function FlightInputPanel({
   const dateInputRef = useRef(null)
   const panelRef = useRef(null)
   const airportColumnsRef = useRef(null)
+  const callsignInputRef = useRef(null)
+
+  // Callsign carousel
   const [callsignCarouselIndex, setCallsignCarouselIndex] = useState(0)
   const [isCallsignFocused, setIsCallsignFocused] = useState(false)
-  const callsignCarouselWords = ['KL1613', 'BA249', 'LH400', 'QF1', 'EK201', 'SQ22', 'UA1']
+  const callsignCarouselWords = ['Airline', 'IATA code', 'ICAO code']
   useEffect(() => {
     const interval = setInterval(() => {
       setCallsignCarouselIndex(prev => (prev + 1) % callsignCarouselWords.length)
     }, 2000)
     return () => clearInterval(interval)
   }, [])
+
+  // Two-phase airline input state
+  const [selectedAirline, setSelectedAirline] = useState(null)
+  const [flightNumber, setFlightNumber] = useState('')
+  const [airlineSearch, setAirlineSearch] = useState('')
+  const [airlineResults, setAirlineResults] = useState([])
+  const [showAirlineDropdown, setShowAirlineDropdown] = useState(false)
+  const [airlineDropdownIndex, setAirlineDropdownIndex] = useState(-1)
+  // Set when phase-1 text already is a valid IATA + digits (direct entry, no dropdown needed)
+  const [directEntryAirline, setDirectEntryAirline] = useState(null)
+
+  // Sync callsignInput to combined value whenever airline/flightNumber change
+  useEffect(() => {
+    if (selectedAirline) {
+      setCallsignInput(selectedAirline.iata + flightNumber)
+    } else if (directEntryAirline) {
+      setCallsignInput(airlineSearch)
+    }
+  }, [selectedAirline, flightNumber, directEntryAirline, airlineSearch])
+
+  function resetAirlineState() {
+    setSelectedAirline(null)
+    setFlightNumber('')
+    setAirlineSearch('')
+    setAirlineResults([])
+    setShowAirlineDropdown(false)
+    setAirlineDropdownIndex(-1)
+    setDirectEntryAirline(null)
+  }
+
+  // After airline is selected, position cursor at end of IATA prefix
+  useEffect(() => {
+    if (selectedAirline && callsignInputRef.current) {
+      const pos = selectedAirline.iata.length
+      callsignInputRef.current.focus()
+      callsignInputRef.current.setSelectionRange(pos, pos)
+    }
+  }, [selectedAirline])
+
+  function selectAirline(airline) {
+    setSelectedAirline(airline)
+    setAirlineSearch('')
+    setAirlineResults([])
+    setShowAirlineDropdown(false)
+    setAirlineDropdownIndex(-1)
+  }
 
   useEffect(() => {
     if (isPanelCollapsed) {
@@ -143,6 +193,7 @@ export default function FlightInputPanel({
     // Clear route airports if they were manually entered (no callsign result backing them)
     if (!callsignSearchResult) {
       setCallsignInput('')
+      resetAirlineState()
       setDepartureCode('')
       setDepartureAirport(null)
       setArrivalCode('')
@@ -165,6 +216,9 @@ export default function FlightInputPanel({
   // Determine whether to show the action row
   const showRouteActionRow   = searchMode === 'route'    && departureAirport && panelFullyOpen
   const showCallsignActionRow = searchMode === 'callsign' && callsignSearchResult && panelFullyOpen
+
+  const hasAirlineInput = !!(airlineSearch || selectedAirline)
+  const canSearch = !!(selectedAirline && flightNumber.trim()) || !!(directEntryAirline)
 
   return (
     <div className={`flight-input-wrapper ${isPanelCollapsed ? 'collapsed' : ''}`}>
@@ -388,6 +442,7 @@ export default function FlightInputPanel({
                   onClick={() => {
                     setCallsignSearchResult(null)
                     setCallsignInput('')
+                    resetAirlineState()
                     document.activeElement?.blur()
                   }}
                   aria-label="Clear flight"
@@ -440,21 +495,100 @@ export default function FlightInputPanel({
                     <span className="column-label">FLIGHT NUMBER</span>
                     <div className="input-group">
                       <div className="autocomplete-container">
+
                         <input
+                          ref={callsignInputRef}
                           type="text"
-                          value={callsignInput}
+                          value={selectedAirline ? selectedAirline.iata + flightNumber : airlineSearch}
                           placeholder=""
                           disabled={isCallsignSearching}
-                          onChange={(e) => setCallsignInput(e.target.value.toUpperCase().slice(0, 6))}
-                          onFocus={() => setIsCallsignFocused(true)}
-                          onBlur={() => setIsCallsignFocused(false)}
+                          onChange={(e) => {
+                            if (selectedAirline) {
+                              const iata = selectedAirline.iata
+                              const val = e.target.value.toUpperCase()
+                              if (val.startsWith(iata)) {
+                                const digits = val.slice(iata.length).replace(/\D/g, '').slice(0, 4)
+                                setFlightNumber(digits)
+                              }
+                              // if IATA prefix was edited, ignore — controlled input restores it
+                            } else {
+                              const value = e.target.value.toUpperCase()
+                              setAirlineSearch(value)
+                              // Direct entry check: ^[A-Z]{2}\d+$
+                              const directMatch = /^([A-Z]{2})(\d+)$/.exec(value)
+                              if (directMatch) {
+                                const prefix = directMatch[1]
+                                const results = searchAirlines(prefix)
+                                const exact = results.find(a => a.iata === prefix) || null
+                                setDirectEntryAirline(exact)
+                                setAirlineResults([])
+                                setShowAirlineDropdown(false)
+                              } else {
+                                setDirectEntryAirline(null)
+                                if (value.length >= 2) {
+                                  const results = searchAirlines(value)
+                                  setAirlineResults(results)
+                                  setShowAirlineDropdown(results.length > 0)
+                                } else {
+                                  setAirlineResults([])
+                                  setShowAirlineDropdown(false)
+                                }
+                              }
+                              setAirlineDropdownIndex(-1)
+                            }
+                          }}
+                          onFocus={() => {
+                            setIsCallsignFocused(true)
+                            if (!selectedAirline && airlineSearch.length >= 2) {
+                              const results = searchAirlines(airlineSearch)
+                              setAirlineResults(results)
+                              setShowAirlineDropdown(results.length > 0)
+                            }
+                          }}
+                          onBlur={() => {
+                            setIsCallsignFocused(false)
+                            setTimeout(() => setShowAirlineDropdown(false), 200)
+                          }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' && callsignInput.trim()) {
-                              handleCallsignSearch()
+                            if (selectedAirline) {
+                              const iata = selectedAirline.iata
+                              if (e.key === 'Backspace' && !flightNumber) {
+                                setSelectedAirline(null)
+                                return
+                              }
+                              if (e.key === 'Enter' && canSearch) {
+                                handleCallsignSearch(iata + flightNumber)
+                                return
+                              }
+                              // Keep cursor after IATA prefix
+                              if ((e.key === 'ArrowLeft' || e.key === 'Home') &&
+                                  callsignInputRef.current?.selectionStart <= iata.length) {
+                                e.preventDefault()
+                                callsignInputRef.current.setSelectionRange(iata.length, iata.length)
+                              }
+                            } else {
+                              if (e.key === 'Enter' && directEntryAirline) {
+                                e.preventDefault()
+                                handleCallsignSearch(airlineSearch)
+                                return
+                              }
+                              if (!showAirlineDropdown) return
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault()
+                                setAirlineDropdownIndex(prev => prev < airlineResults.length - 1 ? prev + 1 : prev)
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault()
+                                setAirlineDropdownIndex(prev => prev > 0 ? prev - 1 : -1)
+                              } else if (e.key === 'Enter' && airlineDropdownIndex >= 0) {
+                                e.preventDefault()
+                                selectAirline(airlineResults[airlineDropdownIndex])
+                              }
                             }
                           }}
                         />
-                        {!callsignInput && !isCallsignFocused && (
+
+                        {/* Placeholder carousel — phase 1 only, empty + unfocused */}
+                        {!selectedAirline && !airlineSearch && !isCallsignFocused && (
                           <div className="placeholder-carousel">
                             <div className="carousel-words">
                               {callsignCarouselWords.map((word, i) => (
@@ -468,15 +602,56 @@ export default function FlightInputPanel({
                             </div>
                           </div>
                         )}
-                        {callsignInput.trim().length >= 3 && (
+
+                        {/* Clear button */}
+                        {hasAirlineInput && (
+                          <button
+                            className="input-clear-btn"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              setCallsignInput('')
+                              resetAirlineState()
+                            }}
+                            aria-label="Clear flight input"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <line x1="2" y1="2" x2="8" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                              <line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                          </button>
+                        )}
+
+                        {/* Enter button */}
+                        {canSearch && (
                           <button
                             className={`callsign-enter-btn${isCallsignSearching ? ' loading' : ''}`}
-                            onClick={handleCallsignSearch}
+                            onClick={() => selectedAirline
+                              ? handleCallsignSearch(selectedAirline.iata + flightNumber)
+                              : handleCallsignSearch(airlineSearch)
+                            }
                             disabled={isCallsignSearching}
                             aria-label="Search flight"
                           >
                             <img src={isBWMode ? '/enter-icon-bw.svg' : '/enter-icon.svg'} width="16" height="16" alt="" />
                           </button>
+                        )}
+
+                        {/* Airline dropdown */}
+                        {showAirlineDropdown && airlineResults.length > 0 && (
+                          <div className="autocomplete-dropdown">
+                            {airlineResults.map((airline, index) => (
+                              <div
+                                key={airline.iata}
+                                className={`autocomplete-item ${index === airlineDropdownIndex ? 'selected' : ''}`}
+                                onClick={() => selectAirline(airline)}
+                              >
+                                <div className="autocomplete-line-1">
+                                  <span className="autocomplete-code">{airline.iata}</span>
+                                  <span className="autocomplete-name">{airline.name}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>

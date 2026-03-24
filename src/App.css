@@ -1795,6 +1795,18 @@ canvas {
 
 .callsign-input-column input {
   text-align: center;
+  font-size: 24px;
+  font-family: 'ABCReproMono', monospace;
+}
+
+.callsign-input-column .autocomplete-name {
+  opacity: 0.45;
+}
+
+/* Always show clear button in callsign input (not just on hover) */
+.callsign-input-column .autocomplete-container .input-clear-btn {
+  opacity: 1;
+  pointer-events: all;
 }
 
 .callsign-find-row {
