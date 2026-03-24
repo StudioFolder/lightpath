@@ -2806,7 +2806,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         }
       } catch (err) {
         if (err.message === 'rate_limited') {
-          setCallsignError('Too many requests — please wait a moment and try again.')
+          setCallsignError('Flight data is temporarily unavailable. Please try again later.')
         } else if (err.message === 'server_error') {
           setCallsignError('Flight data service is temporarily unavailable. Please try again later.')
         } else {

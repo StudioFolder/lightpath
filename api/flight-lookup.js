@@ -73,10 +73,11 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'Failed to reach FR24 API', detail: err.message });
   }
 
+  if (summaryRes.status === 429 || summaryRes.status === 403) {
+    return res.status(429).json({ error: 'rate_limited' });
+  }
   if (summaryRes.status !== 200) {
-    const body = await summaryRes.text();
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(summaryRes.status).end(body);
+    return res.status(summaryRes.status).json({ error: 'request_failed' });
   }
 
   const summaryJson = await summaryRes.json();
@@ -101,10 +102,11 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: 'Failed to reach FR24 API', detail: err.message });
   }
 
+  if (eventsRes.status === 429 || eventsRes.status === 403) {
+    return res.status(429).json({ error: 'rate_limited' });
+  }
   if (eventsRes.status !== 200) {
-    const body = await eventsRes.text();
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(eventsRes.status).end(body);
+    return res.status(eventsRes.status).json({ error: 'request_failed' });
   }
 
   const eventsJson = await eventsRes.json();

@@ -495,7 +495,7 @@ export default function FlightInputPanel({
                 <img src={isBWMode ? "/date-icon-bw.svg" : "/date-icon.svg"} alt="Date" className="datetime-icon" />
                 <span className="datetime-value">
                   {showCallsignActionRow && departureTime
-                    ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
+                    ? DateTime.fromJSDate(departureTime, { zone: resolvedOrig ? getAirportTimezone(resolvedOrig) : 'utc' }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
                     : (departureAirport && departureTime
                         ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat(isMobile ? 'MMM d' : 'MMM d, yyyy')
                         : '')
@@ -509,7 +509,7 @@ export default function FlightInputPanel({
                     onClick={() => dateInputRef.current?.showPicker()}
                     value={departureTime
                       ? (showCallsignActionRow
-                          ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat('yyyy-MM-dd')
+                          ? DateTime.fromJSDate(departureTime, { zone: resolvedOrig ? getAirportTimezone(resolvedOrig) : 'utc' }).toFormat('yyyy-MM-dd')
                           : (departureAirport
                               ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('yyyy-MM-dd')
                               : ''))
@@ -517,7 +517,7 @@ export default function FlightInputPanel({
                     onChange={(e) => {
                       if (!departureTime) return
                       if (showCallsignActionRow) {
-                        const current = DateTime.fromJSDate(departureTime, { zone: 'utc' })
+                        const current = DateTime.fromJSDate(departureTime, { zone: resolvedOrig ? getAirportTimezone(resolvedOrig) : 'utc' })
                         const [year, month, day] = e.target.value.split('-').map(Number)
                         const updated = current.set({ year, month, day })
                         setDepartureTime(updated.toJSDate())
@@ -542,7 +542,7 @@ export default function FlightInputPanel({
                   tabIndex={showRouteActionRow || showCallsignActionRow ? 0 : -1}
                   value={departureTime
                     ? (showCallsignActionRow
-                        ? DateTime.fromJSDate(departureTime, { zone: 'utc' }).toFormat('HH:mm')
+                        ? DateTime.fromJSDate(departureTime, { zone: resolvedOrig ? getAirportTimezone(resolvedOrig) : 'utc' }).toFormat('HH:mm')
                         : (departureAirport
                             ? DateTime.fromJSDate(departureTime, { zone: getAirportTimezone(departureAirport) }).toFormat('HH:mm')
                             : ''))
@@ -551,7 +551,7 @@ export default function FlightInputPanel({
                     if (!departureTime) return
                     const [hour, minute] = e.target.value.split(':').map(Number)
                     if (showCallsignActionRow) {
-                      const current = DateTime.fromJSDate(departureTime, { zone: 'utc' })
+                      const current = DateTime.fromJSDate(departureTime, { zone: resolvedOrig ? getAirportTimezone(resolvedOrig) : 'utc' })
                       const updated = current.set({ hour, minute })
                       setDepartureTime(updated.toJSDate())
                     } else {
