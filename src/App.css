@@ -3170,7 +3170,7 @@ canvas {
   .flight-input-wrapper.collapsed {
     top: 22px;
     left: auto;
-    right: 96px;
+    right: 108px;
     transform: none;
   }
 
@@ -3270,6 +3270,11 @@ canvas {
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.85);
     white-space: nowrap;
+    transition: none;
+  }
+
+  .collapsed-mode-label {
+    transition: none;
   }
 
   .bw-mode .flight-input.collapsed .collapsed-mode-label {
@@ -3314,6 +3319,10 @@ canvas {
     width: auto;
     flex-direction: row;
     gap: 12px;
+  }
+
+  .flight-input-wrapper.collapsed .flight-action-row {
+    display: none;
   }
 
   .datetime-pill {
@@ -3542,8 +3551,14 @@ canvas {
   .flight-info-center {
     flex: 0 1 auto;
     min-width: 0;
+    margin-top: 2px;
+    align-self: flex-start;
   }
-  
+
+  .stats-hint-line {
+    margin-bottom: 4px;
+  }
+
   .animation-route {
     font-size: 14px;
     gap: 5px;
@@ -3556,7 +3571,7 @@ canvas {
   }
   
   .callsign-enter-btn {
-    right: -20px;
+    right: 56px;
     top: 22px;
     transform: translateY(-50%);
   }
@@ -3575,7 +3590,7 @@ canvas {
 
   .animation-distance {
     font-size: 11px;
-    margin-top: 4px;
+    margin-top: 10px;
     margin-bottom: 0;
   }
   
@@ -3594,7 +3609,10 @@ canvas {
   }
   
   .play-button {
-    font-size: 13px;
+    font-family: 'ABCRepro', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
     padding: 9px 20px;
   }
   
