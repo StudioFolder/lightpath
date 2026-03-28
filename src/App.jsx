@@ -115,6 +115,7 @@ function App() {
   const departureLabelRef = useRef(null)
   const arrivalLabelRef = useRef(null)
   const planeIconRef = useRef(null)
+  const navLightsRef = useRef({ port: null, starboard: null })
   const twilightSphereRef = useRef(null)
   const glowRef = useRef(null)
   const twilightLinesRef = useRef({
@@ -634,6 +635,39 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     scene.add(planeMesh)
     planeIconRef.current = planeMesh
 
+    // Create nav light glow texture (radial gradient on canvas)
+    const navGlowCanvas = document.createElement('canvas')
+    navGlowCanvas.width = 64
+    navGlowCanvas.height = 64
+    const ctx = navGlowCanvas.getContext('2d')
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+    gradient.addColorStop(0, 'rgba(255,255,255,1)')
+    gradient.addColorStop(0.15, 'rgba(255,255,255,0.6)')
+    gradient.addColorStop(0.5, 'rgba(255,255,255,0.15)')
+    gradient.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 64, 64)
+    const navGlowTexture = new THREE.CanvasTexture(navGlowCanvas)
+
+    const navLightSize = planeSize * 0.55
+    const createNavLight = (color) => {
+      const mat = new THREE.SpriteMaterial({
+        map: navGlowTexture,
+        color: color,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      const sprite = new THREE.Sprite(mat)
+      sprite.scale.set(navLightSize, navLightSize, 1)
+      sprite.visible = false
+      scene.add(sprite)
+      return sprite
+    }
+    navLightsRef.current.port = createNavLight(0xffffff)
+    navLightsRef.current.starboard = createNavLight(0xffffff)
+
     // Add atmospheric glow
     const glowGeometry = new THREE.SphereGeometry(2.05, 64, 64)
     const glowMaterial = new THREE.ShaderMaterial({
@@ -983,6 +1017,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
     const _targetNormal = new THREE.Vector3()
     const _axis = new THREE.Vector3()
     const _camTarget = new THREE.Vector3()
+    const _navLightPos = new THREE.Vector3()
 
     function animate(currentTime) {
       requestAnimationFrame(animate)
@@ -1179,8 +1214,61 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           planeIconRef.current.material.opacity = showPlaneIconRef.current ? opacity : 0
           planeIconRef.current.visible = showPlaneIconRef.current && opacity > 0
 
+          // Nav lights — visible only in color mode during astronomical twilight/darkness
+          const portLight = navLightsRef.current.port
+          const starLight = navLightsRef.current.starboard
+          if (portLight && starLight) {
+            const showNav = showPlaneIconRef.current && !isBWModeRef.current && opacity > 0
+            if (showNav && flightDataRef.current) {
+              // Get lat/lon from plane 3D position
+              const posLen = position.length()
+              const lat = Math.asin(position.y / posLen) * 180 / Math.PI
+              const lon = Math.atan2(position.z, -position.x) * 180 / Math.PI - 180
+              const { departureTime: depTime, flightDurationMs: durMs } = flightDataRef.current
+              const flightTime = new Date(depTime.getTime() + progress * durMs)
+              const sunAngle = getSunAngle(lat, lon, flightTime)
+
+              // Fade in during astronomical twilight (102-108°), full in darkness (>108°)
+              const twilightFactor = Math.max(0, Math.min(1, (sunAngle - 102) / 6))
+
+              if (twilightFactor > 0) {
+                // Double flash then pause: two rapid flashes within a ~2s cycle
+                const cycleMs = 2000
+                const t = (currentTime % cycleMs) / cycleMs  // 0..1 over cycle
+                // Flash 1: t 0.00-0.08, Flash 2: t 0.12-0.20, dark rest of cycle
+                const flash1 = t < 0.08 ? Math.sin(t / 0.08 * Math.PI) : 0
+                const flash2 = (t >= 0.12 && t < 0.20) ? Math.sin((t - 0.12) / 0.08 * Math.PI) : 0
+                const navPulse = Math.max(flash1, flash2)
+                const navOpacity = twilightFactor * (0.05 + 0.95 * navPulse) * opacity
+
+                // Position on wingtips: half-span = planeSize * scale.x / 2
+                const basePlaneSize = window.innerWidth <= 600 ? 0.06 : 0.04
+                const wingOffset = basePlaneSize * (planeIconRef.current.scale.x || 1) * 0.5
+
+                // Shift back from plane center to wing line (_tangent is negated at this point, so adding moves backward)
+                const backOffset = 0.007 * (flightLineRef.current?.userData.elementScale || 1.0)
+                _navLightPos.copy(planeIconRef.current.position).addScaledVector(_tangent, backOffset)
+                portLight.position.copy(_navLightPos).addScaledVector(_right, -wingOffset)
+                portLight.material.opacity = navOpacity
+                portLight.visible = true
+
+                starLight.position.copy(_navLightPos).addScaledVector(_right, wingOffset)
+                starLight.material.opacity = navOpacity
+                starLight.visible = true
+              } else {
+                portLight.visible = false
+                starLight.visible = false
+              }
+            } else {
+              portLight.visible = false
+              starLight.visible = false
+            }
+          }
+
         } else {
           planeIconRef.current.visible = false
+          if (navLightsRef.current.port) navLightsRef.current.port.visible = false
+          if (navLightsRef.current.starboard) navLightsRef.current.starboard.visible = false
           // Re-enable OrbitControls when animation ends or is outside valid range
           if (controls) {
             controls.enabled = true
@@ -1468,9 +1556,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             // CIVIL TWILIGHT — compressed, 91–96°
             const t = (sunAngle - 91) / 5
             if (isSunset) {
-              r = 1.00 - t * 0.10
-              g = 0.40 - t * 0.35
-              b = 0.00 + t * 0.40
+              r = 1.00 - t * 0.35
+              g = 0.40 - t * 0.37
+              b = 0.00 + t * 0.12
             } else {
               r = 1.00 - t * 0.10
               g = 0.40 - t * 0.30
@@ -1481,9 +1569,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             // NAUTICAL TWILIGHT — 96–102°
             const t = (sunAngle - 96) / 6
             if (isSunset) {
-              r = 0.90 - t * 0.55
-              g = 0.05
-              b = 0.40 + t * 0.20
+              r = 0.65 - t * 0.50
+              g = 0.03
+              b = 0.12 + t * 0.20
             } else {
               r = 0.90 - t * 0.45
               g = 0.10 - t * 0.05
@@ -1493,9 +1581,15 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           } else if (sunAngle < 108) {
             // ASTRONOMICAL TWILIGHT
             const t = (sunAngle - 102) / 6
-            r = 0.35 - t * 0.32
-            g = 0.05 - t * 0.03
-            b = 0.55 - t * 0.38  // was 0.60 - t * 0.42, less purple
+            if (isSunset) {
+              r = 0.15 - t * 0.12
+              g = 0.03 - t * 0.01
+              b = 0.32 - t * 0.15
+            } else {
+              r = 0.35 - t * 0.32
+              g = 0.05 - t * 0.03
+              b = 0.55 - t * 0.38
+            }
 
           } else if (sunAngle < 114) {
             // DEEP NIGHT FADE
