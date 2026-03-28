@@ -70,6 +70,7 @@ function App() {
   const [showGraticule, setShowGraticule] = useState(true)
   const [, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
+  const [showFirRegions, setShowFirRegions] = useState(false)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
   const [isPanelFading, setIsPanelFading] = useState(false) // Drives .fading class for mobile collapse/expand fade-then-switch pattern
   const [autoRotate, setAutoRotate] = useState(true)
@@ -158,6 +159,8 @@ function App() {
   
   // External Data & Intervals
   const timezoneDataRef = useRef(null)
+  const firDataRef = useRef(null)
+  const highlightedFirRef = useRef(null)
 
   // Helper to get RGB color from CSS variable
   const getCSSColor = (varName, element = document.documentElement) => {
@@ -2278,6 +2281,305 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       
     }, [showTimezones])
 
+    // Effect to show/hide FIR region boundaries
+    useEffect(() => {
+      if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+      if (!sceneRef.current) return
+
+      // Remove existing FIR boundaries if exists
+      const existingFir = sceneRef.current.getObjectByName('fir-boundaries')
+      if (existingFir) {
+        animateValue(0.3, 0, (v) => {
+          existingFir.traverse((child) => {
+            if (child.material) child.material.opacity = v
+          })
+        }, () => {
+          sceneRef.current.remove(existingFir)
+          existingFir.traverse((child) => {
+            if (child.geometry) child.geometry.dispose()
+            if (child.material) child.material.dispose()
+          })
+        })
+      }
+
+      if (!showFirRegions) return
+
+      fetch('/fir-regions.geojson')
+        .then(res => res.json())
+        .then(data => {
+          firDataRef.current = data
+
+          const firGroup = new THREE.Group()
+          firGroup.name = 'fir-boundaries'
+
+          // Subdivide a ring so that no segment spans more than maxDeg degrees,
+          // interpolating along great-circle arcs to keep lines on the sphere.
+          const subdivideRing = (ring, maxDeg = 2) => {
+            const out = []
+            for (let i = 0; i < ring.length; i++) {
+              const [lon1, lat1] = ring[i]
+              out.push(ring[i])
+              if (i < ring.length - 1) {
+                const [lon2, lat2] = ring[i + 1]
+                const dLat = Math.abs(lat2 - lat1)
+                const dLon = Math.abs(lon2 - lon1)
+                const dist = Math.max(dLat, dLon)
+                if (dist > maxDeg) {
+                  const steps = Math.ceil(dist / maxDeg)
+                  for (let s = 1; s < steps; s++) {
+                    const t = s / steps
+                    out.push([lon1 + (lon2 - lon1) * t, lat1 + (lat2 - lat1) * t])
+                  }
+                }
+              }
+            }
+            return out
+          }
+
+          // Build map of FIR_NAMEs that have twin features on both sides of the date line
+          // Store the overlapping lat range so we only suppress the shared seam portion
+          const dateLineSplitLatRange = {}  // name -> { east: [minLat, maxLat], west: [minLat, maxLat] }
+          data.features.forEach(f => {
+            const name = f.properties.FIR_NAME
+            if (!name) return
+            for (const poly of f.geometry.coordinates) {
+              const ring = poly[0]
+              // Find points near the date line and their lat range
+              const dlPoints = ring.filter(c => Math.abs(Math.abs(c[0]) - 180) < 1)
+              if (dlPoints.length === 0) continue
+              const dlLats = dlPoints.map(c => c[1])
+              const minLat = Math.min(...dlLats)
+              const maxLat = Math.max(...dlLats)
+              const lons = ring.map(c => c[0])
+              const side = lons.some(l => l > 170) && !lons.some(l => l < -170) ? 'east'
+                         : lons.some(l => l < -170) && !lons.some(l => l > 170) ? 'west' : null
+              if (!side) continue
+              if (!dateLineSplitLatRange[name]) dateLineSplitLatRange[name] = {}
+              dateLineSplitLatRange[name][side] = [minLat, maxLat]
+            }
+          })
+          // Compute the overlapping lat range for each split name
+          const dateLineOverlap = {}  // name -> [minLat, maxLat] of overlap
+          for (const [name, sides] of Object.entries(dateLineSplitLatRange)) {
+            if (sides.east && sides.west) {
+              const overlapMin = Math.max(sides.east[0], sides.west[0])
+              const overlapMax = Math.min(sides.east[1], sides.west[1])
+              if (overlapMin < overlapMax) {
+                // Expand by a small margin to cover tiny coordinate mismatches between twins
+                dateLineOverlap[name] = [overlapMin - 1, overlapMax + 1]
+              }
+            }
+          }
+
+          const buildRingLine = (ring, featureIndex, firKey, overlapRange) => {
+            const subdividedRing = subdivideRing(ring)
+
+            // Split into segments, breaking where both endpoints are on the date line
+            // Only suppress within the overlapping lat range of twin features
+            const isDateLineLon = (lon) => Math.abs(Math.abs(lon) - 180) < 0.5
+            const isInOverlap = (lat) => overlapRange && lat >= overlapRange[0] && lat <= overlapRange[1]
+
+            const segments = []
+            let currentSegment = []
+
+            for (let i = 0; i < subdividedRing.length; i++) {
+              const coord = subdividedRing[i]
+              const prevCoord = i > 0 ? subdividedRing[i - 1] : null
+
+              if (prevCoord && isDateLineLon(coord[0]) && isDateLineLon(prevCoord[0]) && isInOverlap(coord[1]) && isInOverlap(prevCoord[1])) {
+                if (currentSegment.length >= 2) {
+                  segments.push(currentSegment)
+                }
+                currentSegment = [coord]
+              } else {
+                currentSegment.push(coord)
+              }
+            }
+            if (currentSegment.length >= 2) {
+              segments.push(currentSegment)
+            }
+
+            for (const segment of segments) {
+              const points = segment.map(coord =>
+                latLonToVector3(coord[1], coord[0], 2.005)
+              )
+              const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
+              const lineMaterial = new THREE.LineBasicMaterial({
+                color: isBWModeRef.current ? 0x0f0f0f : 0xffffff,
+                transparent: true,
+                opacity: 0,
+                depthTest: true,
+                depthWrite: false
+              })
+              const line = new THREE.Line(lineGeometry, lineMaterial)
+              line.userData.featureIndex = featureIndex
+              line.userData.firKey = firKey
+              firGroup.add(line)
+            }
+          }
+
+          data.features.forEach((feature, featureIndex) => {
+            const firKey = `${feature.properties.ICAO_CODE}:${feature.properties.FIR_NAME}`
+            const overlapRange = dateLineOverlap[feature.properties.FIR_NAME] || null
+            if (feature.geometry.type === 'Polygon') {
+              feature.geometry.coordinates.forEach(ring => buildRingLine(ring, featureIndex, firKey, overlapRange))
+            } else if (feature.geometry.type === 'MultiPolygon') {
+              feature.geometry.coordinates.forEach(polygon => {
+                polygon.forEach(ring => buildRingLine(ring, featureIndex, firKey, overlapRange))
+              })
+            }
+          })
+
+          sceneRef.current.add(firGroup)
+
+          // Fade in
+          animateValue(0, 0.3, (v) => {
+            firGroup.traverse((child) => {
+              if (child.material) {
+                child.material.opacity = v
+              }
+            })
+          })
+
+        })
+        .catch(err => console.error('Error loading FIR boundaries:', err))
+
+    }, [showFirRegions])
+
+    // Tooltip: show FIR name on hover when FIR boundaries are visible
+    useEffect(() => {
+      const canvas = canvasRef.current
+      if (!canvas || isMobile) return
+
+      const resetHighlight = () => {
+        highlightedFirRef.current = null
+        const firGroup = sceneRef.current?.getObjectByName('fir-boundaries')
+        if (firGroup) {
+          firGroup.traverse((child) => {
+            if (child.material && child.userData.featureIndex !== undefined) {
+              child.material.opacity = 0.3
+              child.material.color.setHex(isBWMode ? 0x0f0f0f : 0xffffff)
+            }
+          })
+        }
+      }
+
+      const handleMouseMove = (e) => {
+        if (!showFirRegions || !tooltipRef.current || !cameraRef.current || !sceneRef.current) {
+          if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+          return
+        }
+
+        const rect = canvas.getBoundingClientRect()
+        mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+        mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+
+        raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
+
+        const earthMesh = sceneRef.current.getObjectByName('earth-sphere')
+        if (!earthMesh) {
+          tooltipRef.current.style.display = 'none'
+          return
+        }
+
+        const intersects = raycasterRef.current.intersectObject(earthMesh)
+
+        if (intersects.length > 0) {
+          const point = intersects[0].point
+          const { lat, lon } = vector3ToLatLon(point)
+
+          // Throttle point-in-polygon search to when mouse moves > 3px
+          const dx = e.clientX - (lastMousePos.current?.x || 0)
+          const dy = e.clientY - (lastMousePos.current?.y || 0)
+          if (dx * dx + dy * dy >= 9) {
+            lastMousePos.current = { x: e.clientX, y: e.clientY }
+
+            let matchedFeatureIndex = null
+            const firData = firDataRef.current
+            if (firData) {
+              for (let i = 0; i < firData.features.length; i++) {
+                const feature = firData.features[i]
+                const geom = feature.geometry
+                let polygons = []
+
+                if (geom.type === 'Polygon') {
+                  polygons = [geom.coordinates]
+                } else if (geom.type === 'MultiPolygon') {
+                  polygons = geom.coordinates
+                }
+
+                for (const polygon of polygons) {
+                  if (pointInPolygon([lon, lat], polygon)) {
+                    matchedFeatureIndex = i
+                    break
+                  }
+                }
+                if (matchedFeatureIndex !== null) break
+              }
+
+              // If point-in-polygon missed (edge/gap), keep previous match
+              if (matchedFeatureIndex === null) {
+                matchedFeatureIndex = highlightedFirRef.current
+              }
+            }
+
+            if (matchedFeatureIndex !== null) {
+              const feature = firData.features[matchedFeatureIndex]
+              const rawName = feature.properties.FIR_NAME
+              const firName = rawName ? rawName.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : null
+              const icaoCode = feature.properties.ICAO_CODE
+
+              if (firName) {
+                tooltipRef.current.textContent = `${firName} · ${icaoCode}`
+              } else {
+                tooltipRef.current.textContent = 'Unknown FIR'
+              }
+              tooltipRef.current.style.display = 'block'
+
+              if (matchedFeatureIndex !== highlightedFirRef.current) {
+                highlightedFirRef.current = matchedFeatureIndex
+                const matchedFirKey = `${icaoCode}:${rawName}`
+                const firGroup = sceneRef.current.getObjectByName('fir-boundaries')
+                if (firGroup) {
+                  firGroup.traverse((child) => {
+                    if (child.material && child.userData.featureIndex !== undefined) {
+                      if (child.userData.firKey === matchedFirKey) {
+                        child.material.opacity = 1.0
+                        child.material.color.setHex(isBWMode ? 0x000000 : 0xffffff)
+                      } else {
+                        child.material.opacity = 0.1
+                        child.material.color.setHex(isBWMode ? 0x0f0f0f : 0xffffff)
+                      }
+                    }
+                  })
+                }
+              }
+            }
+          }
+
+          // Keep tooltip position updated while over the Earth
+          tooltipRef.current.style.left = `${e.clientX + 16}px`
+          tooltipRef.current.style.top = `${e.clientY + 16}px`
+        } else {
+          tooltipRef.current.style.display = 'none'
+          resetHighlight()
+        }
+      }
+
+      const handleMouseLeave = () => {
+        if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+        resetHighlight()
+      }
+
+      canvas.addEventListener('mousemove', handleMouseMove)
+      canvas.addEventListener('mouseleave', handleMouseLeave)
+
+      return () => {
+        canvas.removeEventListener('mousemove', handleMouseMove)
+        canvas.removeEventListener('mouseleave', handleMouseLeave)
+      }
+    }, [showFirRegions, isMobile, isBWMode])
+
     // Tooltip: show IANA timezone on hover when timezone boundaries are visible
     useEffect(() => {
       const canvas = canvasRef.current
@@ -2298,7 +2600,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       const handleMouseMove = (e) => {
         if (!showTimezones || !tooltipRef.current || !cameraRef.current || !sceneRef.current) {
-          if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+          if (tooltipRef.current && !showFirRegions) tooltipRef.current.style.display = 'none'
           return
         }
 
@@ -2398,7 +2700,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       }
 
       const handleMouseLeave = () => {
-        if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+        if (tooltipRef.current && !showFirRegions) tooltipRef.current.style.display = 'none'
         resetHighlight()
       }
 
@@ -2409,7 +2711,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         canvas.removeEventListener('mousemove', handleMouseMove)
         canvas.removeEventListener('mouseleave', handleMouseLeave)
       }
-    }, [showTimezones, isMobile, isBWMode])
+    }, [showTimezones, showFirRegions, isMobile, isBWMode])
 
     useEffect(() => {
       if (!twilightLinesRef.current.terminatorDay) return
@@ -2600,6 +2902,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         if (e.key === 't' || e.key === 'T') {
           if (!showTimezones) {
             setShowGraticule(false)
+            setShowFirRegions(false)
             setTimeout(() => setShowTimezones(true), 50)
           } else {
             setShowTimezones(false)
@@ -2611,6 +2914,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         if (e.key === 'g' || e.key === 'G') {
           if (!showGraticule) {
             setShowTimezones(false)
+            setShowFirRegions(false)
             setTimeout(() => setShowGraticule(true), 50)
           } else {
             setShowGraticule(false)
@@ -2622,6 +2926,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           setShowTwilightLines(prev => !prev)
         }
 
+        // F for FIR regions toggle
+        if (e.key === 'f' || e.key === 'F') {
+          if (!showFirRegions) {
+            setShowGraticule(false)
+            setShowTimezones(false)
+            setTimeout(() => setShowFirRegions(true), 50)
+          } else {
+            setShowFirRegions(false)
+            setTimeout(() => setShowGraticule(true), 50)
+          }
+        }
+
       }
       
       window.addEventListener('keydown', handleKeyPress)
@@ -2630,7 +2946,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         window.removeEventListener('keydown', handleKeyPress)
       }
 
-    }, [showTimezones, showGraticule])
+    }, [showTimezones, showGraticule, showFirRegions])
 
     const centerCameraOnFlight = (departure, arrival, flightDistance) => {
       const camera = cameraRef.current
@@ -3399,6 +3715,20 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           })
         }
         
+        // Interpolate FIR boundaries color
+        const firBoundaries = sceneRef.current.getObjectByName('fir-boundaries')
+        if (firBoundaries) {
+          const startFirColor = isBWMode ? new THREE.Color(0xffffff) : new THREE.Color(0x0f0f0f)
+          const endFirColor = new THREE.Color(targets.graticuleColor)
+          const currentFirColor = new THREE.Color().lerpColors(startFirColor, endFirColor, easeT)
+
+          firBoundaries.traverse((child) => {
+            if (child.material) {
+              child.material.color.copy(currentFirColor)
+            }
+          })
+        }
+
         // Interpolate departure/arrival dots color
         if (flightLineRef.current) {
           const startDotColor = isBWMode ? new THREE.Color(0xe0e0e0) : new THREE.Color(0x1a1a1a)
@@ -3620,6 +3950,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
                       const checked = e.target.checked
                       if (checked) {
                         setShowTimezones(false)
+                        setShowFirRegions(false)
                         setTimeout(() => setShowGraticule(true), 50)
                       } else {
                         setShowGraticule(false)
@@ -3628,24 +3959,25 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
                   />
                   <span>Graticule</span>
                 </label>
-                
+
                 <label className="mobile-menu-toggle-item">
-                  <input 
+                  <input
                     type="checkbox"
                     checked={showTwilightLines}
                     onChange={(e) => setShowTwilightLines(e.target.checked)}
                   />
                   <span>Twilight</span>
                 </label>
-                
+
                 <label className="mobile-menu-toggle-item">
-                  <input 
+                  <input
                     type="checkbox"
                     checked={showTimezones}
                     onChange={(e) => {
                       const checked = e.target.checked
                       if (checked) {
                         setShowGraticule(false)
+                        setShowFirRegions(false)
                         setTimeout(() => setShowTimezones(true), 50)
                       } else {
                         setShowTimezones(false)
@@ -3734,6 +4066,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
                 const checked = e.target.checked
                 if (checked) {
                   setShowTimezones(false)
+                  setShowFirRegions(false)
                   setTimeout(() => setShowGraticule(true), 50)
                 } else {
                   setShowGraticule(false)
@@ -3764,6 +4097,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
                 const checked = e.target.checked
                 if (checked) {
                   setShowGraticule(false)
+                  setShowFirRegions(false)
                   setTimeout(() => setShowTimezones(true), 50)
                 } else {
                   setShowTimezones(false)
