@@ -2300,7 +2300,7 @@ canvas {
 
 .nav-chevron {
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0;
   transition: transform 0.2s ease, opacity 0.2s;
   transform: rotate(0deg);
   margin-left: 5px;
