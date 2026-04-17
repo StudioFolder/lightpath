@@ -2859,6 +2859,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       return () => clearInterval(interval)
     }, [isPlaying, flightResults])
 
+    // Helper for FIR toggle with mutual-exclusivity logic
+    const toggleFirRegions = (nextValue) => {
+      if (nextValue) {
+        setShowGraticule(false)
+        setShowTimezones(false)
+        setTimeout(() => setShowFirRegions(true), 50)
+      } else {
+        setShowFirRegions(false)
+        setTimeout(() => setShowGraticule(true), 50)
+      }
+    }
+
     // Keyboard controls for animation
     useEffect(() => {
       const handleKeyPress = (e) => {
@@ -2928,14 +2940,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
         // F for FIR regions toggle
         if (e.key === 'f' || e.key === 'F') {
-          if (!showFirRegions) {
-            setShowGraticule(false)
-            setShowTimezones(false)
-            setTimeout(() => setShowFirRegions(true), 50)
-          } else {
-            setShowFirRegions(false)
-            setTimeout(() => setShowGraticule(true), 50)
-          }
+          toggleFirRegions(!showFirRegions)
         }
 
       }
@@ -3934,30 +3939,12 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               
               <div className="mobile-menu-toggles">
                 <label className="mobile-menu-toggle-item">
-                  <input 
+                  <input
                     type="checkbox"
                     checked={showAirports}
                     onChange={(e) => setShowAirports(e.target.checked)}
                   />
                   <span>Airports</span>
-                </label>
-                
-                <label className="mobile-menu-toggle-item">
-                  <input 
-                    type="checkbox"
-                    checked={showGraticule}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      if (checked) {
-                        setShowTimezones(false)
-                        setShowFirRegions(false)
-                        setTimeout(() => setShowGraticule(true), 50)
-                      } else {
-                        setShowGraticule(false)
-                      }
-                    }}
-                  />
-                  <span>Graticule</span>
                 </label>
 
                 <label className="mobile-menu-toggle-item">
@@ -3987,8 +3974,35 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
                   />
                   <span>Timezones</span>
                 </label>
+
+                <label className="mobile-menu-toggle-item">
+                  <input
+                    type="checkbox"
+                    checked={showFirRegions}
+                    onChange={(e) => toggleFirRegions(e.target.checked)}
+                  />
+                  <span>Airspace</span>
+                </label>
+
+                <label className="mobile-menu-toggle-item">
+                  <input
+                    type="checkbox"
+                    checked={showGraticule}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      if (checked) {
+                        setShowTimezones(false)
+                        setShowFirRegions(false)
+                        setTimeout(() => setShowGraticule(true), 50)
+                      } else {
+                        setShowGraticule(false)
+                      }
+                    }}
+                  />
+                  <span>Graticule</span>
+                </label>
               </div>
-              
+
               <div className="mobile-menu-footer">
                 <img 
                   src={isBWMode ? "/github-icon-bw.svg" : "/github-icon.svg"}
@@ -4048,7 +4062,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
         <div className="airport-toggle-overlay toggle-overlay">
           <label>
-            <input 
+            <input
               type="checkbox"
               checked={showAirports}
               onChange={(e) => setShowAirports(e.target.checked)}
@@ -4057,29 +4071,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           </label>
         </div>
 
-        <div className="graticule-toggle-overlay toggle-overlay">
-          <label>
-            <input 
-              type="checkbox"
-              checked={showGraticule}
-              onChange={(e) => {
-                const checked = e.target.checked
-                if (checked) {
-                  setShowTimezones(false)
-                  setShowFirRegions(false)
-                  setTimeout(() => setShowGraticule(true), 50)
-                } else {
-                  setShowGraticule(false)
-                }
-              }}
-            />
-            <span><span className="key-circle">Ⓖ</span> <span className="toggle-label-text">Graticule</span></span>
-          </label>
-        </div>
-
         <div className="twilight-toggle-overlay toggle-overlay">
           <label>
-            <input 
+            <input
               type="checkbox"
               checked={showTwilightLines}
               onChange={(e) => setShowTwilightLines(e.target.checked)}
@@ -4090,7 +4084,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
         <div className="timezone-toggle-overlay toggle-overlay">
           <label>
-            <input 
+            <input
               type="checkbox"
               checked={showTimezones}
               onChange={(e) => {
@@ -4106,6 +4100,37 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               }}
             />
             <span><span className="key-circle">Ⓣ</span> <span className="toggle-label-text">Timezones</span></span>
+          </label>
+        </div>
+
+        <div className="fir-toggle-overlay toggle-overlay">
+          <label>
+            <input
+              type="checkbox"
+              checked={showFirRegions}
+              onChange={(e) => toggleFirRegions(e.target.checked)}
+            />
+            <span><span className="key-circle">Ⓕ</span> <span className="toggle-label-text">Airspace</span></span>
+          </label>
+        </div>
+
+        <div className="graticule-toggle-overlay toggle-overlay">
+          <label>
+            <input
+              type="checkbox"
+              checked={showGraticule}
+              onChange={(e) => {
+                const checked = e.target.checked
+                if (checked) {
+                  setShowTimezones(false)
+                  setShowFirRegions(false)
+                  setTimeout(() => setShowGraticule(true), 50)
+                } else {
+                  setShowGraticule(false)
+                }
+              }}
+            />
+            <span><span className="key-circle">Ⓖ</span> <span className="toggle-label-text">Graticule</span></span>
           </label>
         </div>
 

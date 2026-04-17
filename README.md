@@ -35,7 +35,7 @@ Lightpath calculates the flight trajectory between any two airports and visualiz
 - Animated flight playback with sun position sync
 - Color and black-and-white visualization modes
 - Shareable flight URLs
-- Optional overlays: airport dots, graticule, timezone boundaries, twilight lines
+- Optional overlays: airport dots, graticule, timezone boundaries, FIR boundaries, twilight lines
 
 ---
 
@@ -69,6 +69,7 @@ public/
 ├── earth-texture.png    # Custom Earth texture
 ├── graticule-10.geojson # Latitude/longitude grid
 ├── timezones.geojson    # Timezone boundaries
+├── fir-regions.geojson  # Flight Information Region boundaries
 └── fonts/               # ABC Repro, ABC Repro Mono
 ```
 

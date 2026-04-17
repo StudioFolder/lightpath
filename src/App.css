@@ -105,21 +105,24 @@ body:has(.bw-mode) {
 .bw-mode .airport-toggle-overlay label,
 .bw-mode .graticule-toggle-overlay label,
 .bw-mode .timezone-toggle-overlay label,
-.bw-mode .twilight-toggle-overlay label {
+.bw-mode .twilight-toggle-overlay label,
+.bw-mode .fir-toggle-overlay label {
   color: var(--bw-text-tertiary);
 }
 
 .bw-mode .airport-toggle-overlay label:hover,
 .bw-mode .graticule-toggle-overlay label:hover,
 .bw-mode .timezone-toggle-overlay label:hover,
-.bw-mode .twilight-toggle-overlay label:hover {
+.bw-mode .twilight-toggle-overlay label:hover,
+.bw-mode .fir-toggle-overlay label:hover {
   color: var(--bw-text-secondary);
 }
 
 .bw-mode .airport-toggle-overlay label:has(input:checked),
 .bw-mode .graticule-toggle-overlay label:has(input:checked),
 .bw-mode .timezone-toggle-overlay label:has(input:checked),
-.bw-mode .twilight-toggle-overlay label:has(input:checked) {
+.bw-mode .twilight-toggle-overlay label:has(input:checked),
+.bw-mode .fir-toggle-overlay label:has(input:checked) {
   color: var(--bw-text-primary);
 }
 
@@ -2085,7 +2088,7 @@ canvas {
    ======================================== */
 
 .airport-toggle-overlay {
-  bottom: 170px;
+  bottom: 200px;
 }
 
 .airport-toggle-overlay label {
@@ -2104,7 +2107,7 @@ canvas {
 }
 
 .graticule-toggle-overlay {
-  bottom: 140px;
+  bottom: 80px;
 }
 
 .graticule-toggle-overlay label {
@@ -2123,7 +2126,7 @@ canvas {
 }
 
 .timezone-toggle-overlay {
-  bottom: 80px;
+  bottom: 140px;
 }
 
 .timezone-toggle-overlay label {
@@ -2141,8 +2144,27 @@ canvas {
   accent-color: #2d2e2f;
 }
 
-.twilight-toggle-overlay {
+.fir-toggle-overlay {
   bottom: 110px;
+}
+
+.fir-toggle-overlay label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.fir-toggle-overlay input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2d2e2f;
+}
+
+.twilight-toggle-overlay {
+  bottom: 170px;
 }
 
 .twilight-toggle-overlay label {
@@ -2162,7 +2184,8 @@ canvas {
 .airport-toggle-overlay label,
 .graticule-toggle-overlay label,
 .timezone-toggle-overlay label,
-.twilight-toggle-overlay label {
+.twilight-toggle-overlay label,
+.fir-toggle-overlay label {
   color: rgba(255, 255, 255, 0.5);
   transition: color 0.2s;
 }
@@ -2170,14 +2193,16 @@ canvas {
 .airport-toggle-overlay label:hover,
 .graticule-toggle-overlay label:hover,
 .timezone-toggle-overlay label:hover,
-.twilight-toggle-overlay label:hover {
+.twilight-toggle-overlay label:hover,
+.fir-toggle-overlay label:hover {
   color: rgba(255, 255, 255, 0.7);
 }
 
 .airport-toggle-overlay label:has(input:checked),
 .graticule-toggle-overlay label:has(input:checked),
 .timezone-toggle-overlay label:has(input:checked),
-.twilight-toggle-overlay label:has(input:checked) {
+.twilight-toggle-overlay label:has(input:checked),
+.fir-toggle-overlay label:has(input:checked) {
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -2473,7 +2498,7 @@ canvas {
 
 .bw-toggle-overlay {
   position: absolute;
-  bottom: 250px; 
+  bottom: 280px;
   left: 28px;
   pointer-events: all;
 }
@@ -2497,7 +2522,7 @@ canvas {
 
 .follow-toggle-overlay {
   position: absolute;
-  bottom: 220px; 
+  bottom: 250px;
   left: 28px;
   pointer-events: all;
 }
@@ -3622,7 +3647,8 @@ canvas {
   .airport-toggle-overlay,
   .graticule-toggle-overlay,
   .timezone-toggle-overlay,
-  .twilight-toggle-overlay {
+  .twilight-toggle-overlay,
+  .fir-toggle-overlay {
     display: none;
   }
 
@@ -3648,21 +3674,21 @@ canvas {
   }
 
   .app.has-flight .bw-toggle-overlay {
-    bottom: 230px !important;
+    bottom: 260px !important;
     transition: bottom 0.3s ease !important;
   }
 
   .app.has-flight .follow-toggle-overlay {
-    bottom: 264px !important;
+    bottom: 294px !important;
     transition: bottom 0.3s ease !important;
   }
 
   .app.has-flight.stats-visible .bw-toggle-overlay {
-    bottom: 280px !important;
+    bottom: 310px !important;
   }
 
   .app.has-flight.stats-visible .follow-toggle-overlay {
-    bottom: 314px !important;
+    bottom: 344px !important;
   }
 
   .bw-toggle-overlay label,
@@ -3854,26 +3880,30 @@ canvas {
   
   /* Keep all toggles visible, just adjust positions slightly */
   .bw-toggle-overlay {
+    bottom: 300px;
+  }
+
+  .follow-toggle-overlay {
     bottom: 270px;
   }
   
-  .follow-toggle-overlay {
-    bottom: 240px;
-  }
-  
   .airport-toggle-overlay {
+    bottom: 220px;
+  }
+
+  .twilight-toggle-overlay {
     bottom: 190px;
   }
-  
-  .graticule-toggle-overlay {
+
+  .timezone-toggle-overlay {
     bottom: 160px;
   }
-  
-  .timezone-toggle-overlay {
+
+  .fir-toggle-overlay {
     bottom: 130px;
   }
-  
-  .twilight-toggle-overlay {
+
+  .graticule-toggle-overlay {
     bottom: 100px;
   }
   
@@ -3923,7 +3953,8 @@ canvas {
   .airport-toggle-overlay,
   .graticule-toggle-overlay,
   .timezone-toggle-overlay,
-  .twilight-toggle-overlay {
+  .twilight-toggle-overlay,
+  .fir-toggle-overlay {
     position: relative;
     bottom: auto;
     display: inline-block;
