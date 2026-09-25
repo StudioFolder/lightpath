@@ -2,6 +2,19 @@ import { Redis } from '@upstash/redis';
 
 const FR24_BASE = 'https://fr24api.flightradar24.com/api';
 
+// Matches what FlightInputPanel can emit: a 2-char IATA code (may contain one
+// digit, e.g. 9G, A3) or a 3-letter ICAO code, then 1–4 digits and an optional
+// suffix letter.
+const FLIGHT_RE = /^(?:[A-Z][A-Z0-9]|[0-9][A-Z]|[A-Z]{3})\d{1,4}[A-Z]?$/;
+
+const FOUND_TTL_S     = 30 * 24 * 60 * 60; // 30 days
+const NOT_FOUND_TTL_S = 6 * 60 * 60;       // 6 hours
+
+const IP_LIMIT_PER_HOUR = 20;
+const IP_WINDOW_S       = 60 * 60;
+const FR24_DAILY_CAP    = Number.parseInt(process.env.FR24_DAILY_CAP, 10) || 200;
+const DAY_WINDOW_S      = 24 * 60 * 60;
+
 const redis = process.env.KV_REST_API_URL
   ? new Redis({
       url: process.env.KV_REST_API_URL,
@@ -24,31 +37,74 @@ function toMs(ts) {
   return new Date(ts).getTime();
 }
 
+function normaliseFlight(raw) {
+  if (typeof raw !== 'string') return null;
+  const flight = raw.replace(/\s+/g, '').toUpperCase();
+  return FLIGHT_RE.test(flight) ? flight : null;
+}
+
+function clientIp(req) {
+  const xff = req.headers?.['x-forwarded-for'];
+  const first = (Array.isArray(xff) ? xff[0] : xff)?.split(',')[0].trim();
+  return first || req.socket?.remoteAddress || 'unknown';
+}
+
+// INCR a windowed counter and set its TTL on first hit. Returns the new count.
+async function bump(key, windowS) {
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, windowS);
+  return count;
+}
+
+// Returns true when the caller may hit FR24. Only called for uncached lookups.
+// If Redis is unavailable the limits are skipped rather than failing the lookup.
+async function allowUncachedLookup(ip) {
+  if (!redis) return true;
+  try {
+    const nowS = Math.floor(Date.now() / 1000);
+    const ipKey = `rl:ip:${ip}:${Math.floor(nowS / IP_WINDOW_S)}`;
+    if ((await bump(ipKey, IP_WINDOW_S)) > IP_LIMIT_PER_HOUR) return false;
+
+    const dayKey = `rl:fr24:${new Date().toISOString().slice(0, 10)}`;
+    if ((await bump(dayKey, DAY_WINDOW_S)) > FR24_DAILY_CAP) return false;
+
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function cacheSet(key, value, ttlS) {
+  if (!redis) return;
+  try {
+    await redis.set(key, value, { ex: ttlS });
+  } catch {
+    // Cache write failed — non-critical
+  }
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(204).end();
-  }
-
-  const { flight } = req.query;
+  const flight = normaliseFlight(req.query?.flight);
   if (!flight) {
-    return res.status(400).json({ error: 'Missing required query parameter: flight' });
+    return res.status(400).json({ error: 'invalid_flight' });
   }
 
-  const key = `flight:${flight.trim().toUpperCase()}`;
+  const key = `flight:${flight}`;
 
   if (redis) {
     try {
       const cached = await redis.get(key);
       if (cached) {
-        return res.status(200).json({ data: cached, cached: true });
+        const data = cached.notFound ? null : cached;
+        return res.status(200).json({ data, cached: true });
       }
-    } catch (_) {
+    } catch {
       // Cache read failed — fall through to FR24
     }
+  }
+
+  if (!(await allowUncachedLookup(clientIp(req)))) {
+    return res.status(429).json({ error: 'rate_limited' });
   }
 
   // Step 1: Flight Summary Light
@@ -84,7 +140,8 @@ export default async function handler(req, res) {
   const completed = (summaryJson.data ?? []).find(f => f.flight_ended === true);
 
   if (!completed) {
-    return res.status(200).json({ data: null });
+    await cacheSet(key, { notFound: true }, NOT_FOUND_TTL_S);
+    return res.status(200).json({ data: null, cached: false });
   }
 
   // Step 2: Historic Flight Events Light
@@ -149,13 +206,7 @@ export default async function handler(req, res) {
     typicalDepartureTimeUtc,
   };
 
-  if (redis) {
-    try {
-      await redis.set(key, payload, { ex: 30 * 24 * 60 * 60 }); // 30 days TTL
-    } catch (_) {
-      // Cache write failed — non-critical, continue
-    }
-  }
+  await cacheSet(key, payload, FOUND_TTL_S);
 
   return res.status(200).json({ data: payload, cached: false });
 }
