@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:eclipse": "node tests/eclipse-engine-test.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.37.0",
