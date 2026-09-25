@@ -1,3 +1,5 @@
+import MoonStat from './MoonStat'
+
 export default function AnimationControls({
   // State
   flightPath,
@@ -40,6 +42,7 @@ export default function AnimationControls({
           <span className="flight-stat-label">Duration</span>
           <span className="flight-stat-value">{flightResults.durationHours}h {flightResults.durationMins}m</span>
         </div>
+        <MoonStat data={flightResults.moonData} isBWMode={isBWMode} />
         <div className="flight-stat">
           <span className="flight-stat-label">Daylight</span>
           <span className="flight-stat-value">{flightResults.daylightHours}h {flightResults.daylightMins}m</span>
@@ -56,7 +59,9 @@ export default function AnimationControls({
       >
         <div className="airport-time airport-time-left">
           <span className="airport-code">
-            {flightData && getTimezoneAbbreviation(flightData.departure)}
+            {flightData && (callsignDisplay
+              ? `${departureCode} (${getTimezoneAbbreviation(flightData.departure)})`
+              : getTimezoneAbbreviation(flightData.departure))}
           </span>
           <span className="time-value">
             {flightData && getLocalTimeAtAirport(currentTime, flightData.departure)}
@@ -99,7 +104,9 @@ export default function AnimationControls({
 
         <div className="airport-time airport-time-right">
           <span className="airport-code">
-            {flightData && getTimezoneAbbreviation(flightData.arrival)}
+            {flightData && (callsignDisplay
+              ? `${arrivalCode} (${getTimezoneAbbreviation(flightData.arrival)})`
+              : getTimezoneAbbreviation(flightData.arrival))}
           </span>
           <span className="time-value">
             {flightData && getLocalTimeAtAirport(currentTime, flightData.arrival)}
