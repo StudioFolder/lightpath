@@ -1,3 +1,5 @@
+import MoonStat from './MoonStat'
+
 export default function AnimationControls({
   // State
   flightPath,
@@ -40,6 +42,7 @@ export default function AnimationControls({
           <span className="flight-stat-label">Duration</span>
           <span className="flight-stat-value">{flightResults.durationHours}h {flightResults.durationMins}m</span>
         </div>
+        <MoonStat data={flightResults.moonData} isBWMode={isBWMode} />
         <div className="flight-stat">
           <span className="flight-stat-label">Daylight</span>
           <span className="flight-stat-value">{flightResults.daylightHours}h {flightResults.daylightMins}m</span>

@@ -12,7 +12,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { useNavigate, useParams } from 'react-router-dom'
 import { latLonToVector3, getFlightScale, getViewportScale } from './utils/geoUtils'
-import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight } from './utils/solarUtils'
+import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDaylight, computeMoonSummary } from './utils/solarUtils'
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
 import { lookupFlight } from './services/fr24'
@@ -112,6 +112,7 @@ function App() {
   // Three.js Scene Objects - Visualization
   const flightLineRef = useRef(null)
   const progressTubeRef = useRef(null)
+  const moonVisibilityPathRef = useRef(null)
   const transitionLabelsRef = useRef([])
   const departureLabelRef = useRef(null)
   const arrivalLabelRef = useRef(null)
@@ -1064,6 +1065,28 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           progressTubeRef.current.geometry.setDrawRange(0, 0)
         }
 
+        // Update moon visibility base line and glow tube reveal (synced to main tube progress)
+        if (moonVisibilityPathRef.current) {
+          moonVisibilityPathRef.current.children.forEach(child => {
+            const { startFraction, endFraction, pointCount, indexCount } = child.userData
+
+            if (progress >= endFraction) {
+              child.visible = true
+              child.geometry.setDrawRange(0, Infinity)
+            } else if (progress <= startFraction) {
+              child.visible = false
+            } else {
+              child.visible = true
+              const segmentProgress = (progress - startFraction) / (endFraction - startFraction)
+              if (indexCount) {
+                child.geometry.setDrawRange(0, Math.floor(segmentProgress * indexCount))
+              } else {
+                child.geometry.setDrawRange(0, Math.ceil(segmentProgress * pointCount))
+              }
+            }
+          })
+        }
+
         // Update pre-created transition labels and rings visibility
         transitionLabelsRef.current.forEach(label => {
           const transitionT = label.userData.transitionT
@@ -1398,6 +1421,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         
         flightLineRef.current = null
         progressTubeRef.current = null
+        moonVisibilityPathRef.current = null
         hasFlightPathRef.current = false
         transitionLabelsRef.current = []
       }
@@ -1777,6 +1801,240 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // Store color arrays for BW switching
         flightGroup.userData.fullColorArrayColor = fullColorArrColor
         flightGroup.userData.fullColorArrayBW = fullColorArrBW
+
+        // Build moon visibility path (Layer 2)
+        const MOON_PATH_OFFSET = 0.035
+        const MOON_GLOW_WIDTH   = 0.020
+        const MOON_GLOW_FALLOFF = 2.30
+        const MOON_GLOW_OPACITY = 2.00
+        const MOON_GLOW_COLOR   = 0xd9dde4
+        const SMOOTHING_WINDOW = 15 // Odd, centred — for flight mode only
+        if (flightResults?.moonData?.perPoint) {
+          const { perPoint } = flightResults.moonData
+          const routeCurve = flightGroup.userData.routeCurve
+          const segments = []
+          const totalPoints = perPoint.length
+
+          // Build segments where moon is visible and side is consistent
+          let currentSegment = null
+
+          for (let i = 0; i < perPoint.length; i++) {
+            const pointData = perPoint[i]
+
+            if (pointData.visible && pointData.side) {
+              // Get position on curve
+              const t = i / (perPoint.length - 1)
+              const point = callsignCPs ? routeCurve.getPointAt(t) : routeCurve.getPoint(t)
+              const tangent = callsignCPs ? routeCurve.getTangentAt(t) : routeCurve.getTangent(t)
+
+              // Calculate lateral offset
+              const up = point.clone().normalize()
+              const right = new THREE.Vector3().crossVectors(tangent.normalize(), up).normalize()
+              const sign = pointData.side === 'right' ? +1 : -1
+              const parallelPoint = point.clone().add(right.multiplyScalar(sign * MOON_PATH_OFFSET))
+
+              // Start new segment or continue current
+              if (!currentSegment || currentSegment.side !== pointData.side) {
+                if (currentSegment) {
+                  segments.push(currentSegment)
+                }
+                currentSegment = {
+                  side: pointData.side,
+                  points: [parallelPoint],
+                  indices: [i],
+                  startIndex: i,
+                  endIndex: i
+                }
+              } else {
+                currentSegment.points.push(parallelPoint)
+                currentSegment.indices.push(i)
+                currentSegment.endIndex = i
+              }
+            } else {
+              // Moon not visible or no side - break segment
+              if (currentSegment) {
+                segments.push(currentSegment)
+                currentSegment = null
+              }
+            }
+          }
+
+          // Push final segment if exists
+          if (currentSegment) {
+            segments.push(currentSegment)
+          }
+
+          // Create line geometry for each segment
+          const moonPathGroup = new THREE.Group()
+          segments.forEach(segment => {
+            if (segment.points.length >= 2) {
+              // Flight-mode-only smoothing pass (real flight data is jaggier)
+              let pointsToUse = segment.points
+              if (callsignCPs) {
+                const halfWindow = Math.floor(SMOOTHING_WINDOW / 2) // 3 for window of 7
+                const smoothedPoints = []
+
+                for (let i = 0; i < segment.points.length; i++) {
+                  // Clamp window to segment boundaries
+                  const windowStart = Math.max(0, i - halfWindow)
+                  const windowEnd = Math.min(segment.points.length - 1, i + halfWindow)
+
+                  // Average x, y, z independently over the window
+                  let sumX = 0, sumY = 0, sumZ = 0
+                  let count = 0
+                  for (let j = windowStart; j <= windowEnd; j++) {
+                    sumX += segment.points[j].x
+                    sumY += segment.points[j].y
+                    sumZ += segment.points[j].z
+                    count++
+                  }
+
+                  smoothedPoints.push(new THREE.Vector3(
+                    sumX / count,
+                    sumY / count,
+                    sumZ / count
+                  ))
+                }
+
+                pointsToUse = smoothedPoints
+              }
+
+              const geometry = new THREE.BufferGeometry().setFromPoints(pointsToUse)
+
+              const colors = new Float32Array(segment.points.length * 4)
+              for (let j = 0; j < segment.points.length; j++) {
+                const pointIndex = segment.indices[j]
+                const viewability = perPoint[pointIndex].viewability
+                colors[j * 4 + 0] = 1
+                colors[j * 4 + 1] = 1
+                colors[j * 4 + 2] = 1
+                colors[j * 4 + 3] = viewability
+              }
+              geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4))
+
+              const material = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                transparent: true
+              })
+              material.vertexAlphas = true // Required for Three.js r182+
+
+              const line = new THREE.Line(geometry, material)
+
+              // Tag with progress fractions for synced reveal
+              line.userData.startFraction = segment.startIndex / (totalPoints - 1)
+              line.userData.endFraction = segment.endIndex / (totalPoints - 1)
+              line.userData.pointCount = segment.points.length
+
+              moonPathGroup.add(line)
+
+              // Build billboarded ribbon glow alongside base line
+              const rn = pointsToUse.length
+              const rPositions = new Float32Array(rn * 2 * 3)
+              const rTangents  = new Float32Array(rn * 2 * 3)
+              const rSides     = new Float32Array(rn * 2)
+              const rAlphas    = new Float32Array(rn * 2)
+
+              for (let ri = 0; ri < rn; ri++) {
+                let tg
+                if (ri === 0) {
+                  tg = pointsToUse[1].clone().sub(pointsToUse[0])
+                } else if (ri === rn - 1) {
+                  tg = pointsToUse[ri].clone().sub(pointsToUse[ri - 1])
+                } else {
+                  tg = pointsToUse[ri + 1].clone().sub(pointsToUse[ri - 1])
+                }
+                tg.normalize()
+
+                const rp = pointsToUse[ri]
+                const perPointIndex = segment.indices[Math.min(ri, segment.indices.length - 1)]
+                const pd = perPoint[perPointIndex]
+                const alphaVal = pd.viewability * pd.brightness
+
+                for (let s = 0; s < 2; s++) {
+                  const o = ri * 2 + s
+                  rPositions[o * 3]     = rp.x
+                  rPositions[o * 3 + 1] = rp.y
+                  rPositions[o * 3 + 2] = rp.z
+                  rTangents[o * 3]      = tg.x
+                  rTangents[o * 3 + 1]  = tg.y
+                  rTangents[o * 3 + 2]  = tg.z
+                  rSides[o]   = s === 0 ? -1 : 1
+                  rAlphas[o]  = alphaVal
+                }
+              }
+
+              const ribbonIndices = []
+              for (let ri = 0; ri < rn - 1; ri++) {
+                const aL = ri * 2, aR = ri * 2 + 1
+                const bL = (ri + 1) * 2, bR = (ri + 1) * 2 + 1
+                ribbonIndices.push(aL, aR, bL)
+                ribbonIndices.push(aR, bR, bL)
+              }
+
+              const ribbonGeom = new THREE.BufferGeometry()
+              ribbonGeom.setAttribute('position', new THREE.BufferAttribute(rPositions, 3))
+              ribbonGeom.setAttribute('vTangent', new THREE.BufferAttribute(rTangents, 3))
+              ribbonGeom.setAttribute('side',     new THREE.BufferAttribute(rSides, 1))
+              ribbonGeom.setAttribute('vAlpha',   new THREE.BufferAttribute(rAlphas, 1))
+              ribbonGeom.setIndex(ribbonIndices)
+
+              const ribbonColorVec = new THREE.Color(MOON_GLOW_COLOR)
+              const ribbonMat = new THREE.ShaderMaterial({
+                uniforms: {
+                  uWidth:   { value: MOON_GLOW_WIDTH },
+                  uFalloff: { value: MOON_GLOW_FALLOFF },
+                  uScale:   { value: MOON_GLOW_OPACITY },
+                  uColor:   { value: new THREE.Vector3(ribbonColorVec.r, ribbonColorVec.g, ribbonColorVec.b) }
+                },
+                vertexShader: `
+                  attribute vec3 vTangent;
+                  attribute float side;
+                  attribute float vAlpha;
+                  varying float vAlphaV;
+                  varying float vU;
+                  uniform float uWidth;
+                  void main() {
+                    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                    vec3 viewDir  = normalize(cameraPosition - worldPos.xyz);
+                    vec3 worldTan = normalize(mat3(modelMatrix) * vTangent);
+                    vec3 right    = normalize(cross(worldTan, viewDir));
+                    vec3 offsetPos = worldPos.xyz + right * side * uWidth;
+                    vAlphaV = vAlpha;
+                    vU = side;
+                    gl_Position = projectionMatrix * viewMatrix * vec4(offsetPos, 1.0);
+                  }
+                `,
+                fragmentShader: `
+                  varying float vAlphaV;
+                  varying float vU;
+                  uniform float uFalloff;
+                  uniform float uScale;
+                  uniform vec3 uColor;
+                  void main() {
+                    float intensity = pow(1.0 - abs(vU), uFalloff);
+                    float a = intensity * vAlphaV * uScale;
+                    if (a <= 0.0) discard;
+                    gl_FragColor = vec4(uColor, a);
+                  }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+              })
+
+              const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat)
+              ribbonMesh.userData.startFraction = segment.startIndex / (totalPoints - 1)
+              ribbonMesh.userData.endFraction   = segment.endIndex   / (totalPoints - 1)
+              ribbonMesh.userData.pointCount    = pointsToUse.length
+              ribbonMesh.userData.indexCount    = ribbonGeom.index.count
+              moonPathGroup.add(ribbonMesh)
+            }
+          })
+
+          flightGroup.add(moonPathGroup)
+          moonVisibilityPathRef.current = moonPathGroup
+        }
 
         // Pre-create transition labels and rings
         const transitionCurve = flightGroup.userData.routeCurve
@@ -3118,27 +3376,31 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       // Sample points along the route and check daylight
       const numSamples = 2000
       let daylightSegments = 0
+      const flightPoints = []
 
       for (let i = 0; i < numSamples; i++) {  // Changed to < instead of <=
         const fraction = (i + 0.5) / numSamples  // Sample at midpoint of each segment
-        
+
         // Calculate position along route
         const a = Math.sin((1 - fraction) * angularDistance) / Math.sin(angularDistance)
         const b = Math.sin(fraction * angularDistance) / Math.sin(angularDistance)
-        
+
         const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
         const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
         const z = a * Math.sin(lat1) + b * Math.sin(lat2)
-        
+
         const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI
         const lon = Math.atan2(y, x) * 180 / Math.PI
-        
+
         // Calculate time at this point
         const timeAtPoint = new Date(departureTime.getTime() + fraction * flightDurationMs)
-        
+
+        // Store for moon computation
+        flightPoints.push({ lat, lon, time: timeAtPoint })
+
         // Check if in daylight
         const inDaylight = isPointInDaylight(lat, lon, timeAtPoint)
-        
+
         if (inDaylight) {
           daylightSegments++
         }
@@ -3159,6 +3421,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       const darknessHours = Math.floor(darknessTotalMins / 60)
       const darknessMins = darknessTotalMins % 60
 
+      // Compute moon visibility
+      const moonData = computeMoonSummary(flightPoints, departureTime.getTime(), flightDurationMs)
+
       const results = {
         distance: Math.round(distance),
         duration: flightDurationHours.toFixed(1),
@@ -3167,7 +3432,8 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         daylightHours,
         daylightMins,
         darknessHours,
-        darknessMins
+        darknessMins,
+        moonData
       }
       
       setFlightResults(results)
@@ -3367,6 +3633,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           prevLon = sLon
         }
 
+        const flightPoints = []
         for (let i = 0; i < numSamples; i++) {
           const fraction = (i + 0.5) / numSamples
           const pt = catmullCurve.getPointAt(fraction)
@@ -3374,11 +3641,15 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           const lat = Math.asin(pt.y / 2.01) * 180 / Math.PI
           const lon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
           const timeAtPoint = interpolateTimestamp(controlPoints, fraction, arcLengthFractions)
+          flightPoints.push({ lat, lon, time: timeAtPoint })
           if (isPointInDaylight(lat, lon, timeAtPoint)) daylightSegments++
         }
 
         const daylightTotalMins = Math.round((daylightSegments / numSamples) * totalFlightMins)
         const darknessTotalMins = totalFlightMins - daylightTotalMins
+
+        // Compute moon visibility
+        const moonData = computeMoonSummary(flightPoints, departureTime.getTime(), durationMs)
 
         const results = {
           distance: Math.round(realDistanceKm),
@@ -3389,6 +3660,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           daylightMins: daylightTotalMins % 60,
           darknessHours: Math.floor(darknessTotalMins / 60),
           darknessMins: darknessTotalMins % 60,
+          moonData
         }
 
         setFlightResults(results)

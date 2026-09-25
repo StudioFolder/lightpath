@@ -33,3 +33,6 @@ archive/
 # Environment variables
 .env.local
 .vercel
+
+# Claude local settings
+.claude/

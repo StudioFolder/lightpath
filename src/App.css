@@ -859,6 +859,7 @@ canvas {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease, transform 0.4s ease;
+  user-select: none;
 }
 
 .animation-controls.visible {
@@ -870,7 +871,7 @@ canvas {
 .flight-stats {
   display: flex;
   justify-content: space-between;
-  padding: 0 0 10px;
+  padding: 4px 0 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: 10px;
   max-height: 100px;
@@ -912,6 +913,14 @@ canvas {
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
   margin-bottom: 6px;
+}
+
+.moon-stat-column {
+  margin-top: -4px;
+}
+
+.moon-glyph {
+  margin-bottom: 5px;
 }
 
 .flight-info-center {
