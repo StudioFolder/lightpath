@@ -75,7 +75,7 @@ function App() {
   const [isPanelFading, setIsPanelFading] = useState(false) // Drives .fading class for mobile collapse/expand fade-then-switch pattern
   const [autoRotate, setAutoRotate] = useState(true)
   const [isBWMode, setIsBWMode] = useState(false)
-  const [followPlaneMode, setFollowPlaneMode] = useState(false)
+  const [followPlaneMode, setFollowPlaneMode] = useState(true)
   const [showTwilightLines, setShowTwilightLines] = useState(false) 
   
   // Accordion/Info State
@@ -2121,7 +2121,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           sizeAttenuation: true,
         })
         const sprite = new THREE.Sprite(material)
-        sprite.scale.set((isMobile ? 0.22 : 0.16) * elementScale, (isMobile ? 0.08 : 0.06) * elementScale, 1)
+        sprite.scale.set((isMobile ? 0.22 : 0.20) * elementScale, (isMobile ? 0.08 : 0.07) * elementScale, 1)
         return sprite
       }
 
@@ -3461,7 +3461,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       // Scale plane icon for flight distance
       const { scaleFactor } = getFlightScale(distance)
-      const planeScale = scaleFactor * viewportScaleRef.current
+      const planeScale = scaleFactor * viewportScaleRef.current * (isMobile ? 1 : 1.2)
       if (planeIconRef.current) {
         planeIconRef.current.scale.set(planeScale, 1, planeScale)
       }
