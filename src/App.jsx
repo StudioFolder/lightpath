@@ -1069,12 +1069,17 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           progressTubeRef.current.geometry.setDrawRange(0, 0)
         }
 
-        // Update moon visibility base line and glow tube reveal (synced to main tube progress)
+        // Update moon visibility base line and glow tube reveal (synced to main tube progress).
+        // Children are tagged 'colour' (line + glow) or 'paper' (stepped band); only the
+        // current mode's children are shown.
         if (moonVisibilityPathRef.current) {
+          const activeMoonMode = isBWModeRef.current ? 'paper' : 'colour'
           moonVisibilityPathRef.current.children.forEach(child => {
-            const { startFraction, endFraction, pointCount, indexCount } = child.userData
+            const { startFraction, endFraction, pointCount, indexCount, mode } = child.userData
 
-            if (progress >= endFraction) {
+            if (mode && mode !== activeMoonMode) {
+              child.visible = false
+            } else if (progress >= endFraction) {
               child.visible = true
               child.geometry.setDrawRange(0, Infinity)
             } else if (progress <= startFraction) {
@@ -1819,6 +1824,21 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const MOON_GLOW_FALLOFF = 2.30
         const MOON_GLOW_OPACITY = 2.00
         const MOON_GLOW_COLOR   = 0xd9dde4
+        // Paper mode: the glow becomes a solid band with stepped widths (hard edges,
+        // no gradient). Intensity (viewability × brightness) below the floor shows
+        // only a thin line; above it, MOON_PAPER_STEPS equal bands map linearly to
+        // half-widths between MIN and MAX.
+        const MOON_PAPER_STEPS    = 5
+        const MOON_PAPER_FLOOR    = 0.1
+        const MOON_PAPER_MIN_HALF = 0.003
+        const MOON_PAPER_MAX_HALF = 0.014
+        const MOON_PAPER_COLOR    = 0xffffff
+        const moonPaperLevel = (x) => x < MOON_PAPER_FLOOR
+          ? 0
+          : Math.min(MOON_PAPER_STEPS, 1 + Math.floor((x - MOON_PAPER_FLOOR) / ((0.9 - MOON_PAPER_FLOOR) / MOON_PAPER_STEPS)))
+        const moonPaperHalfWidth = (level) => level === 0
+          ? 0
+          : (MOON_PAPER_MIN_HALF + (MOON_PAPER_MAX_HALF - MOON_PAPER_MIN_HALF) * (level - 1) / (MOON_PAPER_STEPS - 1)) * elementScale
         const SMOOTHING_WINDOW = 15 // Odd, centred — for flight mode only
         if (flightResults?.moonData?.perPoint) {
           const { perPoint } = flightResults.moonData
@@ -1935,6 +1955,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               line.userData.startFraction = segment.startIndex / (totalPoints - 1)
               line.userData.endFraction = segment.endIndex / (totalPoints - 1)
               line.userData.pointCount = segment.points.length
+              line.userData.mode = 'colour'
 
               moonPathGroup.add(line)
 
@@ -2039,7 +2060,101 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               ribbonMesh.userData.endFraction   = segment.endIndex   / (totalPoints - 1)
               ribbonMesh.userData.pointCount    = pointsToUse.length
               ribbonMesh.userData.indexCount    = ribbonGeom.index.count
+              ribbonMesh.userData.mode          = 'colour'
               moonPathGroup.add(ribbonMesh)
+
+              // Paper mode (built up front, like the BW path palette, so switching
+              // mode never rebuilds geometry)
+              const paperColor = new THREE.Color(MOON_PAPER_COLOR)
+              const levels = []
+              for (let ri = 0; ri < rn; ri++) {
+                const pd = perPoint[segment.indices[Math.min(ri, segment.indices.length - 1)]]
+                levels.push(moonPaperLevel(pd.viewability * pd.brightness))
+              }
+
+              // Thin line only where the moon is too faint for a block
+              const paperLineGeom = new THREE.BufferGeometry().setFromPoints(pointsToUse)
+              const paperLineColors = new Float32Array(rn * 4)
+              for (let ri = 0; ri < rn; ri++) {
+                const pd = perPoint[segment.indices[Math.min(ri, segment.indices.length - 1)]]
+                paperLineColors[ri * 4 + 0] = paperColor.r
+                paperLineColors[ri * 4 + 1] = paperColor.g
+                paperLineColors[ri * 4 + 2] = paperColor.b
+                paperLineColors[ri * 4 + 3] = levels[ri] === 0 ? pd.viewability * 0.8 : 0
+              }
+              paperLineGeom.setAttribute('color', new THREE.BufferAttribute(paperLineColors, 4))
+              const paperLineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true })
+              paperLineMat.vertexAlphas = true
+              const paperLine = new THREE.Line(paperLineGeom, paperLineMat)
+              paperLine.userData.startFraction = line.userData.startFraction
+              paperLine.userData.endFraction   = line.userData.endFraction
+              paperLine.userData.pointCount    = rn
+              paperLine.userData.mode          = 'paper'
+              moonPathGroup.add(paperLine)
+
+              // Stepped band: camera-facing strip over every sample (zero width where
+              // level 0, so draw-range reveal stays proportional). At each level change
+              // the vertex pair is repeated with the new width, giving a hard step.
+              const bPos = [], bTan = [], bSide = [], bHalf = []
+              const pushPair = (ri, half) => {
+                const bp = pointsToUse[ri]
+                const bt = rTangents.subarray(ri * 6, ri * 6 + 3)
+                for (let s = 0; s < 2; s++) {
+                  bPos.push(bp.x, bp.y, bp.z)
+                  bTan.push(bt[0], bt[1], bt[2])
+                  bSide.push(s === 0 ? -1 : 1)
+                  bHalf.push(half)
+                }
+              }
+              for (let ri = 0; ri < rn; ri++) {
+                if (ri > 0 && levels[ri] !== levels[ri - 1]) pushPair(ri, moonPaperHalfWidth(levels[ri - 1]))
+                pushPair(ri, moonPaperHalfWidth(levels[ri]))
+              }
+              const bandPairs = bPos.length / 6
+              const bandIndices = []
+              for (let q = 0; q < bandPairs - 1; q++) {
+                const aL = q * 2, aR = q * 2 + 1, bL = (q + 1) * 2, bR = (q + 1) * 2 + 1
+                bandIndices.push(aL, aR, bL, aR, bR, bL)
+              }
+              const bandGeom = new THREE.BufferGeometry()
+              bandGeom.setAttribute('position', new THREE.Float32BufferAttribute(bPos, 3))
+              bandGeom.setAttribute('vTangent', new THREE.Float32BufferAttribute(bTan, 3))
+              bandGeom.setAttribute('side',     new THREE.Float32BufferAttribute(bSide, 1))
+              bandGeom.setAttribute('halfWidth', new THREE.Float32BufferAttribute(bHalf, 1))
+              bandGeom.setIndex(bandIndices)
+
+              const bandMat = new THREE.ShaderMaterial({
+                uniforms: {
+                  uColor: { value: new THREE.Vector3(paperColor.r, paperColor.g, paperColor.b) }
+                },
+                vertexShader: `
+                  attribute vec3 vTangent;
+                  attribute float side;
+                  attribute float halfWidth;
+                  void main() {
+                    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                    vec3 viewDir  = normalize(cameraPosition - worldPos.xyz);
+                    vec3 worldTan = normalize(mat3(modelMatrix) * vTangent);
+                    vec3 right    = normalize(cross(worldTan, viewDir));
+                    gl_Position = projectionMatrix * viewMatrix * vec4(worldPos.xyz + right * side * halfWidth, 1.0);
+                  }
+                `,
+                fragmentShader: `
+                  uniform vec3 uColor;
+                  void main() {
+                    gl_FragColor = vec4(uColor, 1.0);
+                  }
+                `,
+                side: THREE.DoubleSide
+              })
+
+              const bandMesh = new THREE.Mesh(bandGeom, bandMat)
+              bandMesh.userData.startFraction = ribbonMesh.userData.startFraction
+              bandMesh.userData.endFraction   = ribbonMesh.userData.endFraction
+              bandMesh.userData.pointCount    = bandPairs
+              bandMesh.userData.indexCount    = bandGeom.index.count
+              bandMesh.userData.mode          = 'paper'
+              moonPathGroup.add(bandMesh)
             }
           })
 
