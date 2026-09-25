@@ -16,13 +16,15 @@ import { calculateSolarDeclination, getSubsolarPoint, getSunAngle, isPointInDayl
 import { createAirportLabelTexture, createTransitionLabelTexture } from './utils/sceneUtils'
 import { animateValue } from './utils/animationUtils'
 import { lookupFlight } from './services/fr24'
-import { interpolateTimestamp } from './utils/routeInterpolation'
+import { interpolateTimestamp, RouteCurve } from './utils/routeInterpolation'
 import FlightInputPanel from './components/FlightInputPanel'
 import ShareButton from './components/ShareButton'
 import AnimationControls from './components/AnimationControls'
 import { Analytics } from '@vercel/analytics/react'
 
-const CATMULLROM_TENSION = 0.2
+// Flight-mode route curve tangent strength: 1 = fully smooth centripetal,
+// lower = straighter between FR24 waypoints (see RouteCurve)
+const ROUTE_CURVE_TENSION = 0.5
 
 // ===== THEME COLOR CONSTANTS =====
 // Single source of truth for background colors used in Three.js scene,
@@ -71,6 +73,7 @@ function App() {
   const [, setShowPlaneIcon] = useState(true)
   const [showTimezones, setShowTimezones] = useState(false)
   const [showFirRegions, setShowFirRegions] = useState(false)
+  const [showMoonPath, setShowMoonPath] = useState(true)
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false)
   const [isPanelFading, setIsPanelFading] = useState(false) // Drives .fading class for mobile collapse/expand fade-then-switch pattern
   const [autoRotate, setAutoRotate] = useState(true)
@@ -150,6 +153,7 @@ function App() {
   // Feature Toggles (synced with state)
   const autoRotateRef = useRef(true)
   const showPlaneIconRef = useRef(true)
+  const showMoonPathRef = useRef(true)
   const isBWModeRef = useRef(false)
   const followPlaneModeRef = useRef(false)
   const isPlayingRef = useRef(false)
@@ -1366,9 +1370,14 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         sceneRef.current.remove(flightLineRef.current)
         flightLineRef.current.traverse((child) => {
           if (child.geometry) child.geometry.dispose()
-          if (child.material) child.material.dispose()
+          if (child.material) {
+            if (child.material.map) child.material.map.dispose()
+            child.material.dispose()
+          }
         })
         flightLineRef.current = null
+        progressTubeRef.current = null
+        moonVisibilityPathRef.current = null
       }
       
       // Clear labels
@@ -1446,7 +1455,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
 
       if (callsignCPs) {
         const cpVecs = callsignCPs.map(cp => latLonToVector3(cp.lat, cp.lon, radius))
-        callsignSourceCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
+        callsignSourceCurve = new RouteCurve(cpVecs, ROUTE_CURVE_TENSION)
         for (let i = 0; i <= numPoints; i++) {
           const pt = callsignSourceCurve.getPointAt(i / numPoints)
           pt.normalize().multiplyScalar(radius)
@@ -1803,6 +1812,8 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         flightGroup.userData.fullColorArrayBW = fullColorArrBW
 
         // Build moon visibility path (Layer 2)
+        // Offset and glow width were tuned on long-haul (elementScale ≈ 1) and
+        // scale with the flight like every other path element.
         const MOON_PATH_OFFSET = 0.035
         const MOON_GLOW_WIDTH   = 0.020
         const MOON_GLOW_FALLOFF = 2.30
@@ -1831,7 +1842,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               const up = point.clone().normalize()
               const right = new THREE.Vector3().crossVectors(tangent.normalize(), up).normalize()
               const sign = pointData.side === 'right' ? +1 : -1
-              const parallelPoint = point.clone().add(right.multiplyScalar(sign * MOON_PATH_OFFSET))
+              const parallelPoint = point.clone().add(right.multiplyScalar(sign * MOON_PATH_OFFSET * elementScale))
 
               // Start new segment or continue current
               if (!currentSegment || currentSegment.side !== pointData.side) {
@@ -1871,7 +1882,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               // Flight-mode-only smoothing pass (real flight data is jaggier)
               let pointsToUse = segment.points
               if (callsignCPs) {
-                const halfWindow = Math.floor(SMOOTHING_WINDOW / 2) // 3 for window of 7
+                const halfWindow = Math.floor(SMOOTHING_WINDOW / 2) // 7 for window of 15
                 const smoothedPoints = []
 
                 for (let i = 0; i < segment.points.length; i++) {
@@ -1981,7 +1992,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               const ribbonColorVec = new THREE.Color(MOON_GLOW_COLOR)
               const ribbonMat = new THREE.ShaderMaterial({
                 uniforms: {
-                  uWidth:   { value: MOON_GLOW_WIDTH },
+                  uWidth:   { value: MOON_GLOW_WIDTH * elementScale },
                   uFalloff: { value: MOON_GLOW_FALLOFF },
                   uScale:   { value: MOON_GLOW_OPACITY },
                   uColor:   { value: new THREE.Vector3(ribbonColorVec.r, ribbonColorVec.g, ribbonColorVec.b) }
@@ -2032,6 +2043,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             }
           })
 
+          moonPathGroup.visible = showMoonPathRef.current
           flightGroup.add(moonPathGroup)
           moonVisibilityPathRef.current = moonPathGroup
         }
@@ -3054,6 +3066,14 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
       
     }, [showTwilightLines])
 
+    // Moon visibility path toggle (affects the 3D path only, not the moon stat)
+    useEffect(() => {
+      showMoonPathRef.current = showMoonPath
+      if (moonVisibilityPathRef.current) {
+        moonVisibilityPathRef.current.visible = showMoonPath
+      }
+    }, [showMoonPath])
+
     useEffect(() => {
       if (twilightLinesRef.current.terminatorDay) {
         // In BW mode: dark gray for all
@@ -3199,6 +3219,11 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         // F for FIR regions toggle
         if (e.key === 'f' || e.key === 'F') {
           toggleFirRegions(!showFirRegions)
+        }
+
+        // M for moon path toggle
+        if (e.key === 'm' || e.key === 'M') {
+          setShowMoonPath(prev => !prev)
         }
 
       }
@@ -3603,7 +3628,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
         const numSamples = 2000
         let daylightSegments = 0
         const cpVecs = callsignControlPointsRef.current.map(cp => latLonToVector3(cp.lat, cp.lon, 2.01))
-        const catmullCurve = new THREE.CatmullRomCurve3(cpVecs, false, 'catmullrom', CATMULLROM_TENSION)
+        const catmullCurve = new RouteCurve(cpVecs, ROUTE_CURVE_TENSION)
 
         const lengths = catmullCurve.getLengths(callsignControlPointsRef.current.length - 1)
         const totalLen = lengths[lengths.length - 1]
@@ -3640,7 +3665,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
           pt.normalize().multiplyScalar(2.01)
           const lat = Math.asin(pt.y / 2.01) * 180 / Math.PI
           const lon = Math.atan2(pt.z, -pt.x) * 180 / Math.PI - 180
-          const timeAtPoint = interpolateTimestamp(controlPoints, fraction, arcLengthFractions)
+          const timeAtPoint = interpolateTimestamp(filteredControlPoints, fraction, arcLengthFractions)
           flightPoints.push({ lat, lon, time: timeAtPoint })
           if (isPointInDaylight(lat, lon, timeAtPoint)) daylightSegments++
         }
@@ -4231,6 +4256,15 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
                 <label className="mobile-menu-toggle-item">
                   <input
                     type="checkbox"
+                    checked={showMoonPath}
+                    onChange={(e) => setShowMoonPath(e.target.checked)}
+                  />
+                  <span>Moon</span>
+                </label>
+
+                <label className="mobile-menu-toggle-item">
+                  <input
+                    type="checkbox"
                     checked={showTimezones}
                     onChange={(e) => {
                       const checked = e.target.checked
@@ -4351,6 +4385,17 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
               onChange={(e) => setShowTwilightLines(e.target.checked)}
             />
             <span><span className="key-circle">Ⓛ</span> <span className="toggle-label-text">Twilight</span></span>
+          </label>
+        </div>
+
+        <div className="moon-toggle-overlay toggle-overlay">
+          <label>
+            <input
+              type="checkbox"
+              checked={showMoonPath}
+              onChange={(e) => setShowMoonPath(e.target.checked)}
+            />
+            <span><span className="key-circle">Ⓜ</span> <span className="toggle-label-text">Moon</span></span>
           </label>
         </div>
 
@@ -4528,7 +4573,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * elevColor, landFacto
             showFlightStats={showFlightStats}
             departureCode={departureCode}
             arrivalCode={arrivalCode}
-            callsignDisplay={searchMode === 'callsign' && callsignSearchResult ? (callsignSearchResult.summary?.flight || callsignInput).replace(/^([A-Z]{2,3})(\d.*)$/, '$1 $2') : null}
+            callsignDisplay={searchMode === 'callsign' && callsignSearchResult ? (callsignSearchResult.summary?.flight || callsignInput).replace(/\s+/g, '') : null}
             isBWMode={isBWMode}
             onProgressChange={handleProgressChange}
             setIsPlaying={setIsPlaying}

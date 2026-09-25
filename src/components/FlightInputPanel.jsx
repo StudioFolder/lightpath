@@ -436,7 +436,7 @@ export default function FlightInputPanel({
             ) : callsignSearchResult ? (
               <>
               <div className="callsign-result-label">
-                {(callsignSearchResult.summary?.flight || callsignInput).replace(/^([A-Z]{2,3})(\d.*)$/, '$1 $2')}
+                {(callsignSearchResult.summary?.flight || callsignInput).replace(/\s+/g, '')}
                 <button
                   className="callsign-result-clear"
                   onClick={() => {

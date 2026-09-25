@@ -1,10 +1,11 @@
 export default function MoonStat({ data, isBWMode }) {
   if (!data) return null
 
-  const { visibilityMs, illumination, phase } = data
+  const { windowVisibleMs, illumination, phase, phaseName } = data
 
-  // Convert visibility time to hours and minutes
-  const totalMins = Math.round(visibilityMs / (1000 * 60))
+  // Convert window-visible time to hours and minutes
+  const totalMins = Math.round(windowVisibleMs / (1000 * 60))
+  if (totalMins === 0) return null
   const hours = Math.floor(totalMins / 60)
   const mins = totalMins % 60
 
@@ -41,6 +42,7 @@ export default function MoonStat({ data, isBWMode }) {
   return (
     <div className="flight-stat moon-stat-column">
       <svg className="moon-glyph" width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
+        <title>{phaseName}</title>
         {/* Unlit circle (background) */}
         <circle
           cx={centerX}

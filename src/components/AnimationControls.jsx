@@ -59,7 +59,9 @@ export default function AnimationControls({
       >
         <div className="airport-time airport-time-left">
           <span className="airport-code">
-            {flightData && getTimezoneAbbreviation(flightData.departure)}
+            {flightData && (callsignDisplay
+              ? `${departureCode} (${getTimezoneAbbreviation(flightData.departure)})`
+              : getTimezoneAbbreviation(flightData.departure))}
           </span>
           <span className="time-value">
             {flightData && getLocalTimeAtAirport(currentTime, flightData.departure)}
@@ -102,7 +104,9 @@ export default function AnimationControls({
 
         <div className="airport-time airport-time-right">
           <span className="airport-code">
-            {flightData && getTimezoneAbbreviation(flightData.arrival)}
+            {flightData && (callsignDisplay
+              ? `${arrivalCode} (${getTimezoneAbbreviation(flightData.arrival)})`
+              : getTimezoneAbbreviation(flightData.arrival))}
           </span>
           <span className="time-value">
             {flightData && getLocalTimeAtAirport(currentTime, flightData.arrival)}

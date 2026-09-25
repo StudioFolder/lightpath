@@ -150,14 +150,18 @@ function computeHeading(lat1, lon1, lat2, lon2) {
   return (headingRad * 180 / Math.PI + 360) % 360
 }
 
+// Per-point viewability at or above this counts towards the window-visible stat
+// (roughly the midpoint of the altitude, bearing and horizon fades).
+const WINDOW_VISIBLE_THRESHOLD = 0.5
+
 /**
  * Compute moon visibility summary for a flight path.
- * Pre-computes total visible time, phase, illumination, and per-point visibility/side.
+ * Pre-computes window-visible time, phase, illumination, and per-point visibility/side.
  *
- * @param {Array} flightPoints - Array of {lat, lon, time} points along the flight path
+ * @param {Array} flightPoints - Array of {lat, lon, time} midpoint samples along the flight path
  * @param {number} departureMs - Departure time in milliseconds
  * @param {number} totalDurationMs - Total flight duration in milliseconds
- * @returns {{ visibilityMs: number, phase: number, illumination: number, phaseName: string, perPoint: Array } | null}
+ * @returns {{ windowVisibleMs: number, phase: number, illumination: number, phaseName: string, perPoint: Array } | null}
  */
 export function computeMoonSummary(flightPoints, departureMs, totalDurationMs) {
   if (!flightPoints || flightPoints.length === 0) return null
@@ -170,9 +174,11 @@ export function computeMoonSummary(flightPoints, departureMs, totalDurationMs) {
   const illumination = moonIllum.fraction
   const phaseName = getMoonPhaseName(phase)
 
-  // Walk flight points and accumulate visibility time + per-point data
-  let visibilityMs = 0
-  const msPerPoint = totalDurationMs / (flightPoints.length - 1)
+  // Walk flight points and accumulate window-visible time + per-point data.
+  // Points are n midpoint samples, so each one represents totalDurationMs / n.
+  let windowVisibleMs = 0
+  let everAboveHorizon = false
+  const msPerPoint = totalDurationMs / flightPoints.length
   const perPoint = []
   const horizonDipRad = HORIZON_DIP_DEG * Math.PI / 180
 
@@ -185,10 +191,7 @@ export function computeMoonSummary(flightPoints, departureMs, totalDurationMs) {
     const altitudeRad = moonPos.altitude
     const altitudeDeg = altitudeRad * 180 / Math.PI
     const visible = altitudeRad > horizonDipRad
-
-    if (visible) {
-      visibilityMs += msPerPoint
-    }
+    if (visible) everAboveHorizon = true
 
     // Calculate altitude-based viewability (1 = fully visible, 0 = too high to see from window)
     let altitudeViewability
@@ -249,6 +252,10 @@ export function computeMoonSummary(flightPoints, departureMs, totalDurationMs) {
     const horizonFade = Math.max(0, Math.min(1, (altitudeDeg - HORIZON_DIP_DEG) / HORIZON_FADE_DEG))
     const viewability = altitudeViewability * bearingViewability * horizonFade
 
+    if (viewability >= WINDOW_VISIBLE_THRESHOLD) {
+      windowVisibleMs += msPerPoint
+    }
+
     // Calculate brightness based on moon illumination and sky darkness
     const sunPos = SunCalc.getPosition(time, lat, lon)
     const sunAltitudeDeg = sunPos.altitude * 180 / Math.PI
@@ -272,11 +279,11 @@ export function computeMoonSummary(flightPoints, departureMs, totalDurationMs) {
     perPoint.push({ visible, side, viewability, altitudeDeg, brightness, extinction })
   }
 
-  // Return null if moon is never visible
-  if (visibilityMs === 0) return null
+  // Return null if the moon is never above the dip-corrected horizon
+  if (!everAboveHorizon) return null
 
   return {
-    visibilityMs,
+    windowVisibleMs,
     phase,
     illumination,
     phaseName,
